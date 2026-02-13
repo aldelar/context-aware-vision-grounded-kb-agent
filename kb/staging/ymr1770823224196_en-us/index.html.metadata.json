@@ -1,0 +1,513 @@
+﻿{
+    "RetrievedDate":  "2026-02-12T11:56:15.7778763-05:00",
+    "PermissionsSource":  "dit-permissions.json (fallback)",
+    "Fields":  {
+                   "_AdditionalStreamSize":  "0",
+                   "ka2713d8a7e1432eade62ec95f61f7c6":  null,
+                   "CheckoutUser":  null,
+                   "WorkflowInstanceID":  null,
+                   "MediaGeneratedMetadata":  null,
+                   "CCMSCategory":  null,
+                   "_ColorHex":  null,
+                   "_UIVersion":  7680,
+                   "_Level":  1,
+                   "Restricted":  "",
+                   "MediaServiceSearchProperties":  null,
+                   "Editor":  {
+                                  "Email":  "SVC_KMSEARCH@ES.AD.ADP.com",
+                                  "TypeId":  "{c956ab54-16bd-4c18-89d2-996f57282a6f}",
+                                  "LookupId":  1565,
+                                  "LookupValue":  "SVC_KMSEARCH"
+                              },
+                   "CCMSProduct":  null,
+                   "CCMSBusinessUnit1":  [
+                                             "SBS TLM"
+                                         ],
+                   "TaxCatchAllLabel":  [
+
+                                        ],
+                   "_DraftOwnerId":  "",
+                   "_HasUserDefinedProtection":  "0",
+                   "_ColorTag":  null,
+                   "_Emoji":  null,
+                   "ContentPermission":  null,
+                   "StreamHash":  "0x024E65281AA719477CC58110FFD603FCEA3C793CBA",
+                   "Subject":  [
+                                   "Time and Labor Management"
+                               ],
+                   "FileLeafRef":  "index.html",
+                   "ParentLeafName":  {
+                                          "LookupId":  182323,
+                                          "LookupValue":  null,
+                                          "TypeId":  "{f1d34cc0-9b50-4a78-be78-d5facfcccfb7}"
+                                      },
+                   "Title":  "Identifying RUN for Partners (Wholesale) User Roles in RUN",
+                   "_UIVersionString":  "15.0",
+                   "NoExecute":  "1",
+                   "_CheckinComment":  "",
+                   "ParentUniqueId":  "{371F10CF-EA60-4206-A554-91B22431FBBD}",
+                   "AssociateTools_MMD":  [
+
+                                          ],
+                   "_ComplianceFlags":  "",
+                   "OriginatorId":  "",
+                   "_SourceUrl":  null,
+                   "ArticleType":  [
+                                       "How To"
+                                   ],
+                   "pcc4906b937e47a580b911f32e19afb5":  null,
+                   "_CopySource":  null,
+                   "_Parsable":  "1",
+                   "ContentVersion":  "1",
+                   "ScopeId":  "{226ACC21-107A-4888-BC1B-4DC47600103A}",
+                   "Order":  18232300,
+                   "Market_MMD":  [
+
+                                  ],
+                   "File_x0020_Type":  "html",
+                   "MediaServiceGenerationTime":  null,
+                   "Jurisdiction_MMD":  [
+
+                                        ],
+                   "TopicReason":  null,
+                   "CheckedOutUserId":  {
+                                            "LookupId":  182323,
+                                            "LookupValue":  null,
+                                            "TypeId":  "{f1d34cc0-9b50-4a78-be78-d5facfcccfb7}"
+                                        },
+                   "Subject_MMD":  [
+
+                                   ],
+                   "_RansomwareAnomalyMetaInfo":  "",
+                   "Created":  "\/Date(1770835147000)\/",
+                   "_ExpirationDate":  "",
+                   "f7b3c7f66e2a45f7a65a2df0b03f0e23":  null,
+                   "MediaServiceEventHashCode":  null,
+                   "DocConcurrencyNumber":  "1",
+                   "_CommentFlags":  "",
+                   "Modified_x0020_By":  "i:0#.f|membership|svc_kmsearch@es.ad.adp.com",
+                   "_ShortcutUrl":  null,
+                   "Author":  {
+                                  "Email":  "",
+                                  "TypeId":  "{c956ab54-16bd-4c18-89d2-996f57282a6f}",
+                                  "LookupId":  1589,
+                                  "LookupValue":  "SharePoint App"
+                              },
+                   "CCMSLastModified":  "\/Date(1770796800000)\/",
+                   "xd_Signature":  null,
+                   "AppAuthor":  null,
+                   "Region":  null,
+                   "_IpLabelId":  "",
+                   "FolderChildCount":  "0",
+                   "_ListSchemaVersion":  "354",
+                   "he6f5a4719bf48d7a9f0d633d546ab34":  null,
+                   "DeliveryChannel":  [
+                                           "The Zone",
+                                           "Knowledge Search"
+                                       ],
+                   "odcfd5c3d09f4889a799b1090a433b71":  null,
+                   "AssociateTools":  null,
+                   "xd_ProgID":  null,
+                   "Created_x0020_Date":  "2026-02-11T18:39:07Z",
+                   "ParentVersionString":  {
+                                               "LookupId":  182323,
+                                               "LookupValue":  null,
+                                               "TypeId":  "{f1d34cc0-9b50-4a78-be78-d5facfcccfb7}"
+                                           },
+                   "_VirusVendorID":  "14490",
+                   "Platform":  [
+                                    "RUN Powered by ADP"
+                                ],
+                   "_HasCopyDestinations":  null,
+                   "BUOwner":  [
+                                   "SBS TLM"
+                               ],
+                   "_SharedFileIndex":  null,
+                   "ArticleType_MMD":  [
+
+                                       ],
+                   "_LikeCount":  "",
+                   "AuthorType":  null,
+                   "_RmsTemplateId":  "",
+                   "CCMSCountry":  [
+                                       "United States"
+                                   ],
+                   "File_x0020_Size":  "29525",
+                   "_ComplianceTag":  "",
+                   "ComplianceAssetId":  null,
+                   "_IpLabelPromotionCtagVersion":  "0",
+                   "CCMSLanguage":  [
+                                        "English"
+                                    ],
+                   "_Dirty":  "0",
+                   "FileDirRef":  "/sites/DIT-KMSearch/Articles/ymr1770823224196_en-us",
+                   "_ShortcutSiteId":  null,
+                   "_ExtractedMetadata":  "",
+                   "TriggerFlowInfo":  null,
+                   "Audience_MMD":  [
+
+                                    ],
+                   "f9e17ddb6c754bb3b452beb798887e5b":  null,
+                   "Product_MMD":  [
+
+                                   ],
+                   "UniqueId":  "b8b33720-73ac-45a0-949a-50a9cedb0131",
+                   "_ShortcutWebId":  null,
+                   "p52657b62753455b8df926faabd962a0":  null,
+                   "i0f23f82a9de4533aeac212df6cdbdf2":  null,
+                   "_VirusStatus":  "0",
+                   "_ModerationComments":  null,
+                   "_VirusInfo":  "",
+                   "InstanceID":  null,
+                   "VirusStatus":  {
+                                       "LookupId":  182323,
+                                       "LookupValue":  "29525",
+                                       "TypeId":  "{f1d34cc0-9b50-4a78-be78-d5facfcccfb7}"
+                                   },
+                   "SMTotalSize":  {
+                                       "LookupId":  33554,
+                                       "LookupValue":  "",
+                                       "TypeId":  "{f1d34cc0-9b50-4a78-be78-d5facfcccfb7}"
+                                   },
+                   "ID":  182323,
+                   "MediaServiceDateTaken":  null,
+                   "CCMSAudience":  [
+                                        "GenAI",
+                                        "Implementation Associate",
+                                        "ADP Associate"
+                                    ],
+                   "ItemChildCount":  "0",
+                   "_ShortcutUniqueId":  null,
+                   "Last_x0020_Modified":  "2026-02-11T20:20:27Z",
+                   "m09fd4f5756e4e579dbb661ebe5bc3ca":  null,
+                   "MapID":  "ymr1770823224196",
+                   "_ExtendedDescription":  null,
+                   "_IpLabelAssignmentMethod":  "",
+                   "SMLastModifiedDate":  "2026-02-12T03:26:57Z",
+                   "MediaUserMetadata":  null,
+                   "TaxCatchAll":  [
+
+                                   ],
+                   "HTML_x0020_File_x0020_Type":  null,
+                   "AppEditor":  null,
+                   "ProgId":  "",
+                   "BusinessUnit_MMD":  [
+
+                                        ],
+                   "FileRef":  "/sites/DIT-KMSearch/Articles/ymr1770823224196_en-us/index.html",
+                   "MediaServiceMetadata":  null,
+                   "WorkflowVersion":  1,
+                   "BSN":  {
+                               "LookupId":  153,
+                               "LookupValue":  "",
+                               "TypeId":  "{f1d34cc0-9b50-4a78-be78-d5facfcccfb7}"
+                           },
+                   "IsCheckedoutToLocal":  "0",
+                   "_FileArchiveStatus":  "",
+                   "A2ODMountCount":  "",
+                   "Platform_MMD":  [
+
+                                    ],
+                   "UpdateStatus":  null,
+                   "Country_MMD":  [
+
+                                   ],
+                   "AccessPolicy":  "0",
+                   "SortBehavior":  {
+                                        "LookupId":  182323,
+                                        "LookupValue":  "0",
+                                        "TypeId":  "{f1d34cc0-9b50-4a78-be78-d5facfcccfb7}"
+                                    },
+                   "_DisplayName":  "",
+                   "_ModerationStatus":  0,
+                   "kd444dd78dcf408392264203e0aafdc5":  null,
+                   "CheckedOutTitle":  {
+                                           "LookupId":  182323,
+                                           "LookupValue":  null,
+                                           "TypeId":  "{f1d34cc0-9b50-4a78-be78-d5facfcccfb7}"
+                                       },
+                   "Language_MMD":  [
+
+                                    ],
+                   "Modified":  "\/Date(1770841227000)\/",
+                   "Market":  null,
+                   "_CommentCount":  "",
+                   "SMTotalFileCount":  {
+                                            "LookupId":  1,
+                                            "LookupValue":  "",
+                                            "TypeId":  "{f1d34cc0-9b50-4a78-be78-d5facfcccfb7}"
+                                        },
+                   "EventType":  null,
+                   "_IsCurrentVersion":  true,
+                   "CCMSAuthor":  null,
+                   "DeliveryChannel_MMD":  [
+
+                                           ],
+                   "MediaServiceFastMetadata":  null,
+                   "_IpLabelMetaInfo":  "",
+                   "Jurisdiction":  null,
+                   "Created_x0020_By":  "SharePoint App",
+                   "_StubFile":  "0",
+                   "SyncClientId":  {
+                                        "LookupId":  182323,
+                                        "LookupValue":  null,
+                                        "TypeId":  "{f1d34cc0-9b50-4a78-be78-d5facfcccfb7}"
+                                    },
+                   "ExpirationDate":  null,
+                   "FSObjType":  "0",
+                   "_ComplianceTagUserId":  "",
+                   "b0c47c360d884576afeb3e560dabd57d":  null,
+                   "ReviewDate":  null,
+                   "ArticleSource":  null,
+                   "_IpLabelHash":  "",
+                   "_StreamScenarioIds":  "",
+                   "SMTotalFileStreamSize":  "29525",
+                   "ContentTypeId":  {
+                                         "StringValue":  "0x010100574A040AAC346544A071FD9C5DE5AAB700C3A2826418957B49B911E3041C30D7A4",
+                                         "TypeId":  "{da0f1e90-296f-480e-bc27-cefe51eff241}"
+                                     },
+                   "_HasEncryptedContent":  "0",
+                   "TemplateUrl":  null,
+                   "CCMSTitle":  null,
+                   "MetaInfo":  "UpdateStatus:SW|\r\nAudience_MMD:SW|\r\nvti_parserversion:SR|16.0.0.26921\r\nCCMSAudience:SW|;#GenAI;#Implementation Associate;#ADP Associate;#\r\nOrder:DW|18232300.0000000\r\nkd444dd78dcf408392264203e0aafdc5:SW|\r\nLanguage_MMD:SW|\r\nvti_decryptskipreason:IW|1\r\nvti_charset:SR|utf-8\r\nPlatform:SW|;#RUN Powered by ADP;#\r\nEventType:SW|\r\nhe6f5a4719bf48d7a9f0d633d546ab34:SW|\r\nf51c0c923f1a41ad81099ca161163d6b:SW|\r\nvti_author:SW|SharePoint App\r\nvti_previewinvalidtime:TX|12 Feb 2026 03:26:57 -0000\r\nArticle Source:SW|\r\nContentPermission:SW|\r\nArticleType:SW|;#How To;#\r\nCCMSCountry:SW|;#United States;#\r\nJurisdiction:SW|\r\nMarket:SW|\r\nMapID:SW|ymr1770823224196\r\nRegion:SW|\r\ni0f23f82a9de4533aeac212df6cdbdf2:SW|\r\nf9e17ddb6c754bb3b452beb798887e5b:SW|\r\nDeliveryChannel_MMD:SW|\r\nvti_writevalidationtoken:SW|zKKa2BXm4ZhHRwgULN+yKuGUMCA=\r\nvti_modifiedby:SW|i:0#.f|membership|svc_kmsearch@es.ad.adp.com\r\nReviewDate:SW|\r\np52657b62753455b8df926faabd962a0:SW|\r\nka2713d8a7e1432eade62ec95f61f7c6:SW|\r\nDeliveryChannel:SW|;#The Zone;#Knowledge Search;#\r\nContentTypeId:SW|0x010100574A040AAC346544A071FD9C5DE5AAB700C3A2826418957B49B911E3041C30D7A4\r\nExpirationDate:SW|\r\nodcfd5c3d09f4889a799b1090a433b71:SW|\r\nb0c47c360d884576afeb3e560dabd57d:SW|\r\nBusinessUnit_MMD:SW|\r\nSubject:SW|;#Time and Labor Management;#\r\ndisplay_urn\\:schemas-microsoft-com\\:office\\:office#Editor:SW|SVC_KMSEARCH\r\nSubject_MMD:SW|\r\nArticleSource:SW|\r\nContent Permission:SW|\r\nPlatform_MMD:SW|\r\nCCMSLanguage:SW|;#English;#\r\nCCMSAuthor:SW|\r\nJurisdiction_MMD:SW|\r\nCCMSCategory:SW|\r\nAuthorType:SW|\r\nCCMSBusinessUnit1:SW|;#SBS TLM;#\r\nAssociateTools:SW|\r\npcc4906b937e47a580b911f32e19afb5:SW|\r\nProduct_MMD:SW|\r\nvti_shortcuturl:SW|\r\n_ExtendedDescription:SW|\r\nTopicReason:SW|\r\nm09fd4f5756e4e579dbb661ebe5bc3ca:SW|\r\ndisplay_urn\\:schemas-microsoft-com\\:office\\:office#Author:SW|SharePoint App\r\nvti_cachedcustomprops:VX|UpdateStatus Audience_MMD CCMSAudience Order kd444dd78dcf408392264203e0aafdc5 Language_MMD Platform EventType he6f5a4719bf48d7a9f0d633d546ab34 f51c0c923f1a41ad81099ca161163d6b Article\\\\ Source ContentPermission ArticleType CCMSBusinessUnit1 CCMSCountry AssociateTools Jurisdiction Market MapID Region i0f23f82a9de4533aeac212df6cdbdf2 f9e17ddb6c754bb3b452beb798887e5b DeliveryChannel_MMD pcc4906b937e47a580b911f32e19afb5 Product_MMD _ExtendedDescription ReviewDate TopicReason m09fd4f5756e4e579dbb661ebe5bc3ca p52657b62753455b8df926faabd962a0 ka2713d8a7e1432eade62ec95f61f7c6 display_urn:schemas-microsoft-com:office:office#Author DeliveryChannel CCMSLastModified BUOwner AssociateTools_MMD ContentTypeId ExpirationDate odcfd5c3d09f4889a799b1090a433b71 f7b3c7f66e2a45f7a65a2df0b03f0e23 b0c47c360d884576afeb3e560dabd57d vti_title CCMSProduct CCMSTitle Author\\\\ Type Country_MMD Market_MMD BusinessUnit_MMD ArticleType_MMD Subject display_urn:schemas-microsoft-com:office:office#Editor Subject_MMD ArticleSource Content\\\\ Permission Platform_MMD CCMSLanguage CCMSAuthor Jurisdiction_MMD CCMSCategory AuthorType\r\nvti_supportsZipIt:BW|false\r\nvti_cachedtitle:SR|Identifying RUN for Partners (Wholesale) User Roles in RUN\r\nvti_metatags:VR|HTTP-EQUIV=Content-Type text/html;\\\\ charset=UTF-8 copyright (C)\\\\ Copyright\\\\ 2026 DC.rights.owner (C)\\\\ Copyright\\\\ 2026 DC.Type task Title Identifying\\\\ RUN\\\\ for\\\\ Partners\\\\ (Wholesale)\\\\ User\\\\ Roles\\\\ in\\\\ RUN DC.subject theZone,\\\\ knowledgeSearch,\\\\ human,\\\\ adpBusiness,\\\\ sbsTlm,\\\\ runPoweredByAdp,\\\\ english,\\\\ unitedStates,\\\\ howTo,\\\\ genai,\\\\ implementationAssociate,\\\\ adpAssociate,\\\\ timeAndLaborManagement,\\\\ United\\\\ States,\\\\ English,\\\\ RUN,\\\\ smallBusinessServices,\\\\ employeeMaintenance,\\\\ directDeposits,\\\\ payroll,\\\\ fullServiceDirectDeposit,\\\\ noram,\\\\ manager,\\\\ accessManagement,\\\\ identitynow,\\\\ taxForms,\\\\ formW2WageAndTaxStatement,\\\\ adpTimeAndAttendance,\\\\ adpTimekeeping,\\\\ adpTimekeepingPlus,\\\\ payrollSchedules,\\\\ payrollProgramming,\\\\ payrollErrors,\\\\ overview,\\\\ securityAndAccess,\\\\ reporting,\\\\ loginAndPasswords,\\\\ timeAndAttendance,\\\\ scheduling,\\\\ featureImplementation,\\\\ hr,\\\\ hrSolutions,\\\\ companyMaintenance,\\\\ stateIncomeTax,\\\\ agencyRequirements,\\\\ taxFiling,\\\\ stateOrProvince,\\\\ billing,\\\\ oracleIreceivables,\\\\ timeclocks,\\\\ ats300Or700Timeclock,\\\\ taxCompliance,\\\\ stateUnemploymentInsurance,\\\\ ptoAndAccruals,\\\\ fileTransmission,\\\\ startAssist,\\\\ productImplementationAndMaintenance,\\\\ tops,\\\\ n8,\\\\ caseManagement,\\\\ termination,\\\\ creditsAndDiscounts,\\\\ userManagement,\\\\ accountantConnect,\\\\ adpEzlaborManager,\\\\ employeeAccess,\\\\ myadp,\\\\ stateDisabilityInsurance,\\\\ paidSickLeaveRegulations,\\\\ kronos4500OrIntouchTimeclock,\\\\ payrollCompliance,\\\\ payrollTaxes,\\\\ localOrMunicipality,\\\\ clientEngagementHub,\\\\ benefitsAdministration,\\\\ hrCompliance,\\\\ payStatementRequirements,\\\\ clientExperience,\\\\ timeEntry,\\\\ timesheets,\\\\ adpMobileSolutions,\\\\ delivery,\\\\ deliveryMethods,\\\\ deliverySchedule,\\\\ federal,\\\\ federalIncomeTax,\\\\ adpKiosk,\\\\ troubleshooting,\\\\ requirementsGathering,\\\\ compliance,\\\\ tax,\\\\ accountAccess,\\\\ employeeContributions,\\\\ retirementPlanAdministration,\\\\ pricing,\\\\ newStarts,\\\\ onboarding,\\\\ reactivation,\\\\ yearEndTaxForms,\\\\ funding,\\\\ payStatements,\\\\ checks,\\\\ payrollCalculations,\\\\ runAndDone,\\\\ adpMarketplace,\\\\ sales,\\\\ clientInvoices,\\\\ payrollTax,\\\\ federalUnemploymentTax,\\\\ overtime,\\\\ covid19,\\\\ deliveryIssues,\\\\ automatedClearingHouse,\\\\ workersCompensation,\\\\ banking,\\\\ paperlessTaxStatements,\\\\ quarterEndAndYearEnd,\\\\ garnishments,\\\\ hrEvents,\\\\ salesforce,\\\\ adpPayByPay,\\\\ wageGarnishmentMoneyMovement,\\\\ adpCheck,\\\\ moneyMovement,\\\\ collections,\\\\ adp401k,\\\\ productUpgrade,\\\\ amendments,\\\\ incomeTax,\\\\ smartComplianceSolutions,\\\\ generalLedger,\\\\ payrollValidation,\\\\ gencloud,\\\\ irsLimits,\\\\ earningsAndDeductions,\\\\ taxJurisdictionSetup,\\\\ registrationServices,\\\\ dataSecurity,\\\\ mealsAndBreaks,\\\\ fraud,\\\\ fringeBenefits,\\\\ taxCredits,\\\\ webex,\\\\ form941EmployersQuarterlyFederalTaxReturn,\\\\ taxPenaltiesAndInterest,\\\\ newHire,\\\\ isihelpdesk,\\\\ unemploymentInsuranceTax,\\\\ wageGarnishmentProcessingServices,\\\\ adpWorkforceNow,\\\\ majorAccounts,\\\\ rollByAdp,\\\\ adpWorkforceNowNextGen,\\\\ pi,\\\\ alfresco,\\\\ learningManagement,\\\\ yearEndProcessing,\\\\ privacy,\\\\ lateOriginalFilings,\\\\ impound,\\\\ wireTransfers,\\\\ insuranceServices,\\\\ retirementServices,\\\\ usMoneyMovement,\\\\ ftsSap,\\\\ genesys,\\\\ manualChecks,\\\\ userExperience,\\\\ taxService,\\\\ usmm,\\\\ form1099MiscMiscellaneousIncome,\\\\ msExcel,\\\\ contactManagement,\\\\ adpEmbeddedPayroll,\\\\ nationalAccounts,\\\\ adpVantageHcm,\\\\ vantagePayroll,\\\\ vantageBenefits,\\\\ vantageTime,\\\\ adpWorkforceManager,\\\\ adpEnterpriseEtime,\\\\ adpEnterpriseHrV5,\\\\ adpEnterpriseHrV6,\\\\ adpWorkforceNowPayroll,\\\\ adpWorkforceNowEnhancedTime,\\\\ adpWorkforceNowEssentialTime,\\\\ adpWorkforceNowBenefits,\\\\ healthAndWelfareServiceEngine,\\\\ adpLyric,\\\\ employeeFinancialSolutions,\\\\ adpEnterpriseHr,\\\\ adpLyricBenefits,\\\\ adpPayforce,\\\\ productMigration,\\\\ taxAdjustments,\\\\ annualReconciliation,\\\\ sharepoint,\\\\ enterpriseContentManagement,\\\\ singleSignOnSso,\\\\ newHireReporting,\\\\ reportingAgentAuthorization,\\\\ powerOfAttorney,\\\\ payCards,\\\\ wiselyDirect,\\\\ agencyNotices,\\\\ compliancePosters,\\\\ salesAssociate,\\\\ quarterEndProcessing,\\\\ ziprecruiter,\\\\ acaCompliance,\\\\ clientHeader,\\\\ serviceRequest,\\\\ healthSavingsAccount,\\\\ wageGarnishmentComprehensive,\\\\ checkReplacement,\\\\ socialSecurity,\\\\ employmentTax,\\\\ mergersAndAcquisitions,\\\\ identityNow,\\\\ philippines,\\\\ appleMobile,\\\\ etaDeliveryTracking,\\\\ learningManagementSystem,\\\\ paymentMethods,\\\\ adpTotalsource,\\\\ customReports,\\\\ healthReimbursementAccount,\\\\ payrollLiability,\\\\ acaIrsReporting,\\\\ form940EmployersAnnualFederalUnemploymentTaxReturn,\\\\ electronicSalesOrder,\\\\ taxAmendmentForms,\\\\ statementOfDeposit,\\\\ quarterEndTaxForms,\\\\ medallia,\\\\ bonuses,\\\\ checkProcessing,\\\\ phone,\\\\ adpPortal,\\\\ cimplicity,\\\\ efiling,\\\\ performanceManagement,\\\\ ivr,\\\\ thirdPartySickPay,\\\\ india,\\\\ siebel,\\\\ thirdParty,\\\\ offCyclePayroll,\\\\ acaEligibility,\\\\ conversions,\\\\ dataExtract,\\\\ serviceConnect,\\\\ taxProcessing,\\\\ globalview,\\\\ bankRun,\\\\ webBrowser,\\\\ tippedEstablishments,\\\\ cobraCompliance,\\\\ familyAndMedicalLeaveRegulations keywords theZone,\\\\ knowledgeSearch,\\\\ human,\\\\ adpBusiness,\\\\ sbsTlm,\\\\ runPoweredByAdp,\\\\ english,\\\\ unitedStates,\\\\ howTo,\\\\ genai,\\\\ implementationAssociate,\\\\ adpAssociate,\\\\ timeAndLaborManagement,\\\\ United\\\\ States,\\\\ English,\\\\ RUN,\\\\ smallBusinessServices,\\\\ employeeMaintenance,\\\\ directDeposits,\\\\ payroll,\\\\ fullServiceDirectDeposit,\\\\ noram,\\\\ manager,\\\\ accessManagement,\\\\ identitynow,\\\\ taxForms,\\\\ formW2WageAndTaxStatement,\\\\ adpTimeAndAttendance,\\\\ adpTimekeeping,\\\\ adpTimekeepingPlus,\\\\ payrollSchedules,\\\\ payrollProgramming,\\\\ payrollErrors,\\\\ overview,\\\\ securityAndAccess,\\\\ reporting,\\\\ loginAndPasswords,\\\\ timeAndAttendance,\\\\ scheduling,\\\\ featureImplementation,\\\\ hr,\\\\ hrSolutions,\\\\ companyMaintenance,\\\\ stateIncomeTax,\\\\ agencyRequirements,\\\\ taxFiling,\\\\ stateOrProvince,\\\\ billing,\\\\ oracleIreceivables,\\\\ timeclocks,\\\\ ats300Or700Timeclock,\\\\ taxCompliance,\\\\ stateUnemploymentInsurance,\\\\ ptoAndAccruals,\\\\ fileTransmission,\\\\ startAssist,\\\\ productImplementationAndMaintenance,\\\\ tops,\\\\ n8,\\\\ caseManagement,\\\\ termination,\\\\ creditsAndDiscounts,\\\\ userManagement,\\\\ accountantConnect,\\\\ adpEzlaborManager,\\\\ employeeAccess,\\\\ myadp,\\\\ stateDisabilityInsurance,\\\\ paidSickLeaveRegulations,\\\\ kronos4500OrIntouchTimeclock,\\\\ payrollCompliance,\\\\ payrollTaxes,\\\\ localOrMunicipality,\\\\ clientEngagementHub,\\\\ benefitsAdministration,\\\\ hrCompliance,\\\\ payStatementRequirements,\\\\ clientExperience,\\\\ timeEntry,\\\\ timesheets,\\\\ adpMobileSolutions,\\\\ delivery,\\\\ deliveryMethods,\\\\ deliverySchedule,\\\\ federal,\\\\ federalIncomeTax,\\\\ adpKiosk,\\\\ troubleshooting,\\\\ requirementsGathering,\\\\ compliance,\\\\ tax,\\\\ accountAccess,\\\\ employeeContributions,\\\\ retirementPlanAdministration,\\\\ pricing,\\\\ newStarts,\\\\ onboarding,\\\\ reactivation,\\\\ yearEndTaxForms,\\\\ funding,\\\\ payStatements,\\\\ checks,\\\\ payrollCalculations,\\\\ runAndDone,\\\\ adpMarketplace,\\\\ sales,\\\\ clientInvoices,\\\\ payrollTax,\\\\ federalUnemploymentTax,\\\\ overtime,\\\\ covid19,\\\\ deliveryIssues,\\\\ automatedClearingHouse,\\\\ workersCompensation,\\\\ banking,\\\\ paperlessTaxStatements,\\\\ quarterEndAndYearEnd,\\\\ garnishments,\\\\ hrEvents,\\\\ salesforce,\\\\ adpPayByPay,\\\\ wageGarnishmentMoneyMovement,\\\\ adpCheck,\\\\ moneyMovement,\\\\ collections,\\\\ adp401k,\\\\ productUpgrade,\\\\ amendments,\\\\ incomeTax,\\\\ smartComplianceSolutions,\\\\ generalLedger,\\\\ payrollValidation,\\\\ gencloud,\\\\ irsLimits,\\\\ earningsAndDeductions,\\\\ taxJurisdictionSetup,\\\\ registrationServices,\\\\ dataSecurity,\\\\ mealsAndBreaks,\\\\ fraud,\\\\ fringeBenefits,\\\\ taxCredits,\\\\ webex,\\\\ form941EmployersQuarterlyFederalTaxReturn,\\\\ taxPenaltiesAndInterest,\\\\ newHire,\\\\ isihelpdesk,\\\\ unemploymentInsuranceTax,\\\\ wageGarnishmentProcessingServices,\\\\ adpWorkforceNow,\\\\ majorAccounts,\\\\ rollByAdp,\\\\ adpWorkforceNowNextGen,\\\\ pi,\\\\ alfresco,\\\\ learningManagement,\\\\ yearEndProcessing,\\\\ privacy,\\\\ lateOriginalFilings,\\\\ impound,\\\\ wireTransfers,\\\\ insuranceServices,\\\\ retirementServices,\\\\ usMoneyMovement,\\\\ ftsSap,\\\\ genesys,\\\\ manualChecks,\\\\ userExperience,\\\\ taxService,\\\\ usmm,\\\\ form1099MiscMiscellaneousIncome,\\\\ msExcel,\\\\ contactManagement,\\\\ adpEmbeddedPayroll,\\\\ nationalAccounts,\\\\ adpVantageHcm,\\\\ vantagePayroll,\\\\ vantageBenefits,\\\\ vantageTime,\\\\ adpWorkforceManager,\\\\ adpEnterpriseEtime,\\\\ adpEnterpriseHrV5,\\\\ adpEnterpriseHrV6,\\\\ adpWorkforceNowPayroll,\\\\ adpWorkforceNowEnhancedTime,\\\\ adpWorkforceNowEssentialTime,\\\\ adpWorkforceNowBenefits,\\\\ healthAndWelfareServiceEngine,\\\\ adpLyric,\\\\ employeeFinancialSolutions,\\\\ adpEnterpriseHr,\\\\ adpLyricBenefits,\\\\ adpPayforce,\\\\ productMigration,\\\\ taxAdjustments,\\\\ annualReconciliation,\\\\ sharepoint,\\\\ enterpriseContentManagement,\\\\ singleSignOnSso,\\\\ newHireReporting,\\\\ reportingAgentAuthorization,\\\\ powerOfAttorney,\\\\ payCards,\\\\ wiselyDirect,\\\\ agencyNotices,\\\\ compliancePosters,\\\\ salesAssociate,\\\\ quarterEndProcessing,\\\\ ziprecruiter,\\\\ acaCompliance,\\\\ clientHeader,\\\\ serviceRequest,\\\\ healthSavingsAccount,\\\\ wageGarnishmentComprehensive,\\\\ checkReplacement,\\\\ socialSecurity,\\\\ employmentTax,\\\\ mergersAndAcquisitions,\\\\ identityNow,\\\\ philippines,\\\\ appleMobile,\\\\ etaDeliveryTracking,\\\\ learningManagementSystem,\\\\ paymentMethods,\\\\ adpTotalsource,\\\\ customReports,\\\\ healthReimbursementAccount,\\\\ payrollLiability,\\\\ acaIrsReporting,\\\\ form940EmployersAnnualFederalUnemploymentTaxReturn,\\\\ electronicSalesOrder,\\\\ taxAmendmentForms,\\\\ statementOfDeposit,\\\\ quarterEndTaxForms,\\\\ medallia,\\\\ bonuses,\\\\ checkProcessing,\\\\ phone,\\\\ adpPortal,\\\\ cimplicity,\\\\ efiling,\\\\ performanceManagement,\\\\ ivr,\\\\ thirdPartySickPay,\\\\ india,\\\\ siebel,\\\\ thirdParty,\\\\ offCyclePayroll,\\\\ acaEligibility,\\\\ conversions,\\\\ dataExtract,\\\\ serviceConnect,\\\\ taxProcessing,\\\\ globalview,\\\\ bankRun,\\\\ webBrowser,\\\\ tippedEstablishments,\\\\ cobraCompliance,\\\\ familyAndMedicalLeaveRegulations Created 2026-02-11 LastModified 2026-02-11 ExpirationDate \\\\  DC.Format XHTML DC.Identifier rfu1770823479316 DC.Language en-us deliveryChannel theZone\\\\ ;\\\\ knowledgeSearch authorType human contentPermission adpBusiness buOwner sbsTlm platform runPoweredByAdp language english country unitedStates articleType howTo audience genai\\\\ ;\\\\ implementationAssociate\\\\ ;\\\\ adpAssociate subject timeAndLaborManagement businessUnit sbsTlm mapId ymr1770823224196\r\nvti_title:SR|Identifying RUN for Partners (Wholesale) User Roles in RUN\r\nCCMSLastModified:SW|2026-02-11T03:00:00Z\r\nBUOwner:SW|;#SBS TLM;#\r\nAssociateTools_MMD:SW|\r\nf7b3c7f66e2a45f7a65a2df0b03f0e23:SW|\r\nvti_cachedbodystyle:SR|\u003cbody xmlns:dita-ot=\"http://dita-ot.sourceforge.net/ns/201007/dita-ot\" data-spy=\"scroll\" data-target=\".scrollspy\" ng-app=\"adp-app\" ng-controller=\"adp-main-ctrl\"\u003e\r\nCCMSProduct:SW|\r\nCCMSTitle:SW|\r\nAuthor Type:SW|\r\nCountry_MMD:SW|\r\nMarket_MMD:SW|\r\nArticleType_MMD:SW|\r\nvti_areHybridOrphanHashedBlobsCleaned:BW|false\r\nvti_streamSyncTokenSequenceNumber:IW|139\r\n",
+                   "GUID":  "8594f6af-abd9-4f06-8963-bec457ac4e0b",
+                   "owshiddenversion":  1,
+                   "f51c0c923f1a41ad81099ca161163d6b":  null,
+                   "_ComplianceTagWrittenTime":  ""
+               },
+    "Permissions":  [
+                        {
+                            "id":  "RElUIEtNU2VhcmNoIE93bmVycw",
+                            "roles":  [
+                                          "owner"
+                                      ],
+                            "grantedTo":  {
+                                              "user":  {
+                                                           "displayName":  "DIT KMSearch Owners"
+                                                       }
+                                          },
+                            "inheritedFrom":  {
+
+                                              }
+                        },
+                        {
+                            "id":  "RElUIEtNU2VhcmNoIFZpc2l0b3Jz",
+                            "roles":  [
+                                          "read"
+                                      ],
+                            "grantedTo":  {
+                                              "user":  {
+                                                           "displayName":  "DIT KMSearch Visitors"
+                                                       }
+                                          },
+                            "inheritedFrom":  {
+
+                                              }
+                        },
+                        {
+                            "id":  "RElUIEtNU2VhcmNoIE1lbWJlcnM",
+                            "roles":  [
+                                          "write"
+                                      ],
+                            "grantedTo":  {
+                                              "user":  {
+                                                           "displayName":  "DIT KMSearch Members"
+                                                       }
+                                          },
+                            "inheritedFrom":  {
+
+                                              }
+                        },
+                        {
+                            "id":  "RXhjZWwgU2VydmljZXMgVmlld2Vycw",
+                            "roles":  [
+                                          "read"
+                                      ],
+                            "grantedTo":  {
+                                              "user":  {
+                                                           "displayName":  "Excel Services Viewers"
+                                                       }
+                                          },
+                            "inheritedFrom":  {
+
+                                              }
+                        },
+                        {
+                            "id":  "aTowIy5mfG1lbWJlcnNoaXB8bGFrYWRlcHJAZXMuYWQuYWRwLmNvbQ",
+                            "roles":  [
+                                          "owner"
+                                      ],
+                            "grantedTo":  {
+                                              "user":  {
+                                                           "email":  "prashant.lakade@ADP.com",
+                                                           "id":  "be59452d-dd6b-45b1-b98c-d04afd65ce87",
+                                                           "displayName":  "Lakade, Prashant (CORP)"
+                                                       }
+                                          },
+                            "inheritedFrom":  {
+
+                                              }
+                        },
+                        {
+                            "id":  "aTowIy5mfG1lbWJlcnNoaXB8YnRpbGxvdEBhZC5lc2kuYWRwLmNvbQ",
+                            "roles":  [
+                                          "write"
+                                      ],
+                            "grantedTo":  {
+                                              "user":  {
+                                                           "email":  "Ben.Tillott@adp.com",
+                                                           "id":  "2afb9abc-59fc-483a-9dcc-0f7cb3bb2316",
+                                                           "displayName":  "Tillott, Ben (ESI)"
+                                                       }
+                                          },
+                            "inheritedFrom":  {
+
+                                              }
+                        },
+                        {
+                            "id":  "aTowIy5mfG1lbWJlcnNoaXB8c3VuZGVycmRAZXMuYWQuYWRwLmNvbQ",
+                            "roles":  [
+                                          "owner"
+                                      ],
+                            "grantedTo":  {
+                                              "user":  {
+                                                           "email":  "dhivakar.sunder.raj@ADP.com",
+                                                           "id":  "e7550c06-c194-4cee-9c09-2477b4d38a13",
+                                                           "displayName":  "Sunder Raj, Dhivakar"
+                                                       }
+                                          },
+                            "inheritedFrom":  {
+
+                                              }
+                        },
+                        {
+                            "id":  "aTowIy5mfG1lbWJlcnNoaXB8c3ZjX2Flc0Blcy5hZC5hZHAuY29t",
+                            "roles":  [
+                                          "read"
+                                      ],
+                            "grantedTo":  {
+                                              "user":  {
+                                                           "email":  "svc_aes@adp.com",
+                                                           "id":  "612deede-69dd-4c31-a95e-fee829628475",
+                                                           "displayName":  "svc_aes"
+                                                       }
+                                          },
+                            "inheritedFrom":  {
+
+                                              }
+                        },
+                        {
+                            "id":  "aTowIy5mfG1lbWJlcnNoaXB8ZG9kaWF5YUBlcy5hZC5hZHAuY29t",
+                            "roles":  [
+                                          "write"
+                                      ],
+                            "grantedTo":  {
+                                              "user":  {
+                                                           "email":  "Yash.Dodia@ADP.com",
+                                                           "id":  "450c3a8e-d72f-4a0e-be2a-3596f4b2f791",
+                                                           "displayName":  "Dodia, Yash (CORP)"
+                                                       }
+                                          },
+                            "inheritedFrom":  {
+
+                                              }
+                        },
+                        {
+                            "id":  "aTowIy5mfG1lbWJlcnNoaXB8ZGFuaW1AZXMuYWQuYWRwLmNvbQ",
+                            "roles":  [
+                                          "owner"
+                                      ],
+                            "grantedTo":  {
+                                              "user":  {
+                                                           "email":  "Mehul.Dani@ADP.com",
+                                                           "id":  "ff412d18-6465-4a48-a51f-fe65da3dbba5",
+                                                           "displayName":  "Dani, Mehul (ES)"
+                                                       }
+                                          },
+                            "inheritedFrom":  {
+
+                                              }
+                        },
+                        {
+                            "id":  "aTowIy5mfG1lbWJlcnNoaXB8c3ZjX3NoYXJlcG9pbnR2aWV3QGVzLmFkLmFkcC5jb20",
+                            "roles":  [
+                                          "owner"
+                                      ],
+                            "grantedTo":  {
+                                              "user":  {
+                                                           "email":  "SVC_SharePointView@adp.com",
+                                                           "id":  "f096fe4d-49c3-46a1-ace6-0cbf32b79f60",
+                                                           "displayName":  "SVC_SharePointView"
+                                                       }
+                                          },
+                            "inheritedFrom":  {
+
+                                              }
+                        },
+                        {
+                            "id":  "QmVzdCBCZXRzIE1lbWJlcnM",
+                            "roles":  [
+                                          "write"
+                                      ],
+                            "grantedTo":  {
+                                              "user":  {
+                                                           "displayName":  "Best Bets Members"
+                                                       }
+                                          },
+                            "inheritedFrom":  {
+
+                                              }
+                        },
+                        {
+                            "id":  "RUtNIERldiAmIFFBIFRlYW1z",
+                            "roles":  [
+                                          "owner"
+                                      ],
+                            "grantedTo":  {
+                                              "user":  {
+                                                           "displayName":  "EKM Dev \u0026 QA Teams"
+                                                       }
+                                          },
+                            "inheritedFrom":  {
+
+                                              }
+                        },
+                        {
+                            "id":  "aTowIy5mfG1lbWJlcnNoaXB8Y2FzdGFucDBAZXMuYWQuYWRwLmNvbQ",
+                            "roles":  [
+                                          "owner"
+                                      ],
+                            "grantedTo":  {
+                                              "user":  {
+                                                           "email":  "pablo.castaneda@ADP.com",
+                                                           "id":  "e1706cd4-f811-4f1c-a7f4-5b2d8dbb1697",
+                                                           "displayName":  "Castaneda, Pablo"
+                                                       }
+                                          },
+                            "inheritedFrom":  {
+
+                                              }
+                        },
+                        {
+                            "id":  "YzowdC5jfHRlbmFudHwxZTU3ZTYwMS03YjQ4LTRmY2MtOGMwYS03ZTUwNzIwMDA1Yjk",
+                            "roles":  [
+                                          "read"
+                                      ],
+                            "grantedTo":  {
+                                              "user":  {
+                                                           "email":  "ThinkTank-Architect-Team@ADP.com",
+                                                           "id":  "1e57e601-7b48-4fcc-8c0a-7e50720005b9",
+                                                           "displayName":  "ThinkTank-Architect Team"
+                                                       }
+                                          },
+                            "inheritedFrom":  {
+
+                                              }
+                        }
+                    ],
+    "FileName":  "index.html",
+    "PermissionsError":  null,
+    "ItemId":  182323,
+    "ParentFolder":  "/sites/DIT-KMSearch/Articles/ymr1770823224196_en-us",
+    "FileUrl":  "/sites/DIT-KMSearch/Articles/ymr1770823224196_en-us/index.html"
+}

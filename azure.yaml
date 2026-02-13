@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+name: azure-knowledge-base-ingestion
+metadata:
+  template: azure-knowledge-base-ingestion
+
+infra:
+  provider: bicep
+  path: infra
+  module: main
+
+services:
+  functions:
+    project: ./src
+    language: python
+    host: function

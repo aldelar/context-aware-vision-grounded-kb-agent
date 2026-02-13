@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What is Azure Content Understanding in Foundry Tools?</title>
+</head>
+<body>
+
+<h1>What is Azure Content Understanding in Foundry Tools?</h1>
+
+<blockquote>
+    <p><strong>Note:</strong> Content Understanding is now a generally available (GA) service with the release of the <code>2025-11-01</code> API version. For details, see <a href="https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/whats-new">What's New</a>.</p>
+</blockquote>
+
+<p>Azure Content Understanding in Foundry Tools is an <a href="https://learn.microsoft.com/en-us/azure/ai-services/what-are-ai-services">Foundry Tool</a> that's available as part of the <a href="https://portal.azure.com/#create/Microsoft.CognitiveServicesAIFoundry">Microsoft Foundry Resource</a> in the Azure portal. It uses generative AI to process and ingest many types of content, including documents, images, videos, and audio, into a user-defined output format. Content Understanding offers a streamlined process to reason over large amounts of unstructured data, accelerating time-to-value by generating an output that you can integrate into automation and analytical workflows.</p>
+
+<p>Content Understanding is now a generally available (GA) service with the release of the <code>2025-11-01</code> API version. It's now available in a broader range of <a href="https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/language-region-support">regions</a>. For details on the updates in the GA release, see the Content Understanding <a href="https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/whats-new">What's New</a> page.</p>
+
+<a href="images/content-understanding-framework-2025.png">
+    <img src="images/content-understanding-framework-2025.png" alt="Screenshot of Content Understanding overview, process, and workflow." />
+</a>
+
+<h2>Why use Content Understanding?</h2>
+
+<p>Content Understanding accelerates time to value by enabling straight-through processing of unstructured data with confidence scores, minimizing manual review, and reducing operational costs. Key benefits include:</p>
+
+<ul>
+    <li><strong>Simplify and streamline workflows.</strong> Content Understanding standardizes the extraction and classification of content, structure, and insights from various content types into a unified process.</li>
+    <li><strong>Simplify field extraction.</strong> Content Understanding's field extraction makes it easier to generate structured output from unstructured content. Define a schema to extract, classify, or generate field values with no complex prompt engineering.</li>
+    <li><strong>Enhance accuracy.</strong> Content Understanding employs multiple AI models to analyze and cross-validate information simultaneously, resulting in more accurate and reliable results.</li>
+    <li><strong>Confidence scores and grounding.</strong> Content Understanding ensures the accuracy of extracted values while minimizing the cost of human review.</li>
+    <li><strong>Classify content types.</strong> Content Understanding enables you to classify your document types to streamline your ability to process content. This feature is now available in a unified approach in the Analyze API.</li>
+    <li><strong>Industry-specific prebuilt analyzers.</strong> Content Understanding includes prebuilt analyzers designed for industry-specific scenarios including tax preparation, procurement document processing, contract analysis, call center analytics, media analysis, and much more.</li>
+</ul>
+
+<h2>Content Understanding use cases</h2>
+
+<ul>
+    <li><strong>Intelligent document processing (IDP).</strong> Content Understanding enables intelligent document processing by converting unstructured documents into structured data with high accuracy. Confidence scores and grounding capabilities ensure data quality while minimizing manual review and reducing operational costs. For example, automate invoice processing, contract analysis, and claims management by extracting and validating fields from complex documents.</li>
+    <li><strong>Agentic applications.</strong> Content Understanding turns messy, multimodal file inputs into predictable, standardized inputs. It delivers clean markdown representations for reasoning and knowledge workflows, ensuring clarity and context for downstream tasks. When structured data is required, it provides schema-aligned key-value fields with confidence scores and grounding, enabling agents to automate decisions with accuracy and auditability.</li>
+    <li><strong>Search and retrieval-augmented generation (RAG).</strong> Content Understanding enables ingestion of content of any modality into a search index, with extensive support for figure description and analysis to make your data more accessible. The Content Understanding service offers multiple prebuilt analyzers that are fine-tuned to give you the best outputs for your RAG search scenarios.</li>
+    <li><strong>Robotic process automation (RPA).</strong> Content Understanding integrates seamlessly with RPA workflows by providing structured data extracted from various content types. This capability enables end-to-end automation of business processes that require content understanding, such as order processing, customer onboarding, and regulatory compliance workflows.</li>
+    <li><strong>Analytics and reporting.</strong> Content Understanding's extracted field outputs enhance analytics and reporting, allowing businesses to gain valuable insights, conduct deeper analysis, and make informed decisions based on accurate reports.</li>
+    <li><strong>Optimize workflow through classification.</strong> Content Understanding's classification feature enables you to categorize the documents first, before routing it to the associated analyzer for extraction.</li>
+</ul>
+
+<h2>Industry-specific applications</h2>
+
+<p>Some common industry-specific applications for Content Understanding include:</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>Application</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Tax automation</td>
+            <td>Tax preparation companies can use Content Understanding to generate a unified view of information from various documents and create comprehensive tax returns.</td>
+        </tr>
+        <tr>
+            <td>Mortgage application processing</td>
+            <td>Analyze supplementary supporting documentation and mortgage applications to determine whether a prospective home buyer provided all the necessary documentation to secure a mortgage.</td>
+        </tr>
+        <tr>
+            <td>Invoice contract verification</td>
+            <td>Review invoices and contractual agreements with clients carefully. Apply a multi-step reasoning process to analyze the data. Ensure that conclusions, such as validating the consistency between the invoice and the contract, are accurate and thorough.</td>
+        </tr>
+        <tr>
+            <td>Retrieval-augmented generation (RAG) ingestion</td>
+            <td>Organizations can enhance their RAG workflows by extracting comprehensive information from documents that would otherwise be missed. Figure descriptions capture information from charts, diagrams, and visualizations, making them searchable. Layout analysis preserves document structure including tables, sections, and hierarchies. Annotation detection captures handwritten notes, underlines, and strikeouts.</td>
+        </tr>
+        <tr>
+            <td>Post-call analytics</td>
+            <td>Businesses and call centers can generate insights from call recordings to track key performance indicators (KPIs), improve product experience, generate business insights, create differentiated customer experiences, and answer queries faster and more accurately.</td>
+        </tr>
+        <tr>
+            <td>Media asset management</td>
+            <td>Software and media vendors can use Content Understanding to extract richer, targeted information from videos for media asset management solutions.</td>
+        </tr>
+        <tr>
+            <td>Enhanced customer support</td>
+            <td>Businesses with support channels can utilize Content Understanding for RAG search to enhance the quality of responses based on data from prior customer issues and feedback.</td>
+        </tr>
+    </tbody>
+</table>
+
+<h2>Key components of Content Understanding</h2>
+
+<p>The Content Understanding framework processes unstructured content through multiple stages, transforming inputs into structured, actionable outputs. The following table describes each component from left to right as shown in the diagram:</p>
+
+<a href="images/content-understanding-framework-2025.png">
+    <img src="images/content-understanding-framework-2025.png" alt="Diagram showing the Content Understanding framework with inputs flowing through analyzers to structured output." />
+</a>
+
+<table>
+    <thead>
+        <tr>
+            <th>Component</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Inputs</td>
+            <td>The source content that Content Understanding processes. Supports multiple modalities including Documents, Images, Video, Audio.</td>
+        </tr>
+        <tr>
+            <td>Analyzer</td>
+            <td>The core component that defines how your content is processed. It configures content extraction settings, field extraction schema, and model deployments. Once configured, the analyzer consistently applies these settings to all incoming data. Content Understanding offers prebuilt analyzers for common scenarios and supports custom analyzers tailored to your needs.</td>
+        </tr>
+        <tr>
+            <td>Content extraction</td>
+            <td>Transforms unstructured input into normalized, structured text and metadata. Extracts text using optical character recognition (OCR), identifies selection marks and barcodes, detects formulas, and recognizes layout elements like paragraphs, sections, and tables. For audio and video, transcribes speech and identifies key visual elements.</td>
+        </tr>
+        <tr>
+            <td>Segmentation</td>
+            <td>Divides documents or videos into logical sections for targeted processing. Configured using the enableSegment property in the analyzer schema. Enables breaking content into meaningful chunks, such as splitting a document by document type or dividing a video into scenes.</td>
+        </tr>
+        <tr>
+            <td>Field extraction</td>
+            <td>Generates structured key-value pairs based on your defined schema. Fields can be generated via three methods: Extract (directly extract values as they appear in the input content), Classify (classify content from a predefined set of categories), and Generate (generate values freely from input data, such as summarizing a conversation).</td>
+        </tr>
+        <tr>
+            <td>Confidence scores</td>
+            <td>Provides reliability estimates from 0 to 1 for each extracted field value. High scores indicate accurate data extraction, enabling straight-through processing in automation workflows.</td>
+        </tr>
+        <tr>
+            <td>Grounding</td>
+            <td>Identifies the specific regions in the content where each value was extracted or generated. Source grounding allows users in automation scenarios to quickly verify the correctness of field values by tracing them back to their origin in the source content.</td>
+        </tr>
+        <tr>
+            <td>Contextualization</td>
+            <td>Content Understanding's processing layer that prepares context for generative models and post-processes their output. Includes output normalization and formatting, source grounding calculation, confidence score computation, and context engineering to optimize model usage.</td>
+        </tr>
+        <tr>
+            <td>Foundry models</td>
+            <td>The Foundry large language models (LLMs) and embeddings models that power generative capabilities. You bring your own deployments of supported generative models and text-embedding models for training examples.</td>
+        </tr>
+        <tr>
+            <td>Structured output</td>
+            <td>The final result is supplied in your chosen format. Content can be output as Markdown for search and retrieval scenarios, or as structured JSON matching your defined schema for automation and analytics workflows.</td>
+        </tr>
+    </tbody>
+</table>
+
+<h2>Content Understanding experiences</h2>
+
+<p>Content Understanding is a Foundry service. To use Content Understanding, you must create a Foundry Azure Resource. Content Understanding Studio complements the Foundry experience for customers that need advanced capabilities.</p>
+
+<ul>
+    <li><strong>Content Understanding in Foundry (new) portal (coming soon):</strong> The Foundry NextGen portal offers the ability to build advanced, comprehensive agentic workflows with the Content Understanding Tool.</li>
+    <li><strong>Content Understanding Studio:</strong> A complementary UX experience, Content Understanding Studio enables a smooth transition for customers transitioning from Document Intelligence. It offers an experience optimized for analyzer performance improvement including improving custom analyzers using data labeling techniques. It also supports building classification-based custom analyzers.</li>
+</ul>
+
+<h2>Get started</h2>
+
+<p>Our quickstart guides help you quickly start using the Content Understanding service:</p>
+
+<ul>
+    <li><a href="https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/quickstart/use-ai-foundry">Microsoft Foundry portal Quickstart</a></li>
+    <li><a href="https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/quickstart/content-understanding-studio">Content Understanding Studio quickstart</a></li>
+    <li><a href="https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/quickstart/use-rest-api">REST API Quickstart</a></li>
+</ul>
+
+</body>
+</html>
