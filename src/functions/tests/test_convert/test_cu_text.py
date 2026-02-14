@@ -3,9 +3,14 @@
 These are integration tests that call the live Azure Content Understanding
 endpoint.  They require:
     - A valid .env with AI_SERVICES_ENDPOINT
-    - text-embedding-3-large deployed and registered as a CU default
+    - text-embedding-3-large and gpt-4.1-mini deployed and registered as CU defaults
     - ``az login`` with Cognitive Services User role on the AI Services resource
+
+CU results are cached per article (module scope) so each article is sent to CU
+only once (~30 s each) rather than once per test method.
 """
+
+from __future__ import annotations
 
 from pathlib import Path
 
@@ -31,17 +36,40 @@ def _find_html_file(article_dir: Path) -> Path:
 
 
 # ---------------------------------------------------------------------------
-# Fixtures
+# Module-scoped result cache — one CU call per article, shared across tests
 # ---------------------------------------------------------------------------
 
+_ARTICLE_IDS = [
+    "content-understanding-html_en-us",
+    "ymr1770823224196_en-us",
+]
 
-@pytest.fixture(params=["content-understanding-html_en-us", "ymr1770823224196_en-us"])
-def article_html(staging_path: Path, request: pytest.FixtureRequest) -> Path:
-    """Yield the HTML file path for each sample article."""
-    article_dir = staging_path / request.param
+# Repo root → kb/staging (computed once, no fixture dependency)
+_STAGING = Path(__file__).resolve().parent.parent.parent.parent.parent / "kb" / "staging"
+
+# Populated once by the module-scoped fixture; maps article_id → CuTextResult
+_result_cache: dict[str, CuTextResult] = {}
+
+
+@pytest.fixture(scope="module", params=_ARTICLE_IDS)
+def cu_text_result(request: pytest.FixtureRequest) -> CuTextResult:
+    """Call extract_text once per article and cache the result for the module.
+
+    Subsequent test methods that use this fixture get the cached result
+    without making another CU API call.
+    """
+    article_id: str = request.param
+    if article_id in _result_cache:
+        return _result_cache[article_id]
+
+    article_dir = _STAGING / article_id
     if not article_dir.exists():
-        pytest.skip(f"Article {request.param} not in staging")
-    return _find_html_file(article_dir)
+        pytest.skip(f"Article {article_id} not in staging")
+
+    html_path = _find_html_file(article_dir)
+    result = extract_text(html_path)
+    _result_cache[article_id] = result
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -52,30 +80,27 @@ def article_html(staging_path: Path, request: pytest.FixtureRequest) -> Path:
 class TestExtractText:
     """Integration tests for extract_text()."""
 
-    def test_returns_cu_text_result(self, article_html: Path) -> None:
+    def test_returns_cu_text_result(self, cu_text_result: CuTextResult) -> None:
         """extract_text returns a CuTextResult with markdown and summary."""
-        result = extract_text(article_html)
-        assert isinstance(result, CuTextResult)
+        assert isinstance(cu_text_result, CuTextResult)
 
-    def test_markdown_is_nonempty(self, article_html: Path) -> None:
+    def test_markdown_is_nonempty(self, cu_text_result: CuTextResult) -> None:
         """CU should produce non-trivial Markdown from both sample articles."""
-        result = extract_text(article_html)
-        assert len(result.markdown) > 500, (
-            f"Markdown too short ({len(result.markdown)} chars) for {article_html.name}"
+        assert len(cu_text_result.markdown) > 500, (
+            f"Markdown too short ({len(cu_text_result.markdown)} chars)"
         )
 
-    def test_markdown_has_heading(self, article_html: Path) -> None:
+    def test_markdown_has_heading(self, cu_text_result: CuTextResult) -> None:
         """CU Markdown should contain at least one Markdown heading."""
-        result = extract_text(article_html)
-        assert result.markdown.startswith("#") or "\n#" in result.markdown, (
+        md = cu_text_result.markdown
+        assert md.startswith("#") or "\n#" in md, (
             "Expected at least one Markdown heading in CU output"
         )
 
-    def test_summary_is_nonempty(self, article_html: Path) -> None:
+    def test_summary_is_nonempty(self, cu_text_result: CuTextResult) -> None:
         """prebuilt-documentSearch should produce a summary."""
-        result = extract_text(article_html)
-        assert len(result.summary) > 20, (
-            f"Summary too short ({len(result.summary)} chars) for {article_html.name}"
+        assert len(cu_text_result.summary) > 20, (
+            f"Summary too short ({len(cu_text_result.summary)} chars)"
         )
 
     def test_file_not_found_raises(self, tmp_path: Path) -> None:
