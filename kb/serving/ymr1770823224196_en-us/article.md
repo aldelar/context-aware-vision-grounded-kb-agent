@@ -23,13 +23,13 @@ Follow the steps below to identify Firm User roles for R4P (Wholesale) accounts.
 In RUN, go to Companies > Settings > Security > Manage user security. 
 
 > **[Image: zzy1770827101433](images/zzy1770827101433.png)**
-> This image shows a web application interface for 'Top 2 Bottom Business Solutions.' The screenshot highlights the navigation menu on the left side, specifically the 'Companies' section, which is outlined in green and indicated by a green arrow. The main content area displays the 'Companies' page, where users can select a company to open in RUN. There is also a search bar and a 'Filter' option visible on the page.
+> This image shows a web application interface for 'Top 2 Bottom Business Solutions.' The screenshot highlights the navigation menu on the left side, specifically the 'Companies' section, which is outlined in green and indicated by a green arrow. The main content area displays the 'Companies' page, with a search bar and filter option visible. The navigation menu also includes options for Dashboard, Reports & tax forms, and Settings.
 
 > **[Image: mnz1770827151034](images/mnz1770827151034.png)**
 > This image shows a web application interface for 'Top 2 Bottom Business Solutions.' The screenshot displays the 'Companies' page, where users can select a company to open in RUN. The left sidebar menu is visible, with the 'Settings' option highlighted in green, indicating it is either selected or being pointed out for navigation. Other menu options include Dashboard, Companies, and Reports & tax forms. The main area contains a search bar and a filter option for companies.
 
 > **[Image: qvd1770827174448](images/qvd1770827174448.png)**
-> This image shows a section of a user interface labeled 'Security.' It displays three options: 'Add users,' 'Manage user security,' and 'Manage company groups.' The 'Manage user security' option is highlighted with a green border, indicating it is either selected or being emphasized. Each option has an icon to the left and a right arrow indicating navigation to another page or section.
+> This image shows a section of a user interface labeled 'Security.' It displays three main options: 'Add users,' 'Manage user security,' and 'Manage company groups.' The 'Manage user security' option is highlighted with a green border, indicating it is either selected or being emphasized. Each option has an icon to the left and a right arrow, suggesting they are clickable or lead to further screens.
 
 In the Role field, you can see the user's role. 
 
@@ -51,7 +51,7 @@ In RUN, go to Companies.
 Click on the company name. 
 
 > **[Image: lsa1770833429187](images/lsa1770833429187.png)**
-> This image shows a web interface listing companies, likely from a payroll or business management application. The page is titled 'Companies' and provides a searchable and filterable list of companies with details such as company name/ID, company details, contact person, payroll due date, and next check date. Each company entry includes a clickable company name, client ID, company details, contact name and phone number, and relevant dates. There is a search bar and a 'Filter' button at the top for refining the list.
+> This image shows a web interface listing companies, likely from a payroll or business management platform. The page is titled 'Companies' and provides a searchable and filterable list of companies with details such as company name/ID, company details, contact person, payroll due date, and next check date. Each company entry includes a clickable name, client ID, company type, contact name and phone number, and relevant dates. There is a search bar and a 'Filter' button at the top for refining the list.
 
 Click Settings > Company > RUN access. 
 

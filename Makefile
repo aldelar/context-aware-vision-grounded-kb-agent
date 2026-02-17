@@ -130,6 +130,9 @@ azure-index: ## Trigger fn-index in Azure (processes serving → AI Search)
 	@echo "Triggering fn-index Azure Function..."
 	@echo "TODO: invoke fn-index HTTP trigger endpoint"
 
+azure-index-summarize: ## Show AI Search index contents summary
+	@cd src/functions && uv run python ../../scripts/functions/display-index-summary.py
+
 # ------------------------------------------------------------------------------
 # Azure — Cleanup
 # ------------------------------------------------------------------------------
