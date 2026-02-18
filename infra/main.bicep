@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
-// main.bicep — Azure KB Ingestion Pipeline
+// main.bicep — Vision-Grounded Knowledge Agent
 // ---------------------------------------------------------------------------
-// Provisions all Azure resources for the knowledge base ingestion pipeline:
+// Provisions all Azure resources for the vision-grounded knowledge agent:
 //   - Monitoring (Log Analytics + Application Insights)
 //   - Storage (Staging + Serving accounts)
 //   - Azure AI Services (Content Understanding + Embeddings + Agent model)
@@ -157,7 +157,7 @@ module containerRegistry 'modules/container-registry.bicep' = {
 }
 
 // ---------------------------------------------------------------------------
-// Module: Container App (KB Search Web App)
+// Module: Container App (Vision-Grounded Knowledge Agent)
 // ---------------------------------------------------------------------------
 module containerApp 'modules/container-app.bicep' = {
   name: 'container-app'

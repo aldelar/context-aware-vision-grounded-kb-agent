@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
-name: azure-knowledge-base-ingestion
+name: vision-grounded-knowledge-agent
 metadata:
-  template: azure-knowledge-base-ingestion
+  template: vision-grounded-knowledge-agent
 
 infra:
   provider: bicep

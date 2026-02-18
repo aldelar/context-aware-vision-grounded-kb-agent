@@ -1,7 +1,7 @@
 [project]
-name = "kb-search-web-app"
+name = "vision-grounded-knowledge-agent"
 version = "0.1.0"
-description = "KB Search Web App — conversational agent over Azure AI Search with Chainlit"
+description = "Vision-Grounded Knowledge Agent — conversational agent with image-aware search over Azure AI Search"
 requires-python = ">=3.11"
 dependencies = [
     "chainlit>=2.0",

@@ -1,5 +1,5 @@
 # ==============================================================================
-# Dockerfile — KB Search Web App (Chainlit + Agent Framework)
+# Dockerfile — Vision-Grounded Knowledge Agent (Chainlit + Agent Framework)
 # ==============================================================================
 # Uses UV for fast, reproducible dependency installation.
 # ==============================================================================

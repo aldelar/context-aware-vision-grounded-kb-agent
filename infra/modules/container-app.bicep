@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------------
 // Module: container-app.bicep
-// Deploys Container Apps Environment + Container App for the KB Search Web App
+// Deploys Container Apps Environment + Container App for the Vision-Grounded Knowledge Agent
 // with Easy Auth (Entra ID, single-tenant) and system-assigned managed identity
 // ---------------------------------------------------------------------------
 
@@ -78,7 +78,7 @@ resource containerAppsEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
 }
 
 // ---------------------------------------------------------------------------
-// Container App — KB Search Web App
+// Container App — Vision-Grounded Knowledge Agent
 // ---------------------------------------------------------------------------
 resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
   name: 'webapp-${baseName}'

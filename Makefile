@@ -1,4 +1,4 @@
-# Azure KB Ingestion — Makefile
+# Vision-Grounded Knowledge Agent — Makefile
 # ==============================================================================
 # Targets for local development, Azure provisioning, and pipeline execution.
 #
@@ -93,7 +93,7 @@ index: ## Run fn-index locally (kb/serving → Azure AI Search)
 # ------------------------------------------------------------------------------
 .PHONY: app app-test
 
-app: ## Run KB Search web app locally (http://localhost:8080)
+app: ## Run Vision-Grounded Knowledge Agent locally (http://localhost:8080)
 	@cd src/web-app && uv run chainlit run app/main.py -w --port 8080
 
 app-test: ## Run web app unit tests

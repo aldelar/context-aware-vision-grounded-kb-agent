@@ -1,5 +1,5 @@
-# KB Assistant
+# Vision-Grounded Knowledge Agent
 
-*Powered by Context Aware Multi-Modal Retrieval*
+*Image-aware search and reasoning over your knowledge base*
 
-Ask me anything about the Azure knowledge base articles. I'll search the indexed articles and give you grounded answers with source citations.
+Ask me anything about the indexed knowledge base articles. I'll search for answers and reason over both text and images to give you grounded responses with source citations.

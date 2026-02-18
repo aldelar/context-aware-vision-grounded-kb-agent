@@ -1,4 +1,4 @@
-"""KB Search Web App — Chainlit entry point."""
+"""Vision-Grounded Knowledge Agent — Chainlit entry point."""
 
 from __future__ import annotations
 

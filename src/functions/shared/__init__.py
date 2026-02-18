@@ -1,1 +1,1 @@
-"""Shared utilities for Azure KB Ingestion functions."""
+"""Shared utilities for ingestion pipeline functions."""

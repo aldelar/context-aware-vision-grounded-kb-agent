@@ -1,8 +1,8 @@
-# Azure Knowledge Base Ingestion Accelerator
+# Vision-Grounded Knowledge Agent
 
 ## Overview
 
-This solution accelerator helps organizations transform HTML-based knowledge base (KB) articles into AI-searchable content powered by **Azure AI Search**. It bridges the gap between legacy KB systems — where articles are stored as HTML pages with embedded images — and modern AI-powered search experiences where an agent can retrieve precise, context-aware answers along with their associated visual content.
+This solution helps organizations transform HTML-based knowledge base (KB) articles into AI-searchable, image-aware content — and then reason over it with a vision-grounded agent. It bridges the gap between legacy KB systems — where articles are stored as HTML pages with embedded images — and modern AI-powered search experiences where an agent can retrieve precise, context-aware answers along with their associated visual content.
 
 ## The Problem
 
@@ -63,7 +63,7 @@ Teams and organizations that:
 │   │   ├── fn_index/    Stage 2 — Markdown → AI Search index
 │   │   ├── shared/      Shared config, blob helpers, CU client
 │   │   └── tests/       pytest test suite
-│   ├── web-app/         KB Search Web App (Agent + Chainlit)
+│   ├── web-app/         Vision-Grounded Knowledge Agent (Chainlit + Agent Framework)
 │   │   ├── app/main.py  Chainlit entry point (streaming, image proxy, citations)
 │   │   ├── app/agent/   KB agent, search tool, image service, vision middleware
 │   │   └── tests/       pytest test suite
@@ -102,7 +102,7 @@ flowchart LR
             AF["AI Foundry<br/>GPT-4.1 + Embeddings"]
             AIS["AI Search<br/>kb-articles index"]
         end
-        subgraph App["KB Search Web App"]
+        subgraph App["Vision-Grounded Knowledge Agent"]
             direction TB
             PROXY["<b>Image Proxy</b><br/>/api/images/*"]
             VIS["<b>Vision Middleware</b><br/>Image injection"]
@@ -172,7 +172,7 @@ The `image_urls` array lets AI agents retrieve the actual source images alongsid
 
 ### How the Web App Uses Image-Aware Chunks
 
-The KB Search Web App demonstrates the full value of image-aware indexing. When a user asks a question:
+The Vision-Grounded Knowledge Agent demonstrates the full value of image-aware indexing. When a user asks a question:
 
 1. **Search** — The agent's `search_knowledge_base` tool performs hybrid search and returns chunks. Each chunk includes its `image_urls` array (e.g., `["images/architecture.png"]`). The tool converts these to proxy URLs (`/api/images/article-id/images/architecture.png`) in the JSON returned to the LLM.
 
@@ -184,7 +184,7 @@ The KB Search Web App demonstrates the full value of image-aware indexing. When 
 
 #### Example: Visual Reasoning in Action
 
-![KB Search Web App — agent using an image from a search chunk to support its answer](docs/assets/app.png)
+![Vision-Grounded Knowledge Agent — using an image from a search chunk to support its answer](docs/assets/app.png)
 
 In this example, the agent retrieves a relevant chunk (Ref #5) and integrates an image from that chunk directly into its answer. The agent didn't just quote the text description of the image — it internalized the actual image through the vision middleware, reasoned over its visual content, and then used it as a supporting asset in the response. The text description of the image (generated during ingestion) plays a key role in *surfacing* the chunk as relevant during search — it's embedded alongside the surrounding paragraph text, boosting vector similarity for visual concepts. But once the chunk is retrieved, the LLM gets a detailed look at the source image itself, can leverage it for reasoning, and can include it inline when the visual adds value to the answer.
 
@@ -206,7 +206,7 @@ Run `make help` to see all targets. Here is the full list:
 | `make test` | Run unit tests (pytest) |
 | `make validate-infra` | Validate Azure infra is ready for local dev |
 | `make grant-dev-roles` | Verify developer RBAC roles (provisioned via Bicep) |
-| `make app` | Run KB Search web app locally (http://localhost:8080) |
+| `make app` | Run Vision-Grounded Knowledge Agent locally (http://localhost:8080) |
 | `make app-test` | Run web app unit tests |
 | **Azure Operations** | |
 | `make azure-provision` | Provision all Azure resources (azd provision) |
@@ -311,9 +311,9 @@ make azure-clean-index    # Delete the AI Search index
 
 ---
 
-## 4. Run KB Search Web App
+## 4. Run Vision-Grounded Knowledge Agent
 
-The web app is a conversational interface that lets you search the `kb-articles` index using a Microsoft Agent Framework agent. It runs locally against live Azure services.
+The agent is a conversational interface that lets you search the `kb-articles` index using a Microsoft Agent Framework agent with vision capabilities. It runs locally against live Azure services.
 
 ### Prerequisites
 
@@ -344,7 +344,7 @@ make app-test
 
 ## 5. Deploy Web App to Azure
 
-The KB Search Web App can be deployed to Azure Container Apps with Entra ID authentication (Easy Auth).
+The Vision-Grounded Knowledge Agent can be deployed to Azure Container Apps with Entra ID authentication (Easy Auth).
 
 ### Prerequisites
 
