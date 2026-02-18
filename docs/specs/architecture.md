@@ -88,7 +88,7 @@ flowchart LR
             AF["AI Foundry<br/>GPT-4.1 + Embeddings"]
             AIS["AI Search<br/>kb-articles index"]
         end
-        subgraph App["Context Aware & Vision Grounded KB Agent"]
+        subgraph App["KB Agent"]
             direction TB
             PROXY["<b>Image Proxy</b><br/>/api/images/*"]
             VIS["<b>Vision Middleware</b><br/>Image injection"]
