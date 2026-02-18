@@ -65,58 +65,55 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    subgraph Storage["Azure Storage Accounts"]
+    subgraph left[" "]
         direction TB
-        SA1["<b>Staging Account</b><br/>Source articles<br/>(HTML + images)"]
-        SA2["<b>Serving Account</b><br/>Processed articles<br/>(MD + images)"]
+        subgraph Pipeline["Ingestion Pipeline — Azure Functions"]
+            direction TB
+            CONV["<b>fn-convert</b><br/>HTML → MD + images"]
+            IDX["<b>fn-index</b><br/>MD → chunks → index"]
+            CONV --> IDX
+        end
+        subgraph Sources["Storage & Analysis"]
+            direction TB
+            SA1["Staging Storage<br/>Source articles"]
+            CU["Content Understanding<br/>HTML + image analysis"]
+            SA2["Serving Storage<br/>Processed articles"]
+        end
     end
 
-    subgraph Compute["Azure Functions App"]
+    subgraph right[" "]
         direction TB
-        FN1["<b>fn-convert</b><br/>Manual trigger<br/>Source → MD + images"]
-        FN2["<b>fn-index</b><br/>Manual trigger<br/>MD → chunks → index"]
+        subgraph Center["AI Services"]
+            direction TB
+            AF["AI Foundry<br/>GPT-4.1 + Embeddings"]
+            AIS["AI Search<br/>kb-articles index"]
+        end
+        subgraph App["KB Search Web App"]
+            direction TB
+            PROXY["<b>Image Proxy</b><br/>/api/images/*"]
+            VIS["<b>Vision Middleware</b><br/>Image injection"]
+            AGENT["<b>KB Agent</b><br/>ChatAgent + tools"]
+            
+        end
     end
 
-    subgraph AI["Azure AI Services"]
-        direction TB
-        CU["<b>Content Understanding</b><br/>HTML analysis<br/>Image analysis"]
-        AF["<b>AI Foundry</b><br/>Embedding model<br/>(text-embedding-3-small)<br/>+ Agent model (gpt-4.1)"]
-        AIS["<b>AI Search</b><br/>kb-articles index<br/>Vector + full-text"]
-    end
+    CONV -->|read| SA1
+    CONV -->|analyze| CU
+    CONV -->|write| SA2
+    IDX -->|read| SA2
 
-    subgraph WebApp["KB Search Web App<br/>(Azure Container Apps)"]
-        direction TB
-        EAUTH["<b>Easy Auth</b><br/>Entra ID (single-tenant)"]
-        UI["<b>Chainlit Chat UI</b><br/>Streaming markdown<br/>Inline images + citations"]
-        AGENT["<b>KB Agent</b><br/>Microsoft Agent Framework<br/>(ChatAgent + tools)"]
-        VIS["<b>Vision Middleware</b><br/>Injects images into<br/>LLM conversation"]
-        PROXY["<b>Image Proxy</b><br/>/api/images/* endpoint"]
-    end
+    IDX -->|embed| AF
+    IDX -->|index| AIS
 
-    subgraph Registry["Azure Container Registry"]
-        IMG["<b>ACR</b><br/>Docker images"]
-    end
+    AGENT -->|reason| AF
+    AGENT -->|query| AIS
 
-    SA1 --> FN1
-    FN1 --> CU
-    FN1 --> SA2
-    SA2 --> FN2
-    FN2 --> AF
-    FN2 --> AIS
+    VIS -->|fetch| SA2
+    PROXY -->|serve| SA2
 
-    EAUTH -->|Authenticate| UI
-    IMG -->|Pull image| WebApp
-    UI -->|User question| AGENT
-    AGENT -->|Tool call| AIS
-    AGENT -->|Embed query| AF
-    AGENT -->|Reasoning| AF
-    VIS -->|Download images| SA2
-    VIS -->|Inject into LLM context| AGENT
-    PROXY -->|Serve to browser| SA2
-    AGENT -->|Streamed answer + citations| UI
+    classDef invisible fill:none,stroke:none;
+    class left,right invisible;
 ```
-
----
 
 ## KB Search Web App
 

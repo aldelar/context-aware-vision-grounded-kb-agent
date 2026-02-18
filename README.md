@@ -79,43 +79,53 @@ The solution has two layers: a **two-stage ingestion pipeline** (Azure Functions
 
 ```mermaid
 flowchart LR
-    subgraph Storage["Azure Storage Accounts"]
+    subgraph left[" "]
         direction TB
-        SA1["<b>Staging Account</b><br/>Source articles<br/>(HTML + images)"]
-        SA2["<b>Serving Account</b><br/>Processed articles<br/>(MD + images)"]
+        subgraph Pipeline["Ingestion Pipeline — Azure Functions"]
+            direction TB
+            CONV["<b>fn-convert</b><br/>HTML → MD + images"]
+            IDX["<b>fn-index</b><br/>MD → chunks → index"]
+            CONV --> IDX
+        end
+        subgraph Sources["Storage & Analysis"]
+            direction TB
+            SA1["Staging Storage<br/>Source articles"]
+            CU["Content Understanding<br/>HTML + image analysis"]
+            SA2["Serving Storage<br/>Processed articles"]
+        end
     end
 
-    subgraph Compute["Azure Functions App"]
+    subgraph right[" "]
         direction TB
-        FN1["<b>fn-convert</b><br/>Manual trigger<br/>Source → MD + images"]
-        FN2["<b>fn-index</b><br/>Manual trigger<br/>MD → chunks → index"]
+        subgraph Center["AI Services"]
+            direction TB
+            AF["AI Foundry<br/>GPT-4.1 + Embeddings"]
+            AIS["AI Search<br/>kb-articles index"]
+        end
+        subgraph App["KB Search Web App"]
+            direction TB
+            PROXY["<b>Image Proxy</b><br/>/api/images/*"]
+            VIS["<b>Vision Middleware</b><br/>Image injection"]
+            AGENT["<b>KB Agent</b><br/>ChatAgent + tools"]
+        end
     end
 
-    subgraph AI["Azure AI Services"]
-        direction TB
-        CU["<b>Content Understanding</b><br/>HTML analysis<br/>Image analysis"]
-        AF["<b>AI Foundry</b><br/>Embedding model<br/>(text-embedding-3-small)<br/>+ Agent model (gpt-4.1)"]
-        AIS["<b>AI Search</b><br/>kb-articles index<br/>Vector + full-text"]
-    end
+    CONV -->|read| SA1
+    CONV -->|analyze| CU
+    CONV -->|write| SA2
+    IDX -->|read| SA2
 
-    subgraph WebApp["KB Search Web App"]
-        direction TB
-        UI["<b>Chainlit Chat UI</b><br/>Streaming markdown<br/>Inline images + citations"]
-        AGENT["<b>KB Agent</b><br/>Microsoft Agent Framework<br/>(ChatAgent + vision)"]
-    end
+    IDX -->|embed| AF
+    IDX -->|index| AIS
 
-    SA1 --> FN1
-    FN1 --> CU
-    FN1 --> SA2
-    SA2 --> FN2
-    FN2 --> AF
-    FN2 --> AIS
+    AGENT -->|reason| AF
+    AGENT -->|query| AIS
 
-    UI -->|User question| AGENT
-    AGENT -->|Tool call + embed| AIS
-    AGENT -->|Reasoning| AF
-    AGENT -->|Images for vision + proxy| SA2
-    AGENT -->|Streamed answer + citations| UI
+    VIS -->|fetch| SA2
+    PROXY -->|serve| SA2
+
+    classDef invisible fill:none,stroke:none;
+    class left,right invisible;
 ```
 
 For full pipeline details, index schema, and stage-level design, see [Architecture](docs/specs/architecture.md).
@@ -171,6 +181,12 @@ The KB Search Web App demonstrates the full value of image-aware indexing. When 
 3. **Visual reasoning** — The LLM reasons over both the text chunks and the actual images. When an image adds value to the answer (e.g., an architecture diagram for "how does agentic retrieval work?"), the LLM embeds it inline using `![description](/api/images/...)` markdown.
 
 4. **Browser rendering** — Chainlit renders the markdown natively. The browser fetches images from the same-origin `/api/images/` proxy endpoint, which downloads from blob storage on demand.
+
+#### Example: Visual Reasoning in Action
+
+![KB Search Web App — agent using an image from a search chunk to support its answer](docs/assets/app.png)
+
+In this example, the agent retrieves a relevant chunk (Ref #5) and integrates an image from that chunk directly into its answer. The agent didn't just quote the text description of the image — it internalized the actual image through the vision middleware, reasoned over its visual content, and then used it as a supporting asset in the response. The text description of the image (generated during ingestion) plays a key role in *surfacing* the chunk as relevant during search — it's embedded alongside the surrounding paragraph text, boosting vector similarity for visual concepts. But once the chunk is retrieved, the LLM gets a detailed look at the source image itself, can leverage it for reasoning, and can include it inline when the visual adds value to the answer.
 
 This means the images produced by the ingestion pipeline serve a **dual purpose**: they ground the LLM's visual reasoning (via the vision middleware) *and* appear inline in the user-facing answer (via the image proxy).
 
