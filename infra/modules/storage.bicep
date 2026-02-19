@@ -41,7 +41,13 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
     minimumTlsVersion: 'TLS1_2'
     allowBlobPublicAccess: false
     allowSharedKeyAccess: false
+    // publicNetworkAccess Enabled for local dev purposes to facilitate blob access without VNet/private endpoints, and to allow Azure-managed services (e.g., Functions) to access blobs without firewall restrictions.
+    // For production, use VNet + private endpoints and set publicNetworkAccess to 'Disabled' for enhanced security.
     publicNetworkAccess: 'Enabled'
+    networkAcls: {
+      bypass: 'AzureServices'
+      defaultAction: 'Allow'
+    }
   }
 }
 

@@ -160,7 +160,7 @@ azure-convert: ## Trigger fn-convert in Azure (processes staging → serving)
 	KEY=$$(az functionapp keys list --name $$APP_NAME --resource-group $$RG --query "functionKeys.default" -o tsv) && \
 	ENDPOINT="https://$$APP_NAME.azurewebsites.net/api/convert?code=$$KEY" && \
 	echo "  POST $$ENDPOINT" && \
-	curl -sf -X POST "$$ENDPOINT" -H "Content-Type: application/json" -d '{}' | python3 -m json.tool
+	curl -sf --max-time 600 -X POST "$$ENDPOINT" -H "Content-Type: application/json" -d '{}' | python3 -m json.tool
 	@echo ""
 
 azure-index: ## Trigger fn-index in Azure (processes serving → AI Search)
@@ -170,7 +170,7 @@ azure-index: ## Trigger fn-index in Azure (processes serving → AI Search)
 	KEY=$$(az functionapp keys list --name $$APP_NAME --resource-group $$RG --query "functionKeys.default" -o tsv) && \
 	ENDPOINT="https://$$APP_NAME.azurewebsites.net/api/index?code=$$KEY" && \
 	echo "  POST $$ENDPOINT" && \
-	curl -sf -X POST "$$ENDPOINT" -H "Content-Type: application/json" -d '{}' | python3 -m json.tool
+	curl -sf --max-time 600 -X POST "$$ENDPOINT" -H "Content-Type: application/json" -d '{}' | python3 -m json.tool
 	@echo ""
 
 azure-index-summarize: ## Show AI Search index contents summary
@@ -185,7 +185,7 @@ azure-deploy-app: ## Build & deploy the web app to Azure Container Apps
 	azd deploy --service web-app
 
 azure-app-url: ## Print the deployed web app URL
-	@echo "https://$$(azd env get-value WEBAPP_URL)"
+	@azd env get-value WEBAPP_URL
 
 azure-app-logs: ## Stream live logs from the deployed web app
 	@APP=$$(azd env get-value WEBAPP_NAME) && \

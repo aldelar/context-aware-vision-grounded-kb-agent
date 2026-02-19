@@ -24,6 +24,10 @@ hooks:
         fi
       fi
 
+      # Export AZURE_ENV_NAME for sub-scripts (AZD sets it in env values
+      # but does not always export it as a shell variable to child processes)
+      export AZURE_ENV_NAME="$(azd env get-value AZURE_ENV_NAME 2>/dev/null)"
+
       # Set up Entra App Registration for web app Easy Auth
       bash scripts/setup-entra-auth.sh
 

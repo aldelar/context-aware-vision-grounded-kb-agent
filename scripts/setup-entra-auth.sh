@@ -7,7 +7,11 @@ set -euo pipefail
 
 ENV_NAME="${AZURE_ENV_NAME:-}"
 if [ -z "$ENV_NAME" ]; then
-  echo "ERROR: AZURE_ENV_NAME is not set."
+  # Fallback: read from AZD environment values (works when run via AZD hooks)
+  ENV_NAME=$(azd env get-value AZURE_ENV_NAME 2>/dev/null || echo "")
+fi
+if [ -z "$ENV_NAME" ]; then
+  echo "ERROR: AZURE_ENV_NAME is not set and could not be determined from AZD."
   exit 1
 fi
 
