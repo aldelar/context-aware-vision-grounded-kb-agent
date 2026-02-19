@@ -303,28 +303,29 @@ The analyzer definition is stored in `analyzers/kb-image-analyzer.json` and mana
 
 ### Output Format
 
-The resulting `article.md` looks like:
+The resulting `article.md` looks like (excerpt from the Content Understanding overview article):
 
 ```markdown
-# Identifying RUN for Partners (Wholesale) User Roles in RUN
+# What is Azure Content Understanding in Foundry Tools?
 
-## Identifying Firm Users
+### Key components of Content Understanding
 
-Follow the steps below to identify Firm User roles.
+The Content Understanding framework processes unstructured content through multiple stages,
+transforming inputs into structured, actionable outputs. The following table describes each
+component from left to right as shown in the diagram:
 
-1. In RUN, go to Companies > Settings > Security > Manage user security.
+> **[Image: content-understanding-framework-2025](images/content-understanding-framework-2025.png)**
+> This image presents a 'Content Understanding Framework' diagram. It visually explains
+> the process of transforming various input types (Documents, Image, Video, Audio) into
+> structured output (Markdown or JSON schema) using a series of analyzers.
 
-> **[Image: zzy1770827101433](images/zzy1770827101433.png)**
-> Screenshot of the RUN dashboard showing the left navigation menu with
-> Dashboard, Companies, Reports & tax forms, and Settings options.
+| Component | Description |
+| - | - |
+| Inputs | The source content that Content Understanding processes. Supports multiple modalities. |
+| Analyzer | The core component that defines how your content is processed. |
+| Content extraction | Transforms unstructured input into normalized, structured text and metadata. |
 
-2. In the Role field, you can see the user's role.
-
-| Users | Roles |
-|---|---|
-| Firm | Can access all payroll-related functions... |
-
-For more info, see [Adding or Changing RUN User Roles](https://kmsearch.example.com/...).
+Content Understanding is a [Foundry](https://learn.microsoft.com/en-us/azure/ai-services/what-are-ai-services) service.
 ```
 
 Image descriptions are inline paragraphs — they stay with their surrounding text through chunking, so the vector embedding naturally captures both the textual context and the image semantics.

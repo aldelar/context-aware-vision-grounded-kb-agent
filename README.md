@@ -14,7 +14,7 @@ This accelerator provides an end-to-end pipeline that:
 
 1. **Ingests HTML KB articles** — each article is a folder containing an HTML file and its associated images (see [kb/](kb/) for examples)
 
-2. **Converts articles to clean Markdown** — leverages [Azure Content Understanding](https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/overview) to extract high-quality text, tables, and document structure from HTML, while separately analyzing each image to generate detailed AI-powered descriptions
+2. **Converts articles to clean Markdown** — leverages [Azure Content Understanding](https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/overview) to extract high-quality text, tables, and document structure from HTML, while separately analyzing each image to generate detailed AI-powered descriptions. Each image is sent individually to a **custom Content Understanding analyzer** (`kb-image-analyzer`) built on `prebuilt-image` with a domain-tuned field schema that extracts a rich `Description`, `UIElements`, and `NavigationPath` — producing far more contextual results than generic image captioning. See the [Architecture spec](docs/specs/architecture.md) for the full analyzer definition, lifecycle management, and design rationale.
 
 3. **Produces image-aware Markdown** — the resulting Markdown preserves the full article structure with AI-generated image descriptions placed in context, each linking back to the original image file
 
