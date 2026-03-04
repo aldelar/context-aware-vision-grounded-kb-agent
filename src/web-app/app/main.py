@@ -543,10 +543,12 @@ async def on_message(message: cl.Message) -> None:
     await msg.send()  # renders the bubble with the thinking indicator
 
     try:
+        user_id: str = cl.user_session.get("user_id") or _get_user_id()  # type: ignore[assignment]
         response = client.responses.create(
             model="kb-agent",
             input=message.content,
             instructions=conversation_context,
+            metadata={"user_id": user_id},
             stream=True,
         )
 

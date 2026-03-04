@@ -12,13 +12,15 @@ from __future__ import annotations
 import json
 import logging
 import os
+from collections.abc import AsyncIterable
 from dataclasses import dataclass, field
-from typing import Annotated
+from typing import Any, Annotated
 
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 from agent_framework import ChatAgent
 from agent_framework.azure import AzureOpenAIChatClient
 
+from agent.request_context import get_user_id, set_user_id
 from agent.search_tool import SearchResult, search_kb
 from agent.image_service import get_image_url
 from agent.vision_middleware import VisionImageMiddleware
@@ -99,7 +101,8 @@ def search_knowledge_base(
 
     Returns relevant text chunks with optional images.
     """
-    logger.info("search_knowledge_base(query='%s')", query[:80])
+    user_id = get_user_id()
+    logger.info("search_knowledge_base(query='%s', user_id='%s')", query[:80], user_id)
 
     try:
         results: list[SearchResult] = search_kb(query)
@@ -127,19 +130,50 @@ def search_knowledge_base(
 
 
 # ---------------------------------------------------------------------------
+# KBSearchAgent — ChatAgent subclass that propagates per-request context
+# ---------------------------------------------------------------------------
+
+
+class KBSearchAgent(ChatAgent):
+    """ChatAgent subclass that sets per-request ``ContextVar`` values.
+
+    The ``AgentFrameworkAIAgentAdapter`` copies ``metadata`` from the request
+    body to ``self._request_headers`` *before* invoking ``run`` /
+    ``run_stream``.  This subclass reads ``user_id`` from that dict and
+    pushes it into a ``ContextVar`` so that tool functions can access it in
+    an async-safe way (no race conditions on the shared singleton).
+    """
+
+    def _apply_request_context(self) -> None:
+        """Copy ``user_id`` from ``_request_headers`` into the ``ContextVar``."""
+        headers: dict[str, Any] = getattr(self, "_request_headers", {}) or {}
+        uid = headers.get("user_id", "anonymous")
+        set_user_id(str(uid))
+        logger.debug("Request context: user_id=%s", uid)
+
+    async def run(self, messages=None, **kwargs):  # type: ignore[override]
+        self._apply_request_context()
+        return await super().run(messages, **kwargs)
+
+    async def run_stream(self, messages=None, **kwargs) -> AsyncIterable:  # type: ignore[override]
+        self._apply_request_context()
+        return await super().run_stream(messages, **kwargs)
+
+
+# ---------------------------------------------------------------------------
 # Agent factory — used by the hosting adapter
 # ---------------------------------------------------------------------------
 
-def create_agent() -> ChatAgent:
-    """Create and return a configured ChatAgent instance.
+def create_agent() -> KBSearchAgent:
+    """Create and return a configured KBSearchAgent instance.
 
     This factory is the entry point for the hosting adapter (``main.py``).
     It creates the ``AzureOpenAIChatClient`` with ``DefaultAzureCredential``
     (which includes WorkloadIdentityCredential for Foundry hosted agents,
     ManagedIdentityCredential, AzureCliCredential for local dev, etc.)
-    and returns a ``ChatAgent`` configured with the search tool and
-    vision middleware.
-    """
+    and returns a ``KBSearchAgent`` configured with the search tool and
+    vision middleware.  The subclass propagates ``user_id`` from request
+    metadata into a ``ContextVar`` for async-safe tool access."""
     # Use API key if provided (local dev), otherwise credential chain
     api_key = os.environ.get("AZURE_OPENAI_API_KEY")
 
@@ -167,7 +201,7 @@ def create_agent() -> ChatAgent:
             middleware=[VisionImageMiddleware()],
         )
 
-    agent = ChatAgent(
+    agent = KBSearchAgent(
         chat_client=client,
         name="KBSearchAgent",
         instructions=_SYSTEM_PROMPT,

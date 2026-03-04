@@ -26,22 +26,22 @@ import pytest
 class TestCreateAgentFactory:
     """Test the create_agent() factory used by main()."""
 
-    @patch("agent.kb_agent.ChatAgent")
+    @patch("agent.kb_agent.ChatAgent.__init__", return_value=None)
     @patch("agent.kb_agent.AzureOpenAIChatClient")
     @patch("agent.kb_agent.DefaultAzureCredential")
     def test_factory_returns_agent(
         self,
         mock_cred: MagicMock,
         mock_client: MagicMock,
-        mock_agent_cls: MagicMock,
+        mock_agent_init: MagicMock,
     ) -> None:
-        """create_agent() returns a ChatAgent instance."""
-        from agent.kb_agent import create_agent
+        """create_agent() returns a KBSearchAgent instance."""
+        from agent.kb_agent import KBSearchAgent, create_agent
 
         agent = create_agent()
 
-        mock_agent_cls.assert_called_once()
-        assert agent is mock_agent_cls.return_value
+        mock_agent_init.assert_called_once()
+        assert isinstance(agent, KBSearchAgent)
 
 
 # ---------------------------------------------------------------------------
@@ -52,14 +52,14 @@ class TestCreateAgentFactory:
 class TestFromAgentFramework:
     """Test that from_agent_framework accepts our agent."""
 
-    @patch("agent.kb_agent.ChatAgent")
+    @patch("agent.kb_agent.ChatAgent.__init__", return_value=None)
     @patch("agent.kb_agent.AzureOpenAIChatClient")
     @patch("agent.kb_agent.DefaultAzureCredential")
     def test_adapter_accepts_agent(
         self,
         mock_cred: MagicMock,
         mock_client: MagicMock,
-        mock_agent_cls: MagicMock,
+        mock_agent_init: MagicMock,
     ) -> None:
         """from_agent_framework(agent) returns a runnable server."""
         from azure.ai.agentserver.agentframework import from_agent_framework

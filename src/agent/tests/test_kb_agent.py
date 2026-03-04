@@ -11,6 +11,7 @@ import pytest
 from agent.kb_agent import (
     AgentResponse,
     Citation,
+    KBSearchAgent,
     _SYSTEM_PROMPT,
     create_agent,
     search_knowledge_base,
@@ -158,64 +159,61 @@ class TestSearchKnowledgeBaseTool:
 class TestCreateAgent:
     """Test the create_agent factory function."""
 
-    @patch("agent.kb_agent.ChatAgent")
+    @patch("agent.kb_agent.ChatAgent.__init__", return_value=None)
     @patch("agent.kb_agent.AzureOpenAIChatClient")
     @patch("agent.kb_agent.DefaultAzureCredential")
-    def test_returns_chat_agent(
+    def test_returns_kb_search_agent(
         self,
         mock_credential: MagicMock,
         mock_client_cls: MagicMock,
-        mock_agent_cls: MagicMock,
+        mock_agent_init: MagicMock,
     ) -> None:
-        """create_agent() returns a ChatAgent instance."""
-        mock_agent_instance = MagicMock()
-        mock_agent_cls.return_value = mock_agent_instance
-
+        """create_agent() returns a KBSearchAgent instance."""
         agent = create_agent()
 
-        assert agent is mock_agent_instance
+        assert isinstance(agent, KBSearchAgent)
         mock_credential.assert_called_once()
         mock_client_cls.assert_called_once()
-        mock_agent_cls.assert_called_once()
+        mock_agent_init.assert_called_once()
 
-    @patch("agent.kb_agent.ChatAgent")
+    @patch("agent.kb_agent.ChatAgent.__init__", return_value=None)
     @patch("agent.kb_agent.AzureOpenAIChatClient")
     @patch("agent.kb_agent.DefaultAzureCredential")
     def test_agent_has_search_tool(
         self,
         mock_credential: MagicMock,
         mock_client_cls: MagicMock,
-        mock_agent_cls: MagicMock,
+        mock_agent_init: MagicMock,
     ) -> None:
         """create_agent() configures the search tool."""
         create_agent()
 
-        call_kwargs = mock_agent_cls.call_args
+        call_kwargs = mock_agent_init.call_args
         assert search_knowledge_base in call_kwargs.kwargs["tools"]
 
-    @patch("agent.kb_agent.ChatAgent")
+    @patch("agent.kb_agent.ChatAgent.__init__", return_value=None)
     @patch("agent.kb_agent.AzureOpenAIChatClient")
     @patch("agent.kb_agent.DefaultAzureCredential")
     def test_agent_name(
         self,
         mock_credential: MagicMock,
         mock_client_cls: MagicMock,
-        mock_agent_cls: MagicMock,
+        mock_agent_init: MagicMock,
     ) -> None:
         """create_agent() sets the agent name."""
         create_agent()
 
-        call_kwargs = mock_agent_cls.call_args
+        call_kwargs = mock_agent_init.call_args
         assert call_kwargs.kwargs["name"] == "KBSearchAgent"
 
-    @patch("agent.kb_agent.ChatAgent")
+    @patch("agent.kb_agent.ChatAgent.__init__", return_value=None)
     @patch("agent.kb_agent.AzureOpenAIChatClient")
     @patch("agent.kb_agent.DefaultAzureCredential")
     def test_client_uses_vision_middleware(
         self,
         mock_credential: MagicMock,
         mock_client_cls: MagicMock,
-        mock_agent_cls: MagicMock,
+        mock_agent_init: MagicMock,
     ) -> None:
         """create_agent() configures vision middleware on the client."""
         create_agent()
@@ -226,7 +224,7 @@ class TestCreateAgent:
         from agent.vision_middleware import VisionImageMiddleware
         assert isinstance(middleware[0], VisionImageMiddleware)
 
-    @patch("agent.kb_agent.ChatAgent")
+    @patch("agent.kb_agent.ChatAgent.__init__", return_value=None)
     @patch("agent.kb_agent.AzureOpenAIChatClient")
     @patch("agent.kb_agent.get_bearer_token_provider")
     @patch("agent.kb_agent.DefaultAzureCredential")
@@ -235,7 +233,7 @@ class TestCreateAgent:
         mock_credential: MagicMock,
         mock_token_provider: MagicMock,
         mock_client_cls: MagicMock,
-        mock_agent_cls: MagicMock,
+        mock_agent_init: MagicMock,
     ) -> None:
         """create_agent() uses ad_token_provider with DefaultAzureCredential."""
         create_agent()
@@ -249,12 +247,12 @@ class TestCreateAgent:
         assert client_kwargs["ad_token_provider"] is mock_token_provider.return_value
 
     @patch.dict(os.environ, {"AZURE_OPENAI_API_KEY": "test-key-123"})
-    @patch("agent.kb_agent.ChatAgent")
+    @patch("agent.kb_agent.ChatAgent.__init__", return_value=None)
     @patch("agent.kb_agent.AzureOpenAIChatClient")
     def test_uses_api_key_when_provided(
         self,
         mock_client_cls: MagicMock,
-        mock_agent_cls: MagicMock,
+        mock_agent_init: MagicMock,
     ) -> None:
         """create_agent() uses API key when AZURE_OPENAI_API_KEY is set."""
         create_agent()
@@ -262,3 +260,100 @@ class TestCreateAgent:
         client_kwargs = mock_client_cls.call_args.kwargs
         assert client_kwargs["api_key"] == "test-key-123"
         assert "credential" not in client_kwargs
+
+
+# ---------------------------------------------------------------------------
+# request_context module tests
+# ---------------------------------------------------------------------------
+
+
+class TestRequestContext:
+    """Test the ContextVar-based request context helpers."""
+
+    def test_default_user_id_is_anonymous(self) -> None:
+        from agent.request_context import get_user_id
+        # In a fresh context the default should be returned
+        assert get_user_id() == "anonymous"
+
+    def test_set_and_get_user_id(self) -> None:
+        from agent.request_context import get_user_id, set_user_id
+        token = set_user_id("test-user-42")
+        try:
+            assert get_user_id() == "test-user-42"
+        finally:
+            # Reset to avoid polluting other tests
+            from agent.request_context import _user_id_var
+            _user_id_var.reset(token)
+
+    def test_set_user_id_returns_reset_token(self) -> None:
+        from agent.request_context import get_user_id, set_user_id, _user_id_var
+        token = set_user_id("u1")
+        assert get_user_id() == "u1"
+        _user_id_var.reset(token)
+        assert get_user_id() == "anonymous"
+
+
+# ---------------------------------------------------------------------------
+# KBSearchAgent subclass tests
+# ---------------------------------------------------------------------------
+
+
+class TestKBSearchAgent:
+    """Test that KBSearchAgent propagates user_id from _request_headers."""
+
+    def test_apply_request_context_sets_user_id(self) -> None:
+        """_apply_request_context copies user_id to ContextVar."""
+        from agent.request_context import get_user_id, _user_id_var
+
+        agent = KBSearchAgent.__new__(KBSearchAgent)
+        agent._request_headers = {"user_id": "uid-abc"}  # type: ignore[attr-defined]
+        agent._apply_request_context()
+
+        try:
+            assert get_user_id() == "uid-abc"
+        finally:
+            _user_id_var.set("anonymous")
+
+    def test_apply_request_context_defaults_to_anonymous(self) -> None:
+        """Missing user_id defaults to 'anonymous'."""
+        from agent.request_context import get_user_id, _user_id_var
+
+        agent = KBSearchAgent.__new__(KBSearchAgent)
+        agent._request_headers = {}  # type: ignore[attr-defined]
+        agent._apply_request_context()
+
+        try:
+            assert get_user_id() == "anonymous"
+        finally:
+            _user_id_var.set("anonymous")
+
+    def test_apply_request_context_no_headers_attr(self) -> None:
+        """No _request_headers attribute defaults to 'anonymous'."""
+        from agent.request_context import get_user_id, _user_id_var
+
+        agent = KBSearchAgent.__new__(KBSearchAgent)
+        # Don't set _request_headers at all
+        agent._apply_request_context()
+
+        try:
+            assert get_user_id() == "anonymous"
+        finally:
+            _user_id_var.set("anonymous")
+
+    @patch("agent.kb_agent.get_image_url")
+    @patch("agent.kb_agent.search_kb")
+    def test_tool_reads_user_id_from_context(
+        self, mock_search: MagicMock, mock_get_url: MagicMock
+    ) -> None:
+        """search_knowledge_base reads user_id from the ContextVar."""
+        from agent.request_context import get_user_id, set_user_id, _user_id_var
+
+        mock_search.return_value = []
+        token = set_user_id("tool-test-user")
+        try:
+            result = search_knowledge_base("test query")
+            assert json.loads(result) == []
+            # Verify user_id was accessible inside the tool
+            assert get_user_id() == "tool-test-user"
+        finally:
+            _user_id_var.reset(token)
