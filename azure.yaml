@@ -58,20 +58,16 @@ hooks:
         shell: sh
         run: |
             # Ensure PROJECT_NAME is set (required for resource naming).
-            if [ -z "$(azd env get-value PROJECT_NAME 2>/dev/null)" ]; then
-              printf 'Enter a short project name (2-8 chars, alphanumeric/hyphens, e.g. kbagent): '
-              read pname
-              if [ -z "$pname" ]; then
-                pname="kbagent"
-                echo "Defaulting to PROJECT_NAME=kbagent"
-              fi
-              azd env set PROJECT_NAME "$pname"
+            # Default: kbagent. To customize, run: azd env set PROJECT_NAME <name>
+            if ! azd env get-value PROJECT_NAME >/dev/null 2>&1; then
+              echo "PROJECT_NAME not set — defaulting to 'kbagent'. To customize: azd env set PROJECT_NAME <name>"
+              azd env set PROJECT_NAME "kbagent"
             fi
 
             # Ensure AZURE_PRINCIPAL_ID is set for deployer RBAC role assignments.
             # AZD uses this to grant the logged-in user access to deploy + interact with resources.
-            if [ -z "$(azd env get-value AZURE_PRINCIPAL_ID 2>/dev/null)" ]; then
-              PRINCIPAL_ID=$(az ad signed-in-user show --query id -o tsv 2>/dev/null)
+            if ! azd env get-value AZURE_PRINCIPAL_ID >/dev/null 2>&1; then
+              PRINCIPAL_ID=$(az ad signed-in-user show --query id -o tsv 2>/dev/null || true)
               if [ -n "$PRINCIPAL_ID" ]; then
                 azd env set AZURE_PRINCIPAL_ID "$PRINCIPAL_ID"
                 echo "Set AZURE_PRINCIPAL_ID=$PRINCIPAL_ID"
@@ -82,7 +78,8 @@ hooks:
 
             # Export AZURE_ENV_NAME for sub-scripts (AZD sets it in env values
             # but does not always export it as a shell variable to child processes)
-            export AZURE_ENV_NAME="$(azd env get-value AZURE_ENV_NAME 2>/dev/null)"
+            AZURE_ENV_NAME=$(azd env get-value AZURE_ENV_NAME 2>/dev/null || true)
+            export AZURE_ENV_NAME
 
             # Set up Entra App Registration for web app Easy Auth
             bash scripts/setup-entra-auth.sh

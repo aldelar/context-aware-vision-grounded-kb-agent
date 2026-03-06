@@ -57,7 +57,7 @@ setup: dev-doctor dev-setup ## Install tools + Python dependencies
 	@echo "    2. make setup-azure"
 	@echo ""
 
-setup-azure: azure-provision dev-setup-env grant-dev-roles validate-infra ## Provision Azure + configure local env (some Azure services required for dev)
+setup-azure: _check-project-name azure-provision dev-setup-env grant-dev-roles validate-infra ## Provision Azure + configure local env (some Azure services required for dev)
 
 kb: convert index ## Run full local KB pipeline (convert + index)
 
@@ -73,16 +73,40 @@ app: ## Run web app locally (http://localhost:8080)
 # ==============================================================================
 # Azure
 # ==============================================================================
+
+# Internal guard: ensure PROJECT_NAME is set in AZD env before any Azure target.
+.PHONY: _check-project-name
+_check-project-name:
+	@if ! azd env get-value PROJECT_NAME >/dev/null 2>&1; then \
+		echo ""; \
+		echo "  \033[31mERROR: PROJECT_NAME is not set.\033[0m"; \
+		echo ""; \
+		echo "  Run one of:"; \
+		echo "    make set-project              (uses default: kbagent)"; \
+		echo "    make set-project name=myproj  (custom, 2-8 chars)"; \
+		echo ""; \
+		exit 1; \
+	fi
+
 ## AZURE-START
-.PHONY: azure-up azure-kb azure-test azure-app-url
+.PHONY: azure-up azure-kb azure-test azure-app-url set-project
 
-azure-up: azure-provision azure-deploy azure-setup-auth ## Full Azure deploy (provision + deploy + auth)
+set-project: ## Set PROJECT_NAME in AZD env (default: kbagent, or name=<your-name>)
+	@PROJECT=$${name:-kbagent}; \
+	if [ $${#PROJECT} -lt 2 ] || [ $${#PROJECT} -gt 8 ]; then \
+		echo "ERROR: PROJECT_NAME must be 2-8 characters (got: $$PROJECT)"; \
+		exit 1; \
+	fi; \
+	azd env set PROJECT_NAME "$$PROJECT" && \
+	echo "✓ PROJECT_NAME=$$PROJECT"
 
-azure-kb: azure-upload-staging azure-convert azure-index ## Full Azure KB pipeline (upload + convert + index)
+azure-up: _check-project-name azure-provision azure-deploy azure-setup-auth ## Full Azure deploy (provision + deploy + auth)
 
-azure-test: azure-test-agent azure-test-app ## Run all Azure integration tests
+azure-kb: _check-project-name azure-upload-staging azure-convert azure-index ## Full Azure KB pipeline (upload + convert + index)
 
-azure-app-url: ## Print the deployed web app URL
+azure-test: _check-project-name azure-test-agent azure-test-app ## Run all Azure integration tests
+
+azure-app-url: _check-project-name ## Print the deployed web app URL
 	@azd env get-value WEBAPP_URL
 ## AZURE-END
 
@@ -211,13 +235,13 @@ test-agent-integration: ## Run agent integration tests (needs running local agen
 # --- Provision ---
 .PHONY: azure-provision
 
-azure-provision: ## Provision all Azure resources (azd provision)
+azure-provision: _check-project-name ## Provision all Azure resources (azd provision)
 	azd provision
 
 # --- Deploy ---
 .PHONY: azure-deploy azure-deploy-app azure-setup-auth
 
-azure-deploy: ## Deploy all services + CU analyzer + publish agent
+azure-deploy: _check-project-name ## Deploy all services + CU analyzer + publish agent
 	AZD_EXT_TIMEOUT=180 azd deploy
 	@echo "Configuring CU defaults and deploying kb-image-analyzer..."
 	@(cd src/functions && uv run python -m manage_analyzers deploy)
