@@ -121,12 +121,12 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
         transport: 'auto'
         allowInsecure: false
       }
-      registries: [
+      registries: useAcrImage ? [
         {
           server: acrLoginServer
           identity: 'system'
         }
-      ]
+      ] : []
     }
     template: {
       containers: [

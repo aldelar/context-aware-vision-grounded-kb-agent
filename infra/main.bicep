@@ -259,16 +259,15 @@ module servingStorageRole 'modules/storage.bicep' = {
   }
 }
 
-// AI Services: Cognitive Services User + OpenAI User
-module aiServicesRole 'modules/ai-services.bicep' = {
+// AI Services: Cognitive Services User + OpenAI User (Function App + deployer)
+module aiServicesRole 'modules/ai-services-role.bicep' = {
   name: 'ai-services-role'
   params: {
-    location: location
     baseName: baseName
-    tags: defaultTags
     cognitiveServicesUserPrincipalId: functionApp.outputs.functionAppPrincipalId
     deployerPrincipalId: principalId
   }
+  dependsOn: [aiServices]
 }
 
 // AI Search: Index Data Contributor + Service Contributor
@@ -323,14 +322,13 @@ module servingStorageReaderRole 'modules/storage.bicep' = {
 }
 
 // AI Services: Cognitive Services OpenAI User (Container App MI — OpenAI only, no CU)
-module aiServicesWebAppRole 'modules/ai-services.bicep' = {
+module aiServicesWebAppRole 'modules/ai-services-role.bicep' = {
   name: 'ai-services-webapp-role'
   params: {
-    location: location
     baseName: baseName
-    tags: defaultTags
     openAIOnlyUserPrincipalId: containerApp.outputs.containerAppPrincipalId
   }
+  dependsOn: [aiServices]
 }
 
 // AI Search: Search Index Data Reader (Container App MI — read-only for querying)
@@ -375,14 +373,13 @@ module searchAgentRole 'modules/search.bicep' = {
 }
 
 // AI Services: Cognitive Services OpenAI User (AI Services MI — for embedding calls)
-module aiServicesAgentRole 'modules/ai-services.bicep' = {
+module aiServicesAgentRole 'modules/ai-services-role.bicep' = {
   name: 'ai-services-agent-role'
   params: {
-    location: location
     baseName: baseName
-    tags: defaultTags
     openAIOnlyUserPrincipalId: aiServices.outputs.aiServicesPrincipalId
   }
+  dependsOn: [aiServices]
 }
 
 // Serving storage: Storage Blob Data Reader (AI Services MI — for image proxy)
@@ -416,14 +413,13 @@ module searchFoundryRole 'modules/search.bicep' = {
 }
 
 // AI Services: Cognitive Services OpenAI User (Foundry Project MI — for embeddings)
-module aiServicesFoundryRole 'modules/ai-services.bicep' = {
+module aiServicesFoundryRole 'modules/ai-services-role.bicep' = {
   name: 'ai-services-foundry-role'
   params: {
-    location: location
     baseName: baseName
-    tags: defaultTags
     openAIOnlyUserPrincipalId: foundryProject.outputs.projectPrincipalId
   }
+  dependsOn: [aiServices]
 }
 
 // Serving storage: Storage Blob Data Reader (Foundry Project MI — for images)

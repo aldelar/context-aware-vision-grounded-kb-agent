@@ -45,7 +45,7 @@ help: ## Show available targets
 # Local
 # ==============================================================================
 ## LOCAL-START
-.PHONY: setup setup-azure kb test agent app
+.PHONY: setup setup-azure kb clean-kb test agent app
 
 setup: dev-doctor dev-setup ## Install tools + Python dependencies
 	@echo ""
@@ -59,20 +59,33 @@ setup: dev-doctor dev-setup ## Install tools + Python dependencies
 
 setup-azure: _check-project-name azure-provision dev-setup-env grant-dev-roles validate-infra ## Provision Azure + configure local env (some Azure services required for dev)
 
-kb: convert index ## Run full local KB pipeline (convert + index)
+kb: _check-env convert index ## Run full local KB pipeline (convert + index)
 
 test: test-agent test-app test-functions ## Run all fast tests (unit + endpoint, no Azure needed)
 
-agent: ## Run KB Agent locally (http://localhost:8088)
+agent: _check-env ## Run KB Agent locally (http://localhost:8088)
 	@cd src/agent && uv run python main.py
 
-app: ## Run web app locally (http://localhost:8080)
+app: _check-env ## Run web app locally (http://localhost:8080)
 	@cd src/web-app && uv run chainlit run app/main.py -w --port 8080
 ## LOCAL-END
 
 # ==============================================================================
 # Azure
 # ==============================================================================
+
+# Internal guard: ensure .env files exist before local targets that need Azure config.
+.PHONY: _check-env
+_check-env:
+	@if [ ! -f src/functions/.env ]; then \
+		echo ""; \
+		echo "  \033[31mERROR: src/functions/.env not found.\033[0m"; \
+		echo ""; \
+		echo "  Run:  make setup-azure   (first time)"; \
+		echo "     or make dev-setup-env  (refresh .env files only)"; \
+		echo ""; \
+		exit 1; \
+	fi
 
 # Internal guard: ensure PROJECT_NAME is set in AZD env before any Azure target.
 .PHONY: _check-project-name
@@ -84,6 +97,18 @@ _check-project-name:
 		echo "  Run:  make set-project name=<your-name>  (2-8 chars)"; \
 		echo ""; \
 		exit 1; \
+	fi
+	@PROJECT=$$(azd env get-value PROJECT_NAME) && \
+	ENV=$$(azd env get-value AZURE_ENV_NAME 2>/dev/null || echo "dev") && \
+	azd env set AZURE_RESOURCE_GROUP "rg-$$PROJECT-$$ENV" >/dev/null 2>&1 || true
+	@if ! azd env get-value AZURE_SUBSCRIPTION_ID >/dev/null 2>&1; then \
+		SUB_ID=$$(az account show --query id -o tsv 2>/dev/null || true) && \
+		if [ -n "$$SUB_ID" ]; then \
+			azd env set AZURE_SUBSCRIPTION_ID "$$SUB_ID"; \
+		fi; \
+	fi
+	@if ! azd env get-value AZURE_LOCATION >/dev/null 2>&1; then \
+		azd env set AZURE_LOCATION "eastus2"; \
 	fi
 
 ## AZURE-START
@@ -100,7 +125,9 @@ set-project: ## Set PROJECT_NAME in AZD env (name=<your-name>, 2-8 chars)
 		exit 1; \
 	fi; \
 	azd env set PROJECT_NAME "$$PROJECT" && \
-	echo "✓ PROJECT_NAME=$$PROJECT"
+	ENV=$$(azd env get-value AZURE_ENV_NAME 2>/dev/null || echo "dev") && \
+	azd env set AZURE_RESOURCE_GROUP "rg-$$PROJECT-$$ENV" && \
+	echo "\u2713 PROJECT_NAME=$$PROJECT  AZURE_RESOURCE_GROUP=rg-$$PROJECT-$$ENV"
 
 azure-up: _check-project-name azure-provision azure-deploy azure-setup-auth ## Full Azure deploy (provision + deploy + auth)
 
@@ -158,13 +185,13 @@ dev-setup: ## Install required dev tools and Python dependencies
 dev-setup-env: ## Populate .env files from AZD environment
 	@echo "Writing AZD environment values to src/functions/.env..."
 	@azd env get-values > src/functions/.env
-	@echo "Done. $(shell wc -l < src/functions/.env 2>/dev/null || echo 0) variables written."
+	@echo "Done. $$(wc -l < src/functions/.env) variables written."
 	@echo "Writing AZD environment values to src/web-app/.env..."
 	@azd env get-values > src/web-app/.env
-	@echo "Done. $(shell wc -l < src/web-app/.env 2>/dev/null || echo 0) variables written."
+	@echo "Done. $$(wc -l < src/web-app/.env) variables written."
 	@echo "Writing AZD environment values to src/agent/.env..."
 	@azd env get-values > src/agent/.env
-	@echo "Done. $(shell wc -l < src/agent/.env 2>/dev/null || echo 0) variables written."
+	@echo "Done. $$(wc -l < src/agent/.env) variables written."
 
 validate-infra: ## Validate Azure infra is ready for local dev
 	@bash scripts/functions/validate-infra.sh
@@ -204,7 +231,21 @@ grant-dev-roles: ## Grant Cosmos DB native RBAC to current developer
 	@echo "  If missing, run: make azure-up"
 
 # --- KB ---
-.PHONY: convert index
+.PHONY: convert index clean-kb
+
+clean-kb: _check-env ## Clean local serving output + delete search index
+	@echo "Cleaning kb/serving/ article outputs..."
+	@find kb/serving -name "article.md" -delete 2>/dev/null || true
+	@find kb/serving -name "*.png" -delete 2>/dev/null || true
+	@echo "Deleting search index..."
+	@cd src/functions && uv run python -c "\
+	from shared.config import config; \
+	from azure.search.documents.indexes import SearchIndexClient; \
+	from azure.identity import DefaultAzureCredential; \
+	c = SearchIndexClient(config.search_endpoint, DefaultAzureCredential()); \
+	c.delete_index('kb-articles'); \
+	print('  Index deleted.')" 2>/dev/null || echo "  Index did not exist."
+	@echo "Done."
 
 convert: ## Run fn-convert locally (analyzer=$(analyzer))
 	@bash scripts/functions/convert.sh $(analyzer)
@@ -222,7 +263,7 @@ test-app: ## Run web app unit tests
 	@cd src/web-app && uv run pytest tests/ -v -m "not integration" || test $$? -eq 5
 
 test-functions: ## Run functions unit tests
-	@cd src/functions && uv run pytest tests/ -v || test $$? -eq 5
+	@cd src/functions && uv run pytest tests/ -v -m "not integration" || test $$? -eq 5
 
 test-agent-integration: ## Run agent integration tests (needs running local agent)
 	@cd src/agent && AGENT_ENDPOINT=http://localhost:8088 uv run pytest tests/ -v -m integration || test $$? -eq 5

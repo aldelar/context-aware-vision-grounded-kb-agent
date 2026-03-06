@@ -110,15 +110,14 @@ resource functionApp 'Microsoft.App/containerApps@2024-03-01' = {
         transport: 'auto'
         allowInsecure: false
       }
-      // Always configure the ACR registry so azd deploy can update the image
-      // without needing a separate CLI step. The AcrPull role is assigned below
-      // after the Container App is created (using its system-assigned identity).
-      registries: [
+      // Configure ACR registry only when using a real image (not the placeholder).
+      // The AcrPull role is assigned after the Container App is created.
+      registries: useAcrImage ? [
         {
           server: acrLoginServer
           identity: 'system'
         }
-      ]
+      ] : []
     }
     template: {
       containers: [

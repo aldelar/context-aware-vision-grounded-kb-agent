@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "293072287998793307"
+      "templateHash": "13428182426452425106"
     }
   },
   "parameters": {
@@ -652,7 +652,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "15823499182751848201"
+              "templateHash": "9040054360350217426"
             }
           },
           "parameters": {
@@ -674,32 +674,7 @@
               "metadata": {
                 "description": "Tags to apply to all resources"
               }
-            },
-            "cognitiveServicesUserPrincipalId": {
-              "type": "string",
-              "defaultValue": "",
-              "metadata": {
-                "description": "Principal ID to grant Cognitive Services roles (service principal / managed identity)"
-              }
-            },
-            "deployerPrincipalId": {
-              "type": "string",
-              "defaultValue": "",
-              "metadata": {
-                "description": "Principal ID of the deployer (human user) for Cognitive Services access"
-              }
-            },
-            "openAIOnlyUserPrincipalId": {
-              "type": "string",
-              "defaultValue": "",
-              "metadata": {
-                "description": "Principal ID to grant Cognitive Services OpenAI User role only (e.g., Container App MI)"
-              }
             }
-          },
-          "variables": {
-            "cognitiveServicesOpenAIUserRoleId": "5e0bd9bd-7b93-4f28-af87-19fc36ad61bd",
-            "cognitiveServicesUserRoleId": "a97b65f3-24c7-4388-baec-2e87135dc908"
           },
           "resources": [
             {
@@ -839,81 +814,6 @@
               "dependsOn": [
                 "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]",
                 "[resourceId('Microsoft.CognitiveServices/accounts/deployments', format('ai-{0}', parameters('baseName')), 'gpt-4.1-mini')]"
-              ]
-            },
-            {
-              "condition": "[not(empty(parameters('cognitiveServicesUserPrincipalId')))]",
-              "type": "Microsoft.Authorization/roleAssignments",
-              "apiVersion": "2022-04-01",
-              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]",
-              "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName'))), parameters('cognitiveServicesUserPrincipalId'), variables('cognitiveServicesOpenAIUserRoleId'))]",
-              "properties": {
-                "principalId": "[parameters('cognitiveServicesUserPrincipalId')]",
-                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('cognitiveServicesOpenAIUserRoleId'))]",
-                "principalType": "ServicePrincipal"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-              ]
-            },
-            {
-              "condition": "[not(empty(parameters('cognitiveServicesUserPrincipalId')))]",
-              "type": "Microsoft.Authorization/roleAssignments",
-              "apiVersion": "2022-04-01",
-              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]",
-              "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName'))), parameters('cognitiveServicesUserPrincipalId'), variables('cognitiveServicesUserRoleId'))]",
-              "properties": {
-                "principalId": "[parameters('cognitiveServicesUserPrincipalId')]",
-                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('cognitiveServicesUserRoleId'))]",
-                "principalType": "ServicePrincipal"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-              ]
-            },
-            {
-              "condition": "[not(empty(parameters('deployerPrincipalId')))]",
-              "type": "Microsoft.Authorization/roleAssignments",
-              "apiVersion": "2022-04-01",
-              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]",
-              "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName'))), parameters('deployerPrincipalId'), variables('cognitiveServicesOpenAIUserRoleId'))]",
-              "properties": {
-                "principalId": "[parameters('deployerPrincipalId')]",
-                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('cognitiveServicesOpenAIUserRoleId'))]",
-                "principalType": "User"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-              ]
-            },
-            {
-              "condition": "[not(empty(parameters('deployerPrincipalId')))]",
-              "type": "Microsoft.Authorization/roleAssignments",
-              "apiVersion": "2022-04-01",
-              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]",
-              "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName'))), parameters('deployerPrincipalId'), variables('cognitiveServicesUserRoleId'))]",
-              "properties": {
-                "principalId": "[parameters('deployerPrincipalId')]",
-                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('cognitiveServicesUserRoleId'))]",
-                "principalType": "User"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-              ]
-            },
-            {
-              "condition": "[not(empty(parameters('openAIOnlyUserPrincipalId')))]",
-              "type": "Microsoft.Authorization/roleAssignments",
-              "apiVersion": "2022-04-01",
-              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]",
-              "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName'))), parameters('openAIOnlyUserPrincipalId'), variables('cognitiveServicesOpenAIUserRoleId'))]",
-              "properties": {
-                "principalId": "[parameters('openAIOnlyUserPrincipalId')]",
-                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('cognitiveServicesOpenAIUserRoleId'))]",
-                "principalType": "ServicePrincipal"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
               ]
             }
           ],
@@ -1228,7 +1128,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "804575382752469994"
+              "templateHash": "11162897792054892611"
             }
           },
           "parameters": {
@@ -1393,12 +1293,7 @@
                     "transport": "auto",
                     "allowInsecure": false
                   },
-                  "registries": [
-                    {
-                      "server": "[parameters('acrLoginServer')]",
-                      "identity": "system"
-                    }
-                  ]
+                  "registries": "[if(variables('useAcrImage'), createArray(createObject('server', parameters('acrLoginServer'), 'identity', 'system')), createArray())]"
                 },
                 "template": {
                   "containers": [
@@ -1733,7 +1628,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "5049411699146823020"
+              "templateHash": "2120093600471909400"
             }
           },
           "parameters": {
@@ -1912,12 +1807,7 @@
                     "transport": "auto",
                     "allowInsecure": false
                   },
-                  "registries": [
-                    {
-                      "server": "[parameters('acrLoginServer')]",
-                      "identity": "system"
-                    }
-                  ]
+                  "registries": "[if(variables('useAcrImage'), createArray(createObject('server', parameters('acrLoginServer'), 'identity', 'system')), createArray())]"
                 },
                 "template": {
                   "containers": [
@@ -2916,14 +2806,8 @@
         },
         "mode": "Incremental",
         "parameters": {
-          "location": {
-            "value": "[parameters('location')]"
-          },
           "baseName": {
             "value": "[variables('baseName')]"
-          },
-          "tags": {
-            "value": "[variables('defaultTags')]"
           },
           "cognitiveServicesUserPrincipalId": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'function-app'), '2025-04-01').outputs.functionAppPrincipalId.value]"
@@ -2939,34 +2823,21 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "15823499182751848201"
+              "templateHash": "7427479697155701199"
             }
           },
           "parameters": {
-            "location": {
-              "type": "string",
-              "metadata": {
-                "description": "Azure region for resources"
-              }
-            },
             "baseName": {
               "type": "string",
               "metadata": {
                 "description": "Base name used for resource naming"
               }
             },
-            "tags": {
-              "type": "object",
-              "defaultValue": {},
-              "metadata": {
-                "description": "Tags to apply to all resources"
-              }
-            },
             "cognitiveServicesUserPrincipalId": {
               "type": "string",
               "defaultValue": "",
               "metadata": {
-                "description": "Principal ID to grant Cognitive Services roles (service principal / managed identity)"
+                "description": "Principal ID to grant Cognitive Services User + OpenAI User roles (service principal)"
               }
             },
             "deployerPrincipalId": {
@@ -2990,145 +2861,6 @@
           },
           "resources": [
             {
-              "type": "Microsoft.CognitiveServices/accounts",
-              "apiVersion": "2025-06-01",
-              "name": "[format('ai-{0}', parameters('baseName'))]",
-              "location": "[parameters('location')]",
-              "tags": "[parameters('tags')]",
-              "kind": "AIServices",
-              "identity": {
-                "type": "SystemAssigned"
-              },
-              "sku": {
-                "name": "S0"
-              },
-              "properties": {
-                "customSubDomainName": "[format('ai-{0}', parameters('baseName'))]",
-                "publicNetworkAccess": "Enabled",
-                "disableLocalAuth": true,
-                "allowProjectManagement": true
-              }
-            },
-            {
-              "type": "Microsoft.CognitiveServices/accounts/deployments",
-              "apiVersion": "2024-10-01",
-              "name": "[format('{0}/{1}', format('ai-{0}', parameters('baseName')), 'text-embedding-3-small')]",
-              "sku": {
-                "name": "GlobalStandard",
-                "capacity": 120
-              },
-              "properties": {
-                "model": {
-                  "format": "OpenAI",
-                  "name": "text-embedding-3-small",
-                  "version": "1"
-                }
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-              ]
-            },
-            {
-              "type": "Microsoft.CognitiveServices/accounts/deployments",
-              "apiVersion": "2024-10-01",
-              "name": "[format('{0}/{1}', format('ai-{0}', parameters('baseName')), 'text-embedding-3-large')]",
-              "sku": {
-                "name": "GlobalStandard",
-                "capacity": 120
-              },
-              "properties": {
-                "model": {
-                  "format": "OpenAI",
-                  "name": "text-embedding-3-large",
-                  "version": "1"
-                }
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]",
-                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', format('ai-{0}', parameters('baseName')), 'text-embedding-3-small')]"
-              ]
-            },
-            {
-              "type": "Microsoft.CognitiveServices/accounts/deployments",
-              "apiVersion": "2024-10-01",
-              "name": "[format('{0}/{1}', format('ai-{0}', parameters('baseName')), 'gpt-5-mini')]",
-              "sku": {
-                "name": "GlobalStandard",
-                "capacity": 30
-              },
-              "properties": {
-                "model": {
-                  "format": "OpenAI",
-                  "name": "gpt-5-mini",
-                  "version": "2025-08-07"
-                }
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]",
-                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', format('ai-{0}', parameters('baseName')), 'text-embedding-3-large')]"
-              ]
-            },
-            {
-              "type": "Microsoft.CognitiveServices/accounts/deployments",
-              "apiVersion": "2024-10-01",
-              "name": "[format('{0}/{1}', format('ai-{0}', parameters('baseName')), 'gpt-4.1')]",
-              "sku": {
-                "name": "GlobalStandard",
-                "capacity": 30
-              },
-              "properties": {
-                "model": {
-                  "format": "OpenAI",
-                  "name": "gpt-4.1",
-                  "version": "2025-04-14"
-                }
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', format('ai-{0}', parameters('baseName')), 'gpt-5-mini')]",
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-              ]
-            },
-            {
-              "type": "Microsoft.CognitiveServices/accounts/deployments",
-              "apiVersion": "2024-10-01",
-              "name": "[format('{0}/{1}', format('ai-{0}', parameters('baseName')), 'gpt-4.1-mini')]",
-              "sku": {
-                "name": "GlobalStandard",
-                "capacity": 30
-              },
-              "properties": {
-                "model": {
-                  "format": "OpenAI",
-                  "name": "gpt-4.1-mini",
-                  "version": "2025-04-14"
-                }
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]",
-                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', format('ai-{0}', parameters('baseName')), 'gpt-4.1')]"
-              ]
-            },
-            {
-              "type": "Microsoft.CognitiveServices/accounts/deployments",
-              "apiVersion": "2024-04-01-preview",
-              "name": "[format('{0}/{1}', format('ai-{0}', parameters('baseName')), 'mistral-document-ai-2512')]",
-              "sku": {
-                "name": "GlobalStandard",
-                "capacity": 1
-              },
-              "properties": {
-                "model": {
-                  "format": "Mistral AI",
-                  "name": "mistral-document-ai-2512",
-                  "version": "1"
-                }
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]",
-                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', format('ai-{0}', parameters('baseName')), 'gpt-4.1-mini')]"
-              ]
-            },
-            {
               "condition": "[not(empty(parameters('cognitiveServicesUserPrincipalId')))]",
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
@@ -3138,10 +2870,7 @@
                 "principalId": "[parameters('cognitiveServicesUserPrincipalId')]",
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('cognitiveServicesOpenAIUserRoleId'))]",
                 "principalType": "ServicePrincipal"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-              ]
+              }
             },
             {
               "condition": "[not(empty(parameters('cognitiveServicesUserPrincipalId')))]",
@@ -3153,10 +2882,7 @@
                 "principalId": "[parameters('cognitiveServicesUserPrincipalId')]",
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('cognitiveServicesUserRoleId'))]",
                 "principalType": "ServicePrincipal"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-              ]
+              }
             },
             {
               "condition": "[not(empty(parameters('deployerPrincipalId')))]",
@@ -3168,10 +2894,7 @@
                 "principalId": "[parameters('deployerPrincipalId')]",
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('cognitiveServicesOpenAIUserRoleId'))]",
                 "principalType": "User"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-              ]
+              }
             },
             {
               "condition": "[not(empty(parameters('deployerPrincipalId')))]",
@@ -3183,10 +2906,7 @@
                 "principalId": "[parameters('deployerPrincipalId')]",
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('cognitiveServicesUserRoleId'))]",
                 "principalType": "User"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-              ]
+              }
             },
             {
               "condition": "[not(empty(parameters('openAIOnlyUserPrincipalId')))]",
@@ -3198,49 +2918,13 @@
                 "principalId": "[parameters('openAIOnlyUserPrincipalId')]",
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('cognitiveServicesOpenAIUserRoleId'))]",
                 "principalType": "ServicePrincipal"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-              ]
+              }
             }
-          ],
-          "outputs": {
-            "aiServicesId": {
-              "type": "string",
-              "value": "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-            },
-            "aiServicesName": {
-              "type": "string",
-              "value": "[format('ai-{0}', parameters('baseName'))]"
-            },
-            "aiServicesEndpoint": {
-              "type": "string",
-              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName'))), '2025-06-01').endpoint]"
-            },
-            "aiServicesPrincipalId": {
-              "type": "string",
-              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName'))), '2025-06-01', 'full').identity.principalId]"
-            },
-            "embeddingDeploymentName": {
-              "type": "string",
-              "value": "text-embedding-3-small"
-            },
-            "agentDeploymentName": {
-              "type": "string",
-              "value": "gpt-5-mini"
-            },
-            "cuCompletionDeploymentName": {
-              "type": "string",
-              "value": "gpt-4.1"
-            },
-            "mistralDeploymentName": {
-              "type": "string",
-              "value": "mistral-document-ai-2512"
-            }
-          }
+          ]
         }
       },
       "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'ai-services')]",
         "[resourceId('Microsoft.Resources/deployments', 'function-app')]"
       ]
     },
@@ -3907,14 +3591,8 @@
         },
         "mode": "Incremental",
         "parameters": {
-          "location": {
-            "value": "[parameters('location')]"
-          },
           "baseName": {
             "value": "[variables('baseName')]"
-          },
-          "tags": {
-            "value": "[variables('defaultTags')]"
           },
           "openAIOnlyUserPrincipalId": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'container-app'), '2025-04-01').outputs.containerAppPrincipalId.value]"
@@ -3927,34 +3605,21 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "15823499182751848201"
+              "templateHash": "7427479697155701199"
             }
           },
           "parameters": {
-            "location": {
-              "type": "string",
-              "metadata": {
-                "description": "Azure region for resources"
-              }
-            },
             "baseName": {
               "type": "string",
               "metadata": {
                 "description": "Base name used for resource naming"
               }
             },
-            "tags": {
-              "type": "object",
-              "defaultValue": {},
-              "metadata": {
-                "description": "Tags to apply to all resources"
-              }
-            },
             "cognitiveServicesUserPrincipalId": {
               "type": "string",
               "defaultValue": "",
               "metadata": {
-                "description": "Principal ID to grant Cognitive Services roles (service principal / managed identity)"
+                "description": "Principal ID to grant Cognitive Services User + OpenAI User roles (service principal)"
               }
             },
             "deployerPrincipalId": {
@@ -3978,145 +3643,6 @@
           },
           "resources": [
             {
-              "type": "Microsoft.CognitiveServices/accounts",
-              "apiVersion": "2025-06-01",
-              "name": "[format('ai-{0}', parameters('baseName'))]",
-              "location": "[parameters('location')]",
-              "tags": "[parameters('tags')]",
-              "kind": "AIServices",
-              "identity": {
-                "type": "SystemAssigned"
-              },
-              "sku": {
-                "name": "S0"
-              },
-              "properties": {
-                "customSubDomainName": "[format('ai-{0}', parameters('baseName'))]",
-                "publicNetworkAccess": "Enabled",
-                "disableLocalAuth": true,
-                "allowProjectManagement": true
-              }
-            },
-            {
-              "type": "Microsoft.CognitiveServices/accounts/deployments",
-              "apiVersion": "2024-10-01",
-              "name": "[format('{0}/{1}', format('ai-{0}', parameters('baseName')), 'text-embedding-3-small')]",
-              "sku": {
-                "name": "GlobalStandard",
-                "capacity": 120
-              },
-              "properties": {
-                "model": {
-                  "format": "OpenAI",
-                  "name": "text-embedding-3-small",
-                  "version": "1"
-                }
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-              ]
-            },
-            {
-              "type": "Microsoft.CognitiveServices/accounts/deployments",
-              "apiVersion": "2024-10-01",
-              "name": "[format('{0}/{1}', format('ai-{0}', parameters('baseName')), 'text-embedding-3-large')]",
-              "sku": {
-                "name": "GlobalStandard",
-                "capacity": 120
-              },
-              "properties": {
-                "model": {
-                  "format": "OpenAI",
-                  "name": "text-embedding-3-large",
-                  "version": "1"
-                }
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]",
-                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', format('ai-{0}', parameters('baseName')), 'text-embedding-3-small')]"
-              ]
-            },
-            {
-              "type": "Microsoft.CognitiveServices/accounts/deployments",
-              "apiVersion": "2024-10-01",
-              "name": "[format('{0}/{1}', format('ai-{0}', parameters('baseName')), 'gpt-5-mini')]",
-              "sku": {
-                "name": "GlobalStandard",
-                "capacity": 30
-              },
-              "properties": {
-                "model": {
-                  "format": "OpenAI",
-                  "name": "gpt-5-mini",
-                  "version": "2025-08-07"
-                }
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]",
-                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', format('ai-{0}', parameters('baseName')), 'text-embedding-3-large')]"
-              ]
-            },
-            {
-              "type": "Microsoft.CognitiveServices/accounts/deployments",
-              "apiVersion": "2024-10-01",
-              "name": "[format('{0}/{1}', format('ai-{0}', parameters('baseName')), 'gpt-4.1')]",
-              "sku": {
-                "name": "GlobalStandard",
-                "capacity": 30
-              },
-              "properties": {
-                "model": {
-                  "format": "OpenAI",
-                  "name": "gpt-4.1",
-                  "version": "2025-04-14"
-                }
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', format('ai-{0}', parameters('baseName')), 'gpt-5-mini')]",
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-              ]
-            },
-            {
-              "type": "Microsoft.CognitiveServices/accounts/deployments",
-              "apiVersion": "2024-10-01",
-              "name": "[format('{0}/{1}', format('ai-{0}', parameters('baseName')), 'gpt-4.1-mini')]",
-              "sku": {
-                "name": "GlobalStandard",
-                "capacity": 30
-              },
-              "properties": {
-                "model": {
-                  "format": "OpenAI",
-                  "name": "gpt-4.1-mini",
-                  "version": "2025-04-14"
-                }
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]",
-                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', format('ai-{0}', parameters('baseName')), 'gpt-4.1')]"
-              ]
-            },
-            {
-              "type": "Microsoft.CognitiveServices/accounts/deployments",
-              "apiVersion": "2024-04-01-preview",
-              "name": "[format('{0}/{1}', format('ai-{0}', parameters('baseName')), 'mistral-document-ai-2512')]",
-              "sku": {
-                "name": "GlobalStandard",
-                "capacity": 1
-              },
-              "properties": {
-                "model": {
-                  "format": "Mistral AI",
-                  "name": "mistral-document-ai-2512",
-                  "version": "1"
-                }
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]",
-                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', format('ai-{0}', parameters('baseName')), 'gpt-4.1-mini')]"
-              ]
-            },
-            {
               "condition": "[not(empty(parameters('cognitiveServicesUserPrincipalId')))]",
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
@@ -4126,10 +3652,7 @@
                 "principalId": "[parameters('cognitiveServicesUserPrincipalId')]",
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('cognitiveServicesOpenAIUserRoleId'))]",
                 "principalType": "ServicePrincipal"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-              ]
+              }
             },
             {
               "condition": "[not(empty(parameters('cognitiveServicesUserPrincipalId')))]",
@@ -4141,10 +3664,7 @@
                 "principalId": "[parameters('cognitiveServicesUserPrincipalId')]",
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('cognitiveServicesUserRoleId'))]",
                 "principalType": "ServicePrincipal"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-              ]
+              }
             },
             {
               "condition": "[not(empty(parameters('deployerPrincipalId')))]",
@@ -4156,10 +3676,7 @@
                 "principalId": "[parameters('deployerPrincipalId')]",
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('cognitiveServicesOpenAIUserRoleId'))]",
                 "principalType": "User"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-              ]
+              }
             },
             {
               "condition": "[not(empty(parameters('deployerPrincipalId')))]",
@@ -4171,10 +3688,7 @@
                 "principalId": "[parameters('deployerPrincipalId')]",
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('cognitiveServicesUserRoleId'))]",
                 "principalType": "User"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-              ]
+              }
             },
             {
               "condition": "[not(empty(parameters('openAIOnlyUserPrincipalId')))]",
@@ -4186,49 +3700,13 @@
                 "principalId": "[parameters('openAIOnlyUserPrincipalId')]",
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('cognitiveServicesOpenAIUserRoleId'))]",
                 "principalType": "ServicePrincipal"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-              ]
+              }
             }
-          ],
-          "outputs": {
-            "aiServicesId": {
-              "type": "string",
-              "value": "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-            },
-            "aiServicesName": {
-              "type": "string",
-              "value": "[format('ai-{0}', parameters('baseName'))]"
-            },
-            "aiServicesEndpoint": {
-              "type": "string",
-              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName'))), '2025-06-01').endpoint]"
-            },
-            "aiServicesPrincipalId": {
-              "type": "string",
-              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName'))), '2025-06-01', 'full').identity.principalId]"
-            },
-            "embeddingDeploymentName": {
-              "type": "string",
-              "value": "text-embedding-3-small"
-            },
-            "agentDeploymentName": {
-              "type": "string",
-              "value": "gpt-5-mini"
-            },
-            "cuCompletionDeploymentName": {
-              "type": "string",
-              "value": "gpt-4.1"
-            },
-            "mistralDeploymentName": {
-              "type": "string",
-              "value": "mistral-document-ai-2512"
-            }
-          }
+          ]
         }
       },
       "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'ai-services')]",
         "[resourceId('Microsoft.Resources/deployments', 'container-app')]"
       ]
     },
@@ -4733,14 +4211,8 @@
         },
         "mode": "Incremental",
         "parameters": {
-          "location": {
-            "value": "[parameters('location')]"
-          },
           "baseName": {
             "value": "[variables('baseName')]"
-          },
-          "tags": {
-            "value": "[variables('defaultTags')]"
           },
           "openAIOnlyUserPrincipalId": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'ai-services'), '2025-04-01').outputs.aiServicesPrincipalId.value]"
@@ -4753,34 +4225,21 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "15823499182751848201"
+              "templateHash": "7427479697155701199"
             }
           },
           "parameters": {
-            "location": {
-              "type": "string",
-              "metadata": {
-                "description": "Azure region for resources"
-              }
-            },
             "baseName": {
               "type": "string",
               "metadata": {
                 "description": "Base name used for resource naming"
               }
             },
-            "tags": {
-              "type": "object",
-              "defaultValue": {},
-              "metadata": {
-                "description": "Tags to apply to all resources"
-              }
-            },
             "cognitiveServicesUserPrincipalId": {
               "type": "string",
               "defaultValue": "",
               "metadata": {
-                "description": "Principal ID to grant Cognitive Services roles (service principal / managed identity)"
+                "description": "Principal ID to grant Cognitive Services User + OpenAI User roles (service principal)"
               }
             },
             "deployerPrincipalId": {
@@ -4804,145 +4263,6 @@
           },
           "resources": [
             {
-              "type": "Microsoft.CognitiveServices/accounts",
-              "apiVersion": "2025-06-01",
-              "name": "[format('ai-{0}', parameters('baseName'))]",
-              "location": "[parameters('location')]",
-              "tags": "[parameters('tags')]",
-              "kind": "AIServices",
-              "identity": {
-                "type": "SystemAssigned"
-              },
-              "sku": {
-                "name": "S0"
-              },
-              "properties": {
-                "customSubDomainName": "[format('ai-{0}', parameters('baseName'))]",
-                "publicNetworkAccess": "Enabled",
-                "disableLocalAuth": true,
-                "allowProjectManagement": true
-              }
-            },
-            {
-              "type": "Microsoft.CognitiveServices/accounts/deployments",
-              "apiVersion": "2024-10-01",
-              "name": "[format('{0}/{1}', format('ai-{0}', parameters('baseName')), 'text-embedding-3-small')]",
-              "sku": {
-                "name": "GlobalStandard",
-                "capacity": 120
-              },
-              "properties": {
-                "model": {
-                  "format": "OpenAI",
-                  "name": "text-embedding-3-small",
-                  "version": "1"
-                }
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-              ]
-            },
-            {
-              "type": "Microsoft.CognitiveServices/accounts/deployments",
-              "apiVersion": "2024-10-01",
-              "name": "[format('{0}/{1}', format('ai-{0}', parameters('baseName')), 'text-embedding-3-large')]",
-              "sku": {
-                "name": "GlobalStandard",
-                "capacity": 120
-              },
-              "properties": {
-                "model": {
-                  "format": "OpenAI",
-                  "name": "text-embedding-3-large",
-                  "version": "1"
-                }
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]",
-                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', format('ai-{0}', parameters('baseName')), 'text-embedding-3-small')]"
-              ]
-            },
-            {
-              "type": "Microsoft.CognitiveServices/accounts/deployments",
-              "apiVersion": "2024-10-01",
-              "name": "[format('{0}/{1}', format('ai-{0}', parameters('baseName')), 'gpt-5-mini')]",
-              "sku": {
-                "name": "GlobalStandard",
-                "capacity": 30
-              },
-              "properties": {
-                "model": {
-                  "format": "OpenAI",
-                  "name": "gpt-5-mini",
-                  "version": "2025-08-07"
-                }
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]",
-                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', format('ai-{0}', parameters('baseName')), 'text-embedding-3-large')]"
-              ]
-            },
-            {
-              "type": "Microsoft.CognitiveServices/accounts/deployments",
-              "apiVersion": "2024-10-01",
-              "name": "[format('{0}/{1}', format('ai-{0}', parameters('baseName')), 'gpt-4.1')]",
-              "sku": {
-                "name": "GlobalStandard",
-                "capacity": 30
-              },
-              "properties": {
-                "model": {
-                  "format": "OpenAI",
-                  "name": "gpt-4.1",
-                  "version": "2025-04-14"
-                }
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', format('ai-{0}', parameters('baseName')), 'gpt-5-mini')]",
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-              ]
-            },
-            {
-              "type": "Microsoft.CognitiveServices/accounts/deployments",
-              "apiVersion": "2024-10-01",
-              "name": "[format('{0}/{1}', format('ai-{0}', parameters('baseName')), 'gpt-4.1-mini')]",
-              "sku": {
-                "name": "GlobalStandard",
-                "capacity": 30
-              },
-              "properties": {
-                "model": {
-                  "format": "OpenAI",
-                  "name": "gpt-4.1-mini",
-                  "version": "2025-04-14"
-                }
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]",
-                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', format('ai-{0}', parameters('baseName')), 'gpt-4.1')]"
-              ]
-            },
-            {
-              "type": "Microsoft.CognitiveServices/accounts/deployments",
-              "apiVersion": "2024-04-01-preview",
-              "name": "[format('{0}/{1}', format('ai-{0}', parameters('baseName')), 'mistral-document-ai-2512')]",
-              "sku": {
-                "name": "GlobalStandard",
-                "capacity": 1
-              },
-              "properties": {
-                "model": {
-                  "format": "Mistral AI",
-                  "name": "mistral-document-ai-2512",
-                  "version": "1"
-                }
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]",
-                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', format('ai-{0}', parameters('baseName')), 'gpt-4.1-mini')]"
-              ]
-            },
-            {
               "condition": "[not(empty(parameters('cognitiveServicesUserPrincipalId')))]",
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
@@ -4952,10 +4272,7 @@
                 "principalId": "[parameters('cognitiveServicesUserPrincipalId')]",
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('cognitiveServicesOpenAIUserRoleId'))]",
                 "principalType": "ServicePrincipal"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-              ]
+              }
             },
             {
               "condition": "[not(empty(parameters('cognitiveServicesUserPrincipalId')))]",
@@ -4967,10 +4284,7 @@
                 "principalId": "[parameters('cognitiveServicesUserPrincipalId')]",
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('cognitiveServicesUserRoleId'))]",
                 "principalType": "ServicePrincipal"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-              ]
+              }
             },
             {
               "condition": "[not(empty(parameters('deployerPrincipalId')))]",
@@ -4982,10 +4296,7 @@
                 "principalId": "[parameters('deployerPrincipalId')]",
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('cognitiveServicesOpenAIUserRoleId'))]",
                 "principalType": "User"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-              ]
+              }
             },
             {
               "condition": "[not(empty(parameters('deployerPrincipalId')))]",
@@ -4997,10 +4308,7 @@
                 "principalId": "[parameters('deployerPrincipalId')]",
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('cognitiveServicesUserRoleId'))]",
                 "principalType": "User"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-              ]
+              }
             },
             {
               "condition": "[not(empty(parameters('openAIOnlyUserPrincipalId')))]",
@@ -5012,46 +4320,9 @@
                 "principalId": "[parameters('openAIOnlyUserPrincipalId')]",
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('cognitiveServicesOpenAIUserRoleId'))]",
                 "principalType": "ServicePrincipal"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-              ]
+              }
             }
-          ],
-          "outputs": {
-            "aiServicesId": {
-              "type": "string",
-              "value": "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-            },
-            "aiServicesName": {
-              "type": "string",
-              "value": "[format('ai-{0}', parameters('baseName'))]"
-            },
-            "aiServicesEndpoint": {
-              "type": "string",
-              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName'))), '2025-06-01').endpoint]"
-            },
-            "aiServicesPrincipalId": {
-              "type": "string",
-              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName'))), '2025-06-01', 'full').identity.principalId]"
-            },
-            "embeddingDeploymentName": {
-              "type": "string",
-              "value": "text-embedding-3-small"
-            },
-            "agentDeploymentName": {
-              "type": "string",
-              "value": "gpt-5-mini"
-            },
-            "cuCompletionDeploymentName": {
-              "type": "string",
-              "value": "gpt-4.1"
-            },
-            "mistralDeploymentName": {
-              "type": "string",
-              "value": "mistral-document-ai-2512"
-            }
-          }
+          ]
         }
       },
       "dependsOn": [
@@ -5486,14 +4757,8 @@
         },
         "mode": "Incremental",
         "parameters": {
-          "location": {
-            "value": "[parameters('location')]"
-          },
           "baseName": {
             "value": "[variables('baseName')]"
-          },
-          "tags": {
-            "value": "[variables('defaultTags')]"
           },
           "openAIOnlyUserPrincipalId": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundry-project'), '2025-04-01').outputs.projectPrincipalId.value]"
@@ -5506,34 +4771,21 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "15823499182751848201"
+              "templateHash": "7427479697155701199"
             }
           },
           "parameters": {
-            "location": {
-              "type": "string",
-              "metadata": {
-                "description": "Azure region for resources"
-              }
-            },
             "baseName": {
               "type": "string",
               "metadata": {
                 "description": "Base name used for resource naming"
               }
             },
-            "tags": {
-              "type": "object",
-              "defaultValue": {},
-              "metadata": {
-                "description": "Tags to apply to all resources"
-              }
-            },
             "cognitiveServicesUserPrincipalId": {
               "type": "string",
               "defaultValue": "",
               "metadata": {
-                "description": "Principal ID to grant Cognitive Services roles (service principal / managed identity)"
+                "description": "Principal ID to grant Cognitive Services User + OpenAI User roles (service principal)"
               }
             },
             "deployerPrincipalId": {
@@ -5557,145 +4809,6 @@
           },
           "resources": [
             {
-              "type": "Microsoft.CognitiveServices/accounts",
-              "apiVersion": "2025-06-01",
-              "name": "[format('ai-{0}', parameters('baseName'))]",
-              "location": "[parameters('location')]",
-              "tags": "[parameters('tags')]",
-              "kind": "AIServices",
-              "identity": {
-                "type": "SystemAssigned"
-              },
-              "sku": {
-                "name": "S0"
-              },
-              "properties": {
-                "customSubDomainName": "[format('ai-{0}', parameters('baseName'))]",
-                "publicNetworkAccess": "Enabled",
-                "disableLocalAuth": true,
-                "allowProjectManagement": true
-              }
-            },
-            {
-              "type": "Microsoft.CognitiveServices/accounts/deployments",
-              "apiVersion": "2024-10-01",
-              "name": "[format('{0}/{1}', format('ai-{0}', parameters('baseName')), 'text-embedding-3-small')]",
-              "sku": {
-                "name": "GlobalStandard",
-                "capacity": 120
-              },
-              "properties": {
-                "model": {
-                  "format": "OpenAI",
-                  "name": "text-embedding-3-small",
-                  "version": "1"
-                }
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-              ]
-            },
-            {
-              "type": "Microsoft.CognitiveServices/accounts/deployments",
-              "apiVersion": "2024-10-01",
-              "name": "[format('{0}/{1}', format('ai-{0}', parameters('baseName')), 'text-embedding-3-large')]",
-              "sku": {
-                "name": "GlobalStandard",
-                "capacity": 120
-              },
-              "properties": {
-                "model": {
-                  "format": "OpenAI",
-                  "name": "text-embedding-3-large",
-                  "version": "1"
-                }
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]",
-                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', format('ai-{0}', parameters('baseName')), 'text-embedding-3-small')]"
-              ]
-            },
-            {
-              "type": "Microsoft.CognitiveServices/accounts/deployments",
-              "apiVersion": "2024-10-01",
-              "name": "[format('{0}/{1}', format('ai-{0}', parameters('baseName')), 'gpt-5-mini')]",
-              "sku": {
-                "name": "GlobalStandard",
-                "capacity": 30
-              },
-              "properties": {
-                "model": {
-                  "format": "OpenAI",
-                  "name": "gpt-5-mini",
-                  "version": "2025-08-07"
-                }
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]",
-                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', format('ai-{0}', parameters('baseName')), 'text-embedding-3-large')]"
-              ]
-            },
-            {
-              "type": "Microsoft.CognitiveServices/accounts/deployments",
-              "apiVersion": "2024-10-01",
-              "name": "[format('{0}/{1}', format('ai-{0}', parameters('baseName')), 'gpt-4.1')]",
-              "sku": {
-                "name": "GlobalStandard",
-                "capacity": 30
-              },
-              "properties": {
-                "model": {
-                  "format": "OpenAI",
-                  "name": "gpt-4.1",
-                  "version": "2025-04-14"
-                }
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', format('ai-{0}', parameters('baseName')), 'gpt-5-mini')]",
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-              ]
-            },
-            {
-              "type": "Microsoft.CognitiveServices/accounts/deployments",
-              "apiVersion": "2024-10-01",
-              "name": "[format('{0}/{1}', format('ai-{0}', parameters('baseName')), 'gpt-4.1-mini')]",
-              "sku": {
-                "name": "GlobalStandard",
-                "capacity": 30
-              },
-              "properties": {
-                "model": {
-                  "format": "OpenAI",
-                  "name": "gpt-4.1-mini",
-                  "version": "2025-04-14"
-                }
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]",
-                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', format('ai-{0}', parameters('baseName')), 'gpt-4.1')]"
-              ]
-            },
-            {
-              "type": "Microsoft.CognitiveServices/accounts/deployments",
-              "apiVersion": "2024-04-01-preview",
-              "name": "[format('{0}/{1}', format('ai-{0}', parameters('baseName')), 'mistral-document-ai-2512')]",
-              "sku": {
-                "name": "GlobalStandard",
-                "capacity": 1
-              },
-              "properties": {
-                "model": {
-                  "format": "Mistral AI",
-                  "name": "mistral-document-ai-2512",
-                  "version": "1"
-                }
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]",
-                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', format('ai-{0}', parameters('baseName')), 'gpt-4.1-mini')]"
-              ]
-            },
-            {
               "condition": "[not(empty(parameters('cognitiveServicesUserPrincipalId')))]",
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
@@ -5705,10 +4818,7 @@
                 "principalId": "[parameters('cognitiveServicesUserPrincipalId')]",
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('cognitiveServicesOpenAIUserRoleId'))]",
                 "principalType": "ServicePrincipal"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-              ]
+              }
             },
             {
               "condition": "[not(empty(parameters('cognitiveServicesUserPrincipalId')))]",
@@ -5720,10 +4830,7 @@
                 "principalId": "[parameters('cognitiveServicesUserPrincipalId')]",
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('cognitiveServicesUserRoleId'))]",
                 "principalType": "ServicePrincipal"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-              ]
+              }
             },
             {
               "condition": "[not(empty(parameters('deployerPrincipalId')))]",
@@ -5735,10 +4842,7 @@
                 "principalId": "[parameters('deployerPrincipalId')]",
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('cognitiveServicesOpenAIUserRoleId'))]",
                 "principalType": "User"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-              ]
+              }
             },
             {
               "condition": "[not(empty(parameters('deployerPrincipalId')))]",
@@ -5750,10 +4854,7 @@
                 "principalId": "[parameters('deployerPrincipalId')]",
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('cognitiveServicesUserRoleId'))]",
                 "principalType": "User"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-              ]
+              }
             },
             {
               "condition": "[not(empty(parameters('openAIOnlyUserPrincipalId')))]",
@@ -5765,49 +4866,13 @@
                 "principalId": "[parameters('openAIOnlyUserPrincipalId')]",
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('cognitiveServicesOpenAIUserRoleId'))]",
                 "principalType": "ServicePrincipal"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-              ]
+              }
             }
-          ],
-          "outputs": {
-            "aiServicesId": {
-              "type": "string",
-              "value": "[resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName')))]"
-            },
-            "aiServicesName": {
-              "type": "string",
-              "value": "[format('ai-{0}', parameters('baseName'))]"
-            },
-            "aiServicesEndpoint": {
-              "type": "string",
-              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName'))), '2025-06-01').endpoint]"
-            },
-            "aiServicesPrincipalId": {
-              "type": "string",
-              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', format('ai-{0}', parameters('baseName'))), '2025-06-01', 'full').identity.principalId]"
-            },
-            "embeddingDeploymentName": {
-              "type": "string",
-              "value": "text-embedding-3-small"
-            },
-            "agentDeploymentName": {
-              "type": "string",
-              "value": "gpt-5-mini"
-            },
-            "cuCompletionDeploymentName": {
-              "type": "string",
-              "value": "gpt-4.1"
-            },
-            "mistralDeploymentName": {
-              "type": "string",
-              "value": "mistral-document-ai-2512"
-            }
-          }
+          ]
         }
       },
       "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'ai-services')]",
         "[resourceId('Microsoft.Resources/deployments', 'foundry-project')]"
       ]
     },
