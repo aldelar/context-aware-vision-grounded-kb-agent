@@ -1,37 +1,98 @@
 # Context Aware & Vision Grounded KB Agent — Makefile
 # ==============================================================================
-# Targets for local development, Azure provisioning, and pipeline execution.
-#
-# Local targets use kb/staging/ (source articles) and kb/serving/ (processed output).
+# Local targets use kb/staging/ (source) and kb/serving/ (processed output).
 # Azure targets operate against deployed Azure resources via AZD.
+# Run 'make help' for all available targets.
 # ==============================================================================
 
-# Discover articles in local staging folder
-STAGING_ARTICLES := $(notdir $(wildcard kb/staging/*))
+analyzer ?= mistral-doc-ai
 
 .DEFAULT_GOAL := help
 
-# ------------------------------------------------------------------------------
+# ==============================================================================
 # Help
-# ------------------------------------------------------------------------------
+# ==============================================================================
 .PHONY: help
 help: ## Show available targets
 	@echo ""
-	@echo "  Local Development"
-	@echo "  ─────────────────"
-	@grep -E '^(dev-|convert|index|test|validate|grant|app|agent)[a-zA-Z_-]*:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
-		awk 'BEGIN {FS = ":.*?## "}; {printf "    \033[36m%-44s\033[0m %s\n", $$1, $$2}'
+	@echo "  \033[1mLocal\033[0m"
+	@echo "  ─────"
+	@grep -E '^## LOCAL' $(MAKEFILE_LIST) | head -1 > /dev/null
+	@awk '/^## LOCAL-START/,/^## LOCAL-END/' $(MAKEFILE_LIST) | \
+		grep -E '^[a-zA-Z_-]+:.*?## ' | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "    \033[36m%-38s\033[0m %s\n", $$1, $$2}'
 	@echo ""
-	@echo "  Azure Operations"
+	@echo "  \033[1mAzure\033[0m"
+	@echo "  ─────"
+	@awk '/^## AZURE-START/,/^## AZURE-END/' $(MAKEFILE_LIST) | \
+		grep -E '^[a-zA-Z_-]+:.*?## ' | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "    \033[36m%-38s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "  \033[1mUtilities — Local\033[0m"
 	@echo "  ─────────────────"
-	@grep -E '^azure-[a-zA-Z_-]*:.*?## .*$$' $(MAKEFILE_LIST) | \
-		awk 'BEGIN {FS = ":.*?## "}; {printf "    \033[36m%-44s\033[0m %s\n", $$1, $$2}'
+	@awk '/^## UTIL-LOCAL-START/,/^## UTIL-LOCAL-END/' $(MAKEFILE_LIST) | \
+		grep -E '^[a-zA-Z_-]+:.*?## ' | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "    \033[36m%-38s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "  \033[1mUtilities — Azure\033[0m"
+	@echo "  ─────────────────"
+	@awk '/^## UTIL-AZURE-START/,/^## UTIL-AZURE-END/' $(MAKEFILE_LIST) | \
+		grep -E '^[a-zA-Z_-]+:.*?## ' | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "    \033[36m%-38s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 
-# ------------------------------------------------------------------------------
-# Local Development — Prerequisites
-# ------------------------------------------------------------------------------
-.PHONY: dev-doctor dev-setup dev-setup-env
+# ==============================================================================
+# Local
+# ==============================================================================
+## LOCAL-START
+.PHONY: setup setup-azure kb test agent app
+
+setup: dev-doctor dev-setup ## Install tools + Python dependencies
+	@echo ""
+	@echo "\033[32m✅ Local tools and dependencies installed.\033[0m"
+	@echo ""
+	@echo "  Azure resources are required for local dev (AI Services, Search, Storage)."
+	@echo "  If not yet provisioned:"
+	@echo "    1. az login && azd init"
+	@echo "    2. make setup-azure"
+	@echo ""
+
+setup-azure: azure-provision dev-setup-env grant-dev-roles validate-infra ## Provision Azure + configure local env (some Azure services required for dev)
+
+kb: convert index ## Run full local KB pipeline (convert + index)
+
+test: test-agent test-app test-functions ## Run all fast tests (unit + endpoint, no Azure needed)
+
+agent: ## Run KB Agent locally (http://localhost:8088)
+	@cd src/agent && uv run python main.py
+
+app: ## Run web app locally (http://localhost:8080)
+	@cd src/web-app && uv run chainlit run app/main.py -w --port 8080
+## LOCAL-END
+
+# ==============================================================================
+# Azure
+# ==============================================================================
+## AZURE-START
+.PHONY: azure-up azure-kb azure-test azure-app-url
+
+azure-up: azure-provision azure-deploy azure-setup-auth ## Full Azure deploy (provision + deploy + auth)
+
+azure-kb: azure-upload-staging azure-convert azure-index ## Full Azure KB pipeline (upload + convert + index)
+
+azure-test: azure-test-agent azure-test-app ## Run all Azure integration tests
+
+azure-app-url: ## Print the deployed web app URL
+	@azd env get-value WEBAPP_URL
+## AZURE-END
+
+# ==============================================================================
+# Utilities — Local
+# ==============================================================================
+## UTIL-LOCAL-START
+
+# --- Setup ---
+.PHONY: dev-doctor dev-setup dev-setup-env validate-infra dev-enable-storage dev-enable-cosmos grant-dev-roles
 
 dev-doctor: ## Check if required dev tools are installed
 	@echo "Checking development prerequisites...\n"
@@ -68,7 +129,7 @@ dev-setup: ## Install required dev tools and Python dependencies
 	@cd src/agent && uv sync --extra dev
 	@echo "Python dependencies installed."
 
-dev-setup-env: ## Populate .env files from AZD environment (functions + web app + agent)
+dev-setup-env: ## Populate .env files from AZD environment
 	@echo "Writing AZD environment values to src/functions/.env..."
 	@azd env get-values > src/functions/.env
 	@echo "Done. $(shell wc -l < src/functions/.env 2>/dev/null || echo 0) variables written."
@@ -79,10 +140,8 @@ dev-setup-env: ## Populate .env files from AZD environment (functions + web app 
 	@azd env get-values > src/agent/.env
 	@echo "Done. $(shell wc -l < src/agent/.env 2>/dev/null || echo 0) variables written."
 
-# ------------------------------------------------------------------------------
-# Local Development — Storage Access
-# ------------------------------------------------------------------------------
-.PHONY: dev-enable-storage dev-enable-cosmos
+validate-infra: ## Validate Azure infra is ready for local dev
+	@bash scripts/functions/validate-infra.sh
 
 dev-enable-storage: ## Re-enable public access on storage accounts (disabled nightly)
 	@bash scripts/enable-storage-public-access.sh
@@ -90,60 +149,7 @@ dev-enable-storage: ## Re-enable public access on storage accounts (disabled nig
 dev-enable-cosmos: ## Enable public access on Cosmos DB + add developer IP to firewall
 	@bash scripts/enable-cosmos-public-access.sh
 
-# ------------------------------------------------------------------------------
-# Local Development — Pipeline
-# ------------------------------------------------------------------------------
-.PHONY: convert index test validate-infra
-
-test: test-agent test-app ## Run all fast tests (unit + endpoint, no Azure needed)
-	@cd src/functions && uv run pytest tests/ -v || test $$? -eq 5
-
-validate-infra: ## Validate Azure infra is ready for local dev
-	@bash scripts/functions/validate-infra.sh
-
-convert: ## Run fn-convert locally (analyzer=content-understanding|mistral-doc-ai)
-ifndef analyzer
-	@echo "Error: analyzer is required. Usage:" >&2
-	@echo "  make convert analyzer=content-understanding" >&2
-	@echo "  make convert analyzer=mistral-doc-ai" >&2
-	@exit 1
-endif
-	@bash scripts/functions/convert.sh $(analyzer)
-
-index: ## Run fn-index locally (kb/serving → Azure AI Search)
-	@bash scripts/functions/index.sh
-
-# ------------------------------------------------------------------------------
-# Local Development — Web App
-# ------------------------------------------------------------------------------
-.PHONY: app test-app
-
-app: ## Run Context Aware & Vision Grounded KB Agent locally (http://localhost:8080)
-	@cd src/web-app && uv run chainlit run app/main.py -w --port 8080
-
-test-app: ## Run web app unit tests (no Azure needed)
-	@cd src/web-app && uv run pytest tests/ -v -m "not integration" || test $$? -eq 5
-
-# ------------------------------------------------------------------------------
-# Local Development — Agent
-# ------------------------------------------------------------------------------
-.PHONY: agent test-agent test-agent-integration
-
-agent: ## Run KB Agent locally (http://localhost:8088)
-	@cd src/agent && uv run python main.py
-
-test-agent: ## Run agent unit + endpoint tests (no Azure needed)
-	@cd src/agent && uv run pytest tests/ -v -m "not integration" || test $$? -eq 5
-
-test-agent-integration: ## Run agent integration tests (needs running local agent)
-	@cd src/agent && AGENT_ENDPOINT=http://localhost:8088 uv run pytest tests/ -v -m integration || test $$? -eq 5
-
-# ------------------------------------------------------------------------------
-# Local Development — RBAC
-# ------------------------------------------------------------------------------
-.PHONY: grant-dev-roles
-
-grant-dev-roles: ## Grant Cosmos DB native RBAC to current developer + verify ARM roles
+grant-dev-roles: ## Grant Cosmos DB native RBAC to current developer
 	@echo "Granting developer RBAC roles..."
 	@echo ""
 	@set -a && . src/functions/.env && set +a && \
@@ -168,27 +174,65 @@ grant-dev-roles: ## Grant Cosmos DB native RBAC to current developer + verify AR
 	echo "  ✓ Cosmos DB data-plane role already assigned (or assignment skipped)."
 	@echo ""
 	@echo "  ARM-level roles are managed via Bicep (infra/)."
-	@echo "  If missing, run: make azure-provision"
+	@echo "  If missing, run: make azure-up"
 
-# ------------------------------------------------------------------------------
-# Azure — Provision & Deploy
-# ------------------------------------------------------------------------------
-.PHONY: azure-provision azure-deploy
+# --- KB ---
+.PHONY: convert index
+
+convert: ## Run fn-convert locally (analyzer=$(analyzer))
+	@bash scripts/functions/convert.sh $(analyzer)
+
+index: ## Run fn-index locally (kb/serving → Azure AI Search)
+	@bash scripts/functions/index.sh
+
+# --- Test ---
+.PHONY: test-agent test-app test-functions test-agent-integration
+
+test-agent: ## Run agent unit + endpoint tests
+	@cd src/agent && uv run pytest tests/ -v -m "not integration" || test $$? -eq 5
+
+test-app: ## Run web app unit tests
+	@cd src/web-app && uv run pytest tests/ -v -m "not integration" || test $$? -eq 5
+
+test-functions: ## Run functions unit tests
+	@cd src/functions && uv run pytest tests/ -v || test $$? -eq 5
+
+test-agent-integration: ## Run agent integration tests (needs running local agent)
+	@cd src/agent && AGENT_ENDPOINT=http://localhost:8088 uv run pytest tests/ -v -m integration || test $$? -eq 5
+
+## UTIL-LOCAL-END
+
+# ==============================================================================
+# Utilities — Azure
+# ==============================================================================
+## UTIL-AZURE-START
+
+# --- Provision ---
+.PHONY: azure-provision
 
 azure-provision: ## Provision all Azure resources (azd provision)
 	azd provision
 
-azure-deploy: ## Deploy functions, search index, and CU analyzer (azd deploy)
-	azd deploy
+# --- Deploy ---
+.PHONY: azure-deploy azure-deploy-app azure-setup-auth
+
+azure-deploy: ## Deploy all services + CU analyzer + publish agent
+	AZD_EXT_TIMEOUT=180 azd deploy
 	@echo "Configuring CU defaults and deploying kb-image-analyzer..."
 	@(cd src/functions && uv run python -m manage_analyzers deploy)
+	@echo "Publishing agent..."
+	@bash scripts/publish-agent.sh
 
-# ------------------------------------------------------------------------------
-# Azure — Run Pipeline
-# ------------------------------------------------------------------------------
-.PHONY: azure-upload-staging azure-convert azure-index
+azure-deploy-app: ## Deploy web app only
+	azd deploy --service web-app
 
-azure-upload-staging: ## Upload local kb/staging articles to Azure staging blob
+azure-setup-auth: ## Configure Entra redirect URIs (idempotent)
+	@bash scripts/setup-redirect-uris.sh
+
+# --- KB ---
+.PHONY: azure-upload-staging azure-convert azure-index azure-index-summarize
+
+azure-upload-staging: ## Upload kb/staging → Azure staging blob
 	@echo "Uploading kb/staging/ to Azure staging blob container..."
 	@ACCOUNT=$$(azd env get-value STAGING_STORAGE_ACCOUNT) && \
 	for dir in kb/staging/*/; do \
@@ -205,13 +249,7 @@ azure-upload-staging: ## Upload local kb/staging articles to Azure staging blob
 	done
 	@echo "Done."
 
-azure-convert: ## Trigger fn-convert in Azure (analyzer=content-understanding|mistral-doc-ai)
-ifndef analyzer
-	@echo "Error: analyzer is required. Usage:" >&2
-	@echo "  make azure-convert analyzer=content-understanding" >&2
-	@echo "  make azure-convert analyzer=mistral-doc-ai" >&2
-	@exit 1
-endif
+azure-convert: ## Trigger fn-convert in Azure (analyzer=$(analyzer))
 	@echo "Triggering fn-convert Azure Function (analyzer=$(analyzer))..."
 	@FUNC_URL=$$(azd env get-value FUNCTION_APP_URL) && \
 	ROUTE=$$(if [ "$(analyzer)" = "content-understanding" ]; then echo "convert"; else echo "convert-mistral"; fi) && \
@@ -220,7 +258,7 @@ endif
 	curl -sf --max-time 600 -X POST "$$ENDPOINT" -H "Content-Type: application/json" -d '{}' | python3 -m json.tool
 	@echo ""
 
-azure-index: ## Trigger fn-index in Azure (processes serving → AI Search)
+azure-index: ## Trigger fn-index in Azure (serving → AI Search)
 	@echo "Triggering fn-index Azure Function..."
 	@FUNC_URL=$$(azd env get-value FUNCTION_APP_URL) && \
 	ENDPOINT="$$FUNC_URL/api/index" && \
@@ -231,45 +269,16 @@ azure-index: ## Trigger fn-index in Azure (processes serving → AI Search)
 azure-index-summarize: ## Show AI Search index contents summary
 	@cd src/functions && uv run python ../../scripts/functions/display-index-summary.py
 
-# ------------------------------------------------------------------------------
-# Azure — Web App
-# ------------------------------------------------------------------------------
-.PHONY: azure-deploy-app azure-app-url azure-app-logs
+# --- Test ---
+.PHONY: azure-test-agent-dev azure-test-agent azure-test-app
 
-azure-deploy-app: ## Build & deploy the web app to Azure Container Apps
-	azd deploy --service web-app
-
-azure-setup-auth: ## Add Entra redirect URIs (Easy Auth + Chainlit OAuth) — idempotent, CI/CD-safe
-	@bash scripts/setup-redirect-uris.sh
-
-azure-app-url: ## Print the deployed web app URL
-	@azd env get-value WEBAPP_URL
-
-azure-app-logs: ## Stream live logs from the deployed web app
-	@APP=$$(azd env get-value WEBAPP_NAME) && \
-	RG=$$(azd env get-value RESOURCE_GROUP) && \
-	az containerapp logs show --name $$APP --resource-group $$RG --type console --follow
-
-# ------------------------------------------------------------------------------
-# Azure — Agent (Foundry Hosted Agent)
-# ------------------------------------------------------------------------------
-.PHONY: azure-agent-deploy azure-agent-publish azure-agent azure-agent-logs azure-test-agent-dev azure-test-agent azure-test-app azure-test
-
-azure-agent-deploy: ## Deploy the KB Agent to Foundry (dev mode)
-	AZD_EXT_TIMEOUT=180 azd deploy --service agent
-
-azure-agent-publish: ## Publish the agent (dedicated identity + stable endpoint)
-	@bash scripts/publish-agent.sh
-
-azure-agent: azure-agent-deploy azure-agent-publish ## Deploy + publish agent in one step
-
-azure-test-agent-dev: ## Run agent integration tests against dev (unpublished) endpoint
+azure-test-agent-dev: ## Integration tests vs dev (unpublished) endpoint
 	@cd src/agent && AGENT_ENDPOINT=$$(azd env get-value AGENT_AGENT_ENDPOINT) uv run pytest tests/ -v -m integration || test $$? -eq 5
 
-azure-test-agent: ## Run agent integration tests against published Foundry endpoint
+azure-test-agent: ## Integration tests vs published Foundry endpoint
 	@cd src/agent && AGENT_ENDPOINT=$$(azd env get-value AGENT_ENDPOINT) uv run pytest tests/ -v -m integration || test $$? -eq 5
 
-azure-test-app: ## Run web app integration tests (Cosmos DB + Blob Storage)
+azure-test-app: ## Web app integration tests (Cosmos + Blob + Agent)
 	@cd src/web-app && \
 	  SERVING_BLOB_ENDPOINT=$$(azd env get-value SERVING_BLOB_ENDPOINT) \
 	  COSMOS_ENDPOINT=$$(azd env get-value COSMOS_ENDPOINT) \
@@ -277,7 +286,13 @@ azure-test-app: ## Run web app integration tests (Cosmos DB + Blob Storage)
 	  AGENT_ENDPOINT=$$(azd env get-value AGENT_ENDPOINT) \
 	  uv run pytest tests/ -v -m integration || test $$? -eq 5
 
-azure-test: azure-test-agent azure-test-app ## Run all Azure integration tests
+# --- App / Agent ---
+.PHONY: azure-app-logs azure-agent-logs
+
+azure-app-logs: ## Stream live logs from deployed web app
+	@APP=$$(azd env get-value WEBAPP_NAME) && \
+	RG=$$(azd env get-value RESOURCE_GROUP) && \
+	az containerapp logs show --name $$APP --resource-group $$RG --type console --follow
 
 azure-agent-logs: ## Stream agent logs from Foundry
 	@AI_NAME=$$(azd env get-value AI_SERVICES_NAME) && \
@@ -293,12 +308,26 @@ azure-agent-logs: ## Stream agent logs from Foundry
 		--order-by timestamp \
 		--top 50
 
-# ------------------------------------------------------------------------------
-# Azure — Cleanup
-# ------------------------------------------------------------------------------
-.PHONY: azure-clean-storage azure-clean-index azure-clean
+# --- Cleanup ---
+.PHONY: azure-clean-orphan-roles azure-clean-storage azure-clean-index azure-clean
 
-azure-clean-storage: ## Empty staging and serving blob containers in Azure
+azure-clean-orphan-roles: ## Delete orphaned role assignments
+	@echo "Scanning for orphaned role assignments in resource group..."
+	@RG=$$(azd env get-value RESOURCE_GROUP 2>/dev/null || echo "rg-kbidx-dev") && \
+	ORPHANS=$$(az role assignment list --resource-group "$$RG" --query "[?principalName==''].[id]" -o tsv) && \
+	if [ -z "$$ORPHANS" ]; then \
+		echo "  No orphaned role assignments found."; \
+	else \
+		COUNT=$$(echo "$$ORPHANS" | wc -l) && \
+		echo "  Found $$COUNT orphaned role assignment(s). Deleting..." && \
+		echo "$$ORPHANS" | while read -r ID; do \
+			echo "  ✕ $$ID" && \
+			az role assignment delete --ids "$$ID" -o none; \
+		done && \
+		echo "  Done. Run 'make azure-provision' to recreate them."; \
+	fi
+
+azure-clean-storage: ## Empty staging + serving blob containers
 	@echo "Cleaning staging container..."
 	az storage blob delete-batch \
 		--account-name $$(azd env get-value STAGING_STORAGE_ACCOUNT) \
@@ -325,3 +354,5 @@ azure-clean: azure-clean-storage azure-clean-index ## Clean all Azure data (stor
 	@echo "Deleting kb-image-analyzer..."
 	@(cd src/functions && uv run python -m manage_analyzers delete) 2>/dev/null || true
 	@echo "All Azure data cleaned."
+
+## UTIL-AZURE-END
