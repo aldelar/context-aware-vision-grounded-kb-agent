@@ -17,7 +17,7 @@ param tags object = {}
 @description('Principal ID of the deployer (human user) for Azure AI Developer role')
 param deployerPrincipalId string = ''
 
-@description('ACR login server (e.g. crkbagentdev.azurecr.io) for the container registry connection')
+@description('ACR login server (e.g. cr{project}dev.azurecr.io) for the container registry connection')
 param acrLoginServer string = ''
 
 @description('ACR resource ID for the container registry connection')

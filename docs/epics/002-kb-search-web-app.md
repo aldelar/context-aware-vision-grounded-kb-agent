@@ -142,16 +142,16 @@ Set up the `/src/web-app` project with UV, Chainlit, Azure SDK dependencies, con
 - [x] Create `src/web-app/.env.sample` with required variables:
   ```
   # Azure AI Services (Foundry) — agent model + embeddings
-  AI_SERVICES_ENDPOINT=https://ai-kbagent-{env}.cognitiveservices.azure.com/
+  AI_SERVICES_ENDPOINT=https://ai-{project}-{env}.cognitiveservices.azure.com/
   AGENT_MODEL_DEPLOYMENT_NAME=gpt-4.1
   EMBEDDING_DEPLOYMENT_NAME=text-embedding-3-small
 
   # Azure AI Search
-  SEARCH_ENDPOINT=https://srch-kbagent-{env}.search.windows.net
+  SEARCH_ENDPOINT=https://srch-{project}-{env}.search.windows.net
   SEARCH_INDEX_NAME=kb-articles
 
   # Azure Blob Storage — serving account (images)
-  SERVING_BLOB_ENDPOINT=https://stkbagentserving{env}.blob.core.windows.net/
+  SERVING_BLOB_ENDPOINT=https://st{project}serving{env}.blob.core.windows.net/
   SERVING_CONTAINER_NAME=serving
   ```
 - [x] Implement `src/web-app/app/config.py`:

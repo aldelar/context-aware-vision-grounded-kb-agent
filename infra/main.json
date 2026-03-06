@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "15913021376041854366"
+      "templateHash": "293072287998793307"
     }
   },
   "parameters": {
@@ -14,7 +14,7 @@
       "minLength": 2,
       "maxLength": 8,
       "metadata": {
-        "description": "Short project identifier used in all resource names (e.g. \"kbagent\"). Alphanumeric and hyphens only. Max 8 chars to fit Azure Storage 24-char limit."
+        "description": "Short project identifier used in all resource names (e.g. \"myproj\"). Alphanumeric and hyphens only. Max 8 chars to fit Azure Storage 24-char limit."
       }
     },
     "environmentName": {
@@ -1228,7 +1228,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "9861251624938294511"
+              "templateHash": "804575382752469994"
             }
           },
           "parameters": {
@@ -1323,7 +1323,7 @@
             "acrLoginServer": {
               "type": "string",
               "metadata": {
-                "description": "ACR login server (e.g., crkbagentdev.azurecr.io)"
+                "description": "ACR login server (e.g., cr{project}dev.azurecr.io)"
               }
             },
             "acrResourceId": {
@@ -1733,7 +1733,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "8244699674750702538"
+              "templateHash": "5049411699146823020"
             }
           },
           "parameters": {
@@ -1765,14 +1765,14 @@
             "acrLoginServer": {
               "type": "string",
               "metadata": {
-                "description": "ACR login server (e.g., crkbagentdev.azurecr.io)"
+                "description": "ACR login server (e.g., cr{project}dev.azurecr.io)"
               }
             },
             "imageName": {
               "type": "string",
               "defaultValue": "",
               "metadata": {
-                "description": "Docker image name and tag (e.g., webapp-kbagent:latest). Leave empty for initial provisioning."
+                "description": "Docker image name and tag (e.g., webapp-{project}:latest). Leave empty for initial provisioning."
               }
             },
             "aiServicesEndpoint": {
@@ -2126,7 +2126,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "6478704037464481443"
+              "templateHash": "11358872601306907114"
             }
           },
           "parameters": {
@@ -2160,7 +2160,7 @@
               "type": "string",
               "defaultValue": "",
               "metadata": {
-                "description": "ACR login server (e.g. crkbagentdev.azurecr.io) for the container registry connection"
+                "description": "ACR login server (e.g. cr{project}dev.azurecr.io) for the container registry connection"
               }
             },
             "acrResourceId": {

@@ -69,7 +69,7 @@ if [ -z "$ENV_NAME" ]; then
   exit 1
 fi
 
-PROJECT_NAME=$(azd env get-value PROJECT_NAME 2>/dev/null || echo "kbagent")
+PROJECT_NAME=$(azd env get-value PROJECT_NAME)
 APP_NAME="webapp-${PROJECT_NAME}-${ENV_NAME}"
 echo "Setting up Entra App Registration: $APP_NAME"
 

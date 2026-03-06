@@ -47,7 +47,7 @@ param searchIndexName string = 'kb-articles'
 @description('Principal ID of the deployer (human user) for storage access')
 param deployerPrincipalId string = ''
 
-@description('ACR login server (e.g., crkbagentdev.azurecr.io)')
+@description('ACR login server (e.g., cr{project}dev.azurecr.io)')
 param acrLoginServer string
 
 @description('ACR resource ID for role assignment')

@@ -34,7 +34,7 @@ flowchart LR
     end
 
     subgraph Registry["Azure Container Registry"]
-        IMG["Docker image<br/>webapp-kbagent"]
+        IMG["Docker image<br/>webapp-{project}"]
     end
 
     subgraph AI["Azure AI Services"]
@@ -64,10 +64,10 @@ flowchart LR
 
 | Resource | Bicep Module | Name Pattern | SKU / Tier |
 |----------|-------------|--------------|------------|
-| Container Registry | `container-registry.bicep` | `crkbagent{env}` | Basic |
-| Container Apps Environment | `container-app.bicep` | `cae-kbagent-{env}` | Consumption |
-| Container App | `container-app.bicep` | `webapp-kbagent-{env}` | 0.5 vCPU, 1 GiB |
-| Entra App Registration | `main.bicep` (or script) | `webapp-kbagent-{env}` | — |
+| Container Registry | `container-registry.bicep` | `cr{project}{env}` | Basic |
+| Container Apps Environment | `container-app.bicep` | `cae-{project}-{env}` | Consumption |
+| Container App | `container-app.bicep` | `webapp-{project}-{env}` | 0.5 vCPU, 1 GiB |
+| Entra App Registration | `main.bicep` (or script) | `webapp-{project}-{env}` | — |
 
 ### Authentication Flow
 
@@ -203,8 +203,8 @@ Create a production Dockerfile for the web app and integrate it with the AZD dep
   - `.dockerignore` to exclude tests, `__pycache__`, `.env`, etc.
 - [x] Create `src/web-app/.dockerignore`
 - [x] Test Docker build locally:
-  - `docker build -t webapp-kbagent .` succeeds
-  - `docker run -p 8080:8080 --env-file .env webapp-kbagent` serves the app locally
+  - `docker build -t webapp-{project} .` succeeds
+  - `docker run -p 8080:8080 --env-file .env webapp-{project}` serves the app locally
 - [x] Update `azure.yaml` to add the web-app service
 - [x] Add Makefile targets:
   - `docker-build` — Build the Docker image locally

@@ -81,9 +81,7 @@ _check-project-name:
 		echo ""; \
 		echo "  \033[31mERROR: PROJECT_NAME is not set.\033[0m"; \
 		echo ""; \
-		echo "  Run one of:"; \
-		echo "    make set-project              (uses default: kbagent)"; \
-		echo "    make set-project name=myproj  (custom, 2-8 chars)"; \
+		echo "  Run:  make set-project name=<your-name>  (2-8 chars)"; \
 		echo ""; \
 		exit 1; \
 	fi
@@ -91,8 +89,12 @@ _check-project-name:
 ## AZURE-START
 .PHONY: azure-up azure-kb azure-test azure-app-url set-project
 
-set-project: ## Set PROJECT_NAME in AZD env (default: kbagent, or name=<your-name>)
-	@PROJECT=$${name:-kbagent}; \
+set-project: ## Set PROJECT_NAME in AZD env (name=<your-name>, 2-8 chars)
+	@if [ -z "$${name}" ]; then \
+		echo "ERROR: name is required. Usage: make set-project name=<your-name>"; \
+		exit 1; \
+	fi; \
+	PROJECT=$${name}; \
 	if [ $${#PROJECT} -lt 2 ] || [ $${#PROJECT} -gt 8 ]; then \
 		echo "ERROR: PROJECT_NAME must be 2-8 characters (got: $$PROJECT)"; \
 		exit 1; \
@@ -181,7 +183,7 @@ grant-dev-roles: ## Grant Cosmos DB native RBAC to current developer
 	echo "  User: $$USER_OID" && \
 	echo "" && \
 	ENV=$$(azd env get-value AZURE_ENV_NAME 2>/dev/null || echo "dev") && \
-	PROJECT=$$(azd env get-value PROJECT_NAME 2>/dev/null || echo "kbagent") && \
+	PROJECT=$$(azd env get-value PROJECT_NAME) && \
 	COSMOS_ACCOUNT="cosmos-$$PROJECT-$$ENV" && \
 	RG="rg-$$PROJECT-$$ENV" && \
 	SUB=$$(az account show --query id -o tsv) && \
@@ -338,7 +340,7 @@ azure-agent-logs: ## Stream agent logs from Foundry
 
 azure-clean-orphan-roles: ## Delete orphaned role assignments
 	@echo "Scanning for orphaned role assignments in resource group..."
-	@RG=$$(azd env get-value RESOURCE_GROUP 2>/dev/null || echo "rg-kbagent-dev") && \
+	@RG=$$(azd env get-value RESOURCE_GROUP) && \
 	ORPHANS=$$(az role assignment list --resource-group "$$RG" --query "[?principalName==''].[id]" -o tsv) && \
 	if [ -z "$$ORPHANS" ]; then \
 		echo "  No orphaned role assignments found."; \

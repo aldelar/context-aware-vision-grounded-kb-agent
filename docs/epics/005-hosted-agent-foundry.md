@@ -14,7 +14,7 @@ Extract the KB agent from the Chainlit web app into a standalone **Hosted Agent*
 
 ## Success Criteria
 
-- [x] A Foundry project exists under the existing `ai-kbagent-{env}` AIServices resource
+- [x] A Foundry project exists under the existing `ai-{project}-{env}` AIServices resource
 - [x] The KB agent runs as a Hosted Agent on Foundry with a published endpoint
 - [x] `make agent` runs the agent locally on `localhost:8088` (no Docker needed)
 - [x] `make azure-agent` deploys and publishes the agent to Foundry
@@ -90,7 +90,7 @@ flowchart LR
 
 | # | Decision | Rationale |
 |---|----------|-----------|
-| 1 | **Foundry project under existing AIServices** | The `ai-kbagent-{env}` resource is already `kind: AIServices` — the same resource type that backs Foundry. Creating a project as a child avoids duplicate model deployments; all existing models (gpt-4.1, text-embedding-3-small) are automatically available. |
+| 1 | **Foundry project under existing AIServices** | The `ai-{project}-{env}` resource is already `kind: AIServices` — the same resource type that backs Foundry. Creating a project as a child avoids duplicate model deployments; all existing models (gpt-4.1, text-embedding-3-small) are automatically available. |
 | 2 | **Published agent (not dev mode)** | Dev mode uses a shared project identity. Publishing gives a dedicated Entra agent identity, auto-scale compute, and a stable endpoint URL — required for production use. |
 | 3 | **Responses API (stateless)** | The hosted agent's Responses API is OpenAI-compatible. Conversation state is managed client-side (web app). This is the only protocol currently supported for custom clients. |
 | 4 | **Client-side conversation management** | The Responses API is stateless — the client must send conversation context with each request. The web app stores conversations in Cosmos DB and sends relevant history with each agent call. |
@@ -211,15 +211,15 @@ Add Bicep IaC for the Foundry project (child of existing AIServices resource) an
 #### Deliverables
 
 - [x] Create `infra/modules/foundry-project.bicep`:
-  - Foundry project as child resource of `ai-kbagent-{env}` (`Microsoft.CognitiveServices/accounts/projects`)
-  - Name pattern: `proj-kbagent-{env}`
+  - Foundry project as child resource of `ai-{project}-{env}` (`Microsoft.CognitiveServices/accounts/projects`)
+  - Name pattern: `proj-{project}-{env}`
   - No model deployments needed (inherited from parent)
   - Link Application Insights for tracing
   - Output: project name, project endpoint
 
 - [x] Create `infra/modules/cosmos-db.bicep`:
   - Cosmos DB account (NoSQL API, serverless capacity mode)
-  - Name pattern: `cosmos-kbagent-{env}`
+  - Name pattern: `cosmos-{project}-{env}`
   - Database: `kb-agent`
   - Container: `conversations` (partition key: `/userId`)
   - Managed identity auth (no keys)
@@ -318,17 +318,17 @@ Extract the agent code from `src/web-app/app/` into a standalone `src/agent/` pr
 - [x] Create `src/agent/.env.sample`:
   ```
   # Azure AI Services (Foundry)
-  PROJECT_ENDPOINT=https://ai-kbagent-{env}.services.ai.azure.com/api/projects/proj-kbagent-{env}
-  AI_SERVICES_ENDPOINT=https://ai-kbagent-{env}.cognitiveservices.azure.com/
+  PROJECT_ENDPOINT=https://ai-{project}-{env}.services.ai.azure.com/api/projects/proj-{project}-{env}
+  AI_SERVICES_ENDPOINT=https://ai-{project}-{env}.cognitiveservices.azure.com/
   AGENT_MODEL_DEPLOYMENT_NAME=gpt-4.1
   EMBEDDING_DEPLOYMENT_NAME=text-embedding-3-small
 
   # Azure AI Search
-  SEARCH_ENDPOINT=https://srch-kbagent-{env}.search.windows.net
+  SEARCH_ENDPOINT=https://srch-{project}-{env}.search.windows.net
   SEARCH_INDEX_NAME=kb-articles
 
   # Azure Blob Storage — serving account (images for vision)
-  SERVING_BLOB_ENDPOINT=https://stkbagentserving{env}.blob.core.windows.net/
+  SERVING_BLOB_ENDPOINT=https://st{project}serving{env}.blob.core.windows.net/
   SERVING_CONTAINER_NAME=serving
 
   # OpenTelemetry (auto-configured by hosting adapter in Foundry)
@@ -439,11 +439,11 @@ Refactor the web app to call the agent via the Responses API instead of importin
   # AI_SERVICES_ENDPOINT is no longer needed directly — agent handles this
 
   # Azure Blob Storage — serving account (image proxy still needs this)
-  SERVING_BLOB_ENDPOINT=https://stkbagentserving{env}.blob.core.windows.net/
+  SERVING_BLOB_ENDPOINT=https://st{project}serving{env}.blob.core.windows.net/
   SERVING_CONTAINER_NAME=serving
 
   # Cosmos DB (conversation history)
-  COSMOS_ENDPOINT=https://cosmos-kbagent-{env}.documents.azure.com:443/
+  COSMOS_ENDPOINT=https://cosmos-{project}-{env}.documents.azure.com:443/
   COSMOS_DATABASE_NAME=kb-agent
   ```
 
@@ -610,8 +610,8 @@ Deploy the agent to Foundry as a hosted agent, publish it with a dedicated ident
   5. Update web app `AGENT_ENDPOINT` env var with published agent URL (`.../protocols/openai` suffix)
 
 - [x] ACR access for agent container:
-  - Reuse existing Container Registry (`crkbagent{env}`)
-  - Agent image tags: `crkbagent{env}.azurecr.io/kb-agent:latest`
+  - Reuse existing Container Registry (`cr{project}{env}`)
+  - Agent image tags: `cr{project}{env}.azurecr.io/kb-agent:latest`
 
 - [x] Agent environment variables (in Foundry deployment):
   - `PROJECT_ENDPOINT` — Foundry project endpoint

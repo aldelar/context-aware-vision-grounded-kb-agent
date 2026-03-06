@@ -271,25 +271,25 @@ All Azure resources are named using a **project name** (`PROJECT_NAME`) and an *
 {resource-prefix}-{projectName}-{env}
 ```
 
-For example, with `PROJECT_NAME=kbagent` and `AZURE_ENV_NAME=dev`:
+For example, with `PROJECT_NAME=myproj` and `AZURE_ENV_NAME=dev`:
 
 | Resource | Name |
 |---|---|
-| Resource Group | `rg-kbagent-dev` |
-| AI Services | `ai-kbagent-dev` |
-| AI Search | `srch-kbagent-dev` |
-| Cosmos DB | `cosmos-kbagent-dev` |
-| Storage (staging) | `stkbagentstaging dev` |
+| Resource Group | `rg-myproj-dev` |
+| AI Services | `ai-myproj-dev` |
+| AI Search | `srch-myproj-dev` |
+| Cosmos DB | `cosmos-myproj-dev` |
+| Storage (staging) | `stmyprojstagingdev` |
 
-On first `azd provision`, a preprovision hook prompts for `PROJECT_NAME` if not already set (default: `kbagent`). Constraints:
+`PROJECT_NAME` must be set before provisioning. Constraints:
 
 - **`PROJECT_NAME`**: 2–8 characters (alphanumeric + hyphens). Kept short to fit the 24-char Azure Storage Account limit.
 - **`AZURE_ENV_NAME`**: 2–7 characters. Use `dev`, `staging`, or `prod` (not `production`).
 
-You can also set these manually:
+Set the project name:
 
 ```bash
-azd env set PROJECT_NAME kbagent
+make set-project name=myproj
 ```
 
 ### Steps

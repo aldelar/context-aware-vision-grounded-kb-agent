@@ -7,7 +7,7 @@
 set -euo pipefail
 
 ENV=$(azd env get-value AZURE_ENV_NAME 2>/dev/null || echo "dev")
-PROJECT=$(azd env get-value PROJECT_NAME 2>/dev/null || echo "kbagent")
+PROJECT=$(azd env get-value PROJECT_NAME)
 COSMOS_ACCOUNT="cosmos-${PROJECT}-${ENV}"
 RG="rg-${PROJECT}-${ENV}"
 

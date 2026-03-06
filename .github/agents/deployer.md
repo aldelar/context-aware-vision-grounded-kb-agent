@@ -33,7 +33,7 @@ azure.yaml defines 3 services:
 - `infra/main.bicep` — orchestration, role assignments, module wiring
 - `infra/main.parameters.json` — AZD parameters
 - `infra/modules/*.bicep` — individual resource modules
-- Resource naming: `{type}-{projectName}-{env}` (e.g., `func-kbagent-dev`)
+- Resource naming: `{type}-{projectName}-{env}` (e.g., `func-{project}-dev`)
 
 ### Key Makefile Targets
 

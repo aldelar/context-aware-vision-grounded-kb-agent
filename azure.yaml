@@ -58,10 +58,17 @@ hooks:
         shell: sh
         run: |
             # Ensure PROJECT_NAME is set (required for resource naming).
-            # Default: kbagent. To customize, run: azd env set PROJECT_NAME <name>
             if ! azd env get-value PROJECT_NAME >/dev/null 2>&1; then
-              echo "PROJECT_NAME not set — defaulting to 'kbagent'. To customize: azd env set PROJECT_NAME <name>"
-              azd env set PROJECT_NAME "kbagent"
+              echo "ERROR: PROJECT_NAME is not set. Run: make set-project name=<your-name>"
+              exit 1
+            fi
+
+            # Auto-set resource group name so AZD never prompts for it.
+            # Convention: rg-{projectName}-{envName}
+            PROJECT_NAME=$(azd env get-value PROJECT_NAME)
+            AZURE_ENV_NAME=$(azd env get-value AZURE_ENV_NAME 2>/dev/null || true)
+            if [ -n "$AZURE_ENV_NAME" ]; then
+              azd env set AZURE_RESOURCE_GROUP "rg-${PROJECT_NAME}-${AZURE_ENV_NAME}"
             fi
 
             # Ensure AZURE_PRINCIPAL_ID is set for deployer RBAC role assignments.
@@ -76,9 +83,8 @@ hooks:
               fi
             fi
 
-            # Export AZURE_ENV_NAME for sub-scripts (AZD sets it in env values
-            # but does not always export it as a shell variable to child processes)
-            AZURE_ENV_NAME=$(azd env get-value AZURE_ENV_NAME 2>/dev/null || true)
+            # Export AZURE_ENV_NAME for sub-scripts (already fetched above,
+            # but ensure it's exported as a shell variable for child processes)
             export AZURE_ENV_NAME
 
             # Set up Entra App Registration for web app Easy Auth

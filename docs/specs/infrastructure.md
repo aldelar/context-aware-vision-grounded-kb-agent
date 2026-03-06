@@ -10,10 +10,10 @@ All infrastructure is defined as **Bicep IaC** under `/infra/` and deployed via 
 
 **Resource naming** is parameterized via two values set during `azd provision`:
 
-- **`PROJECT_NAME`** (2–8 chars) — short project identifier, default `kbagent`
+- **`PROJECT_NAME`** (2–8 chars) — short project identifier, default `{project}`
 - **`AZURE_ENV_NAME`** (2–7 chars) — environment name (`dev`, `staging`, `prod`)
 
-All resources follow the pattern `{prefix}-{projectName}-{env}` (e.g., `func-kbagent-dev`). Storage accounts drop hyphens to meet Azure's alphanumeric constraint (e.g., `stkbagentstaging dev`). The 8-char project name limit ensures storage accounts stay within the 24-character Azure maximum.
+All resources follow the pattern `{prefix}-{projectName}-{env}` (e.g., `func-{project}-dev`). Storage accounts drop hyphens to meet Azure's alphanumeric constraint (e.g., `st{project}staging dev`). The 8-char project name limit ensures storage accounts stay within the 24-character Azure maximum.
 
 ## Resource Inventory
 
@@ -43,7 +43,7 @@ All resources follow the pattern `{prefix}-{projectName}-{env}` (e.g., `func-kba
 | → Container | `cosmos-db.bicep` | `conversations` | Partition key `/userId` |
 | Entra App Registration | Pre-provision hook | `webapp-{project}-{env}` | — |
 
-> `{project}` is the `PROJECT_NAME` (default `kbagent`). `{env}` is the `AZURE_ENV_NAME` (e.g., `dev`, `staging`, `prod`).
+> `{project}` is the `PROJECT_NAME` (default `{project}`). `{env}` is the `AZURE_ENV_NAME` (e.g., `dev`, `staging`, `prod`).
 
 ## Module Structure
 
@@ -111,7 +111,7 @@ A single **AIServices** (Foundry) resource hosting Content Understanding and six
 |---------|-------|
 | Kind | `AIServices` |
 | SKU | S0 |
-| Custom Subdomain | `ai-kbagent-{env}` |
+| Custom Subdomain | `ai-{project}-{env}` |
 | Local Auth | Disabled (`disableLocalAuth: true`) |
 | Public Network | Enabled |
 
@@ -203,9 +203,9 @@ Creates a Foundry project as a child resource of the AI Services account. The pr
 
 | Setting | Value |
 |---------|-------|
-| Parent | AI Services resource (`ai-kbagent-{env}`) |
-| Name | `proj-kbagent-{env}` |
-| Display Name | `KB Agent (proj-kbagent-{env})` |
+| Parent | AI Services resource (`ai-{project}-{env}`) |
+| Name | `proj-{project}-{env}` |
+| Display Name | `KB Agent (proj-{project}-{env})` |
 
 The project endpoint is output for use by agent deployment (AZD `azure.ai.agents` extension) and by the web app client.
 
@@ -227,10 +227,10 @@ Both identities require RBAC on the same set of dependent resources (AI Search, 
 | Variable | Value | Purpose |
 |----------|-------|---------|
 | `AZURE_AI_PROJECT_ID` | Full ARM resource ID of the Foundry project | AZD extension uses this to target deployments |
-| `AZURE_AI_PROJECT_ENDPOINT` | `https://ai-kbagent-{env}.services.ai.azure.com/api/projects/proj-kbagent-{env}` | Agent runtime config |
-| `AZURE_AI_ACCOUNT_NAME` | `ai-kbagent-{env}` | AZD extension uses this for account lookups |
-| `AZURE_AI_PROJECT_NAME` | `proj-kbagent-{env}` | AZD extension uses this for project lookups |
-| `AZURE_OPENAI_ENDPOINT` | `https://ai-kbagent-{env}.openai.azure.com/` | OpenAI-compatible endpoint |
+| `AZURE_AI_PROJECT_ENDPOINT` | `https://ai-{project}-{env}.services.ai.azure.com/api/projects/proj-{project}-{env}` | Agent runtime config |
+| `AZURE_AI_ACCOUNT_NAME` | `ai-{project}-{env}` | AZD extension uses this for account lookups |
+| `AZURE_AI_PROJECT_NAME` | `proj-{project}-{env}` | AZD extension uses this for project lookups |
+| `AZURE_OPENAI_ENDPOINT` | `https://ai-{project}-{env}.openai.azure.com/` | OpenAI-compatible endpoint |
 
 ### Cosmos DB (`cosmos-db.bicep`)
 
@@ -433,34 +433,34 @@ The following values are exported by `main.bicep` and available as AZD environme
 | Output | Example Value |
 |--------|--------------|
 | `AZURE_LOCATION` | `eastus2` |
-| `RESOURCE_GROUP` | `rg-kbagent-dev` |
-| `STAGING_STORAGE_ACCOUNT` | `stkbagentstagingdev` |
-| `STAGING_BLOB_ENDPOINT` | `https://stkbagentstagingdev.blob.core.windows.net/` |
-| `SERVING_STORAGE_ACCOUNT` | `stkbagentservingdev` |
-| `SERVING_BLOB_ENDPOINT` | `https://stkbagentservingdev.blob.core.windows.net/` |
-| `AI_SERVICES_NAME` | `ai-kbagent-dev` |
-| `AI_SERVICES_ENDPOINT` | `https://ai-kbagent-dev.cognitiveservices.azure.com/` |
+| `RESOURCE_GROUP` | `rg-{project}-dev` |
+| `STAGING_STORAGE_ACCOUNT` | `st{project}stagingdev` |
+| `STAGING_BLOB_ENDPOINT` | `https://st{project}stagingdev.blob.core.windows.net/` |
+| `SERVING_STORAGE_ACCOUNT` | `st{project}servingdev` |
+| `SERVING_BLOB_ENDPOINT` | `https://st{project}servingdev.blob.core.windows.net/` |
+| `AI_SERVICES_NAME` | `ai-{project}-dev` |
+| `AI_SERVICES_ENDPOINT` | `https://ai-{project}-dev.cognitiveservices.azure.com/` |
 | `EMBEDDING_DEPLOYMENT_NAME` | `text-embedding-3-small` |
 | `AGENT_DEPLOYMENT_NAME` | `gpt-5-mini` |
 | `CU_COMPLETION_DEPLOYMENT_NAME` | `gpt-4.1` |
 | `MISTRAL_DEPLOYMENT_NAME` | `mistral-document-ai-2512` |
-| `SEARCH_SERVICE_NAME` | `srch-kbagent-dev` |
-| `SEARCH_ENDPOINT` | `https://srch-kbagent-dev.search.windows.net` |
-| `FUNCTION_APP_NAME` | `func-kbagent-dev` |
-| `FUNCTION_APP_URL` | `https://func-kbagent-dev.<hash>.<region>.azurecontainerapps.io` |
-| `APPINSIGHTS_NAME` | `appi-kbagent-dev` |
-| `CONTAINER_REGISTRY_NAME` | `crkbagentdev` |
-| `CONTAINER_REGISTRY_LOGIN_SERVER` | `crkbagentdev.azurecr.io` |
-| `WEBAPP_NAME` | `webapp-kbagent-dev` |
-| `WEBAPP_URL` | `https://webapp-kbagent-dev.<region>.azurecontainerapps.io` |
-| `FOUNDRY_PROJECT_NAME` | `proj-kbagent-dev` |
-| `FOUNDRY_PROJECT_ENDPOINT` | `https://ai-kbagent-dev.services.ai.azure.com/api/projects/proj-kbagent-dev` |
-| `AZURE_AI_PROJECT_ID` | `/subscriptions/.../providers/Microsoft.CognitiveServices/accounts/ai-kbagent-dev/projects/proj-kbagent-dev` |
-| `AZURE_AI_PROJECT_ENDPOINT` | `https://ai-kbagent-dev.services.ai.azure.com/api/projects/proj-kbagent-dev` |
-| `AZURE_AI_ACCOUNT_NAME` | `ai-kbagent-dev` |
-| `AZURE_AI_PROJECT_NAME` | `proj-kbagent-dev` |
-| `AZURE_OPENAI_ENDPOINT` | `https://ai-kbagent-dev.openai.azure.com/` |
-| `COSMOS_ENDPOINT` | `https://cosmos-kbagent-dev.documents.azure.com:443/` |
+| `SEARCH_SERVICE_NAME` | `srch-{project}-dev` |
+| `SEARCH_ENDPOINT` | `https://srch-{project}-dev.search.windows.net` |
+| `FUNCTION_APP_NAME` | `func-{project}-dev` |
+| `FUNCTION_APP_URL` | `https://func-{project}-dev.<hash>.<region>.azurecontainerapps.io` |
+| `APPINSIGHTS_NAME` | `appi-{project}-dev` |
+| `CONTAINER_REGISTRY_NAME` | `cr{project}dev` |
+| `CONTAINER_REGISTRY_LOGIN_SERVER` | `cr{project}dev.azurecr.io` |
+| `WEBAPP_NAME` | `webapp-{project}-dev` |
+| `WEBAPP_URL` | `https://webapp-{project}-dev.<region>.azurecontainerapps.io` |
+| `FOUNDRY_PROJECT_NAME` | `proj-{project}-dev` |
+| `FOUNDRY_PROJECT_ENDPOINT` | `https://ai-{project}-dev.services.ai.azure.com/api/projects/proj-{project}-dev` |
+| `AZURE_AI_PROJECT_ID` | `/subscriptions/.../providers/Microsoft.CognitiveServices/accounts/ai-{project}-dev/projects/proj-{project}-dev` |
+| `AZURE_AI_PROJECT_ENDPOINT` | `https://ai-{project}-dev.services.ai.azure.com/api/projects/proj-{project}-dev` |
+| `AZURE_AI_ACCOUNT_NAME` | `ai-{project}-dev` |
+| `AZURE_AI_PROJECT_NAME` | `proj-{project}-dev` |
+| `AZURE_OPENAI_ENDPOINT` | `https://ai-{project}-dev.openai.azure.com/` |
+| `COSMOS_ENDPOINT` | `https://cosmos-{project}-dev.documents.azure.com:443/` |
 | `COSMOS_DATABASE_NAME` | `kb-agent` |
 
 ---

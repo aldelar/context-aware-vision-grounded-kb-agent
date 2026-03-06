@@ -16,10 +16,10 @@ param tags object = {}
 @description('Log Analytics workspace ID for Container Apps Environment')
 param logAnalyticsWorkspaceId string
 
-@description('ACR login server (e.g., crkbagentdev.azurecr.io)')
+@description('ACR login server (e.g., cr{project}dev.azurecr.io)')
 param acrLoginServer string
 
-@description('Docker image name and tag (e.g., webapp-kbagent:latest). Leave empty for initial provisioning.')
+@description('Docker image name and tag (e.g., webapp-{project}:latest). Leave empty for initial provisioning.')
 param imageName string = ''
 
 // Use a public placeholder image on first deploy (before AZD pushes the real image)

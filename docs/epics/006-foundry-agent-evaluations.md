@@ -10,7 +10,7 @@ Enable meaningful, production-style evaluation and monitoring for the deployed *
 
 This epic defines and automates, as part of deployment:
 
-1. Foundry project observability wiring to **Application Insights** (`appi-kbagent-dev` in dev).
+1. Foundry project observability wiring to **Application Insights** (`appi-{project}-dev` in dev).
 2. A minimal but useful evaluation baseline for the hosted agent.
 3. Continuous evaluation for deployed agent traffic, including dev traffic.
 4. Scheduled evaluation runs on a fixed test dataset.
@@ -62,7 +62,7 @@ This epic defines and automates, as part of deployment:
 
 ## Success Criteria
 
-- [ ] Foundry project is connected to `appi-kbagent-{env}` automatically during deployment (no portal actions)
+- [ ] Foundry project is connected to `appi-{project}-{env}` automatically during deployment (no portal actions)
 - [ ] Continuous evaluation rule exists and is enabled for `kb-agent`
 - [ ] Scheduled dataset-based evaluation exists and is enabled (daily cadence)
 - [ ] Scheduled red-team run exists and is enabled (weekly cadence)
@@ -99,7 +99,7 @@ flowchart TD
 
 > **Status:** Not Started
 
-Automate project-level observability connection so the deployed Foundry project uses the environment Application Insights resource (`appi-kbagent-{env}`) without manual portal work.
+Automate project-level observability connection so the deployed Foundry project uses the environment Application Insights resource (`appi-{project}-{env}`) without manual portal work.
 
 #### Deliverables
 
@@ -118,7 +118,7 @@ Automate project-level observability connection so the deployed Foundry project 
 #### Definition of Done
 
 - [ ] `make eval-connect-appi` succeeds in a fresh environment
-- [ ] `make eval-verify` confirms project connection points to `appi-kbagent-{env}`
+- [ ] `make eval-verify` confirms project connection points to `appi-{project}-{env}`
 - [ ] No portal/manual steps required
 
 ---

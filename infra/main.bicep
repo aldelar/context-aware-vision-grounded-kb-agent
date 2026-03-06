@@ -19,7 +19,7 @@ targetScope = 'resourceGroup'
 
 @minLength(2)
 @maxLength(8)
-@description('Short project identifier used in all resource names (e.g. "kbagent"). Alphanumeric and hyphens only. Max 8 chars to fit Azure Storage 24-char limit.')
+@description('Short project identifier used in all resource names (e.g. "myproj"). Alphanumeric and hyphens only. Max 8 chars to fit Azure Storage 24-char limit.')
 param projectName string
 
 @minLength(2)
@@ -58,7 +58,7 @@ param agentEndpoint string = ''
 // Variables
 // ---------------------------------------------------------------------------
 
-// Base name for resources: kebab-case, e.g. 'kbagent-dev'
+// Base name for resources: kebab-case, e.g. '{project}-dev'
 var baseName = '${projectName}-${environmentName}'
 
 // Storage account names: lowercase alphanumeric, max 24 chars
