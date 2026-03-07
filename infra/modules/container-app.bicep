@@ -121,12 +121,13 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
         transport: 'auto'
         allowInsecure: false
       }
-      registries: useAcrImage ? [
+      // Always configure ACR registry so azd deploy can push images with managed identity.
+      registries: [
         {
           server: acrLoginServer
           identity: 'system'
         }
-      ] : []
+      ]
     }
     template: {
       containers: [
