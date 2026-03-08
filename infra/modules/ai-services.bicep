@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Module: ai-services.bicep
-// Deploys Azure AI Services (Foundry) account with model deployments
-// Used for: Content Understanding, Embeddings (small + large), Agent (GPT-5-mini), and CU completion (gpt-4.1)
+// Deploys Azure AI Services (Foundry) account with model deployments.
+// RBAC is handled separately by ai-services-role.bicep.
 // ---------------------------------------------------------------------------
 
 @description('Azure region for resources')
@@ -12,15 +12,6 @@ param baseName string
 
 @description('Tags to apply to all resources')
 param tags object = {}
-
-@description('Principal ID to grant Cognitive Services roles (service principal / managed identity)')
-param cognitiveServicesUserPrincipalId string = ''
-
-@description('Principal ID of the deployer (human user) for Cognitive Services access')
-param deployerPrincipalId string = ''
-
-@description('Principal ID to grant Cognitive Services OpenAI User role only (e.g., Container App MI)')
-param openAIOnlyUserPrincipalId string = ''
 
 // ---------------------------------------------------------------------------
 // Azure AI Services Account (Foundry resource)
@@ -169,73 +160,6 @@ resource mistralDocAiDeployment 'Microsoft.CognitiveServices/accounts/deployment
       name: 'mistral-document-ai-2512'
       version: '1'
     }
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Role Assignment: Cognitive Services OpenAI User
-// ---------------------------------------------------------------------------
-var cognitiveServicesOpenAIUserRoleId = '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
-
-resource openAIUserRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(cognitiveServicesUserPrincipalId)) {
-  name: guid(aiServices.id, cognitiveServicesUserPrincipalId, cognitiveServicesOpenAIUserRoleId)
-  scope: aiServices
-  properties: {
-    principalId: cognitiveServicesUserPrincipalId
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', cognitiveServicesOpenAIUserRoleId)
-    principalType: 'ServicePrincipal'
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Role Assignment: Cognitive Services User (for Content Understanding)
-// ---------------------------------------------------------------------------
-var cognitiveServicesUserRoleId = 'a97b65f3-24c7-4388-baec-2e87135dc908'
-
-resource cogServicesUserRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(cognitiveServicesUserPrincipalId)) {
-  name: guid(aiServices.id, cognitiveServicesUserPrincipalId, cognitiveServicesUserRoleId)
-  scope: aiServices
-  properties: {
-    principalId: cognitiveServicesUserPrincipalId
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', cognitiveServicesUserRoleId)
-    principalType: 'ServicePrincipal'
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Role Assignments for deployer (User principal type)
-// ---------------------------------------------------------------------------
-resource deployerOpenAIUserRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(deployerPrincipalId)) {
-  name: guid(aiServices.id, deployerPrincipalId, cognitiveServicesOpenAIUserRoleId)
-  scope: aiServices
-  properties: {
-    principalId: deployerPrincipalId
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', cognitiveServicesOpenAIUserRoleId)
-    principalType: 'User'
-  }
-}
-
-resource deployerCogServicesUserRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(deployerPrincipalId)) {
-  name: guid(aiServices.id, deployerPrincipalId, cognitiveServicesUserRoleId)
-  scope: aiServices
-  properties: {
-    principalId: deployerPrincipalId
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', cognitiveServicesUserRoleId)
-    principalType: 'User'
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Role Assignment: Cognitive Services OpenAI User only (e.g., Container App MI)
-// Unlike the full cognitiveServicesUserPrincipalId, this only grants OpenAI access
-// ---------------------------------------------------------------------------
-resource openAIOnlyUserRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(openAIOnlyUserPrincipalId)) {
-  name: guid(aiServices.id, openAIOnlyUserPrincipalId, cognitiveServicesOpenAIUserRoleId)
-  scope: aiServices
-  properties: {
-    principalId: openAIOnlyUserPrincipalId
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', cognitiveServicesOpenAIUserRoleId)
-    principalType: 'ServicePrincipal'
   }
 }
 

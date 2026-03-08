@@ -8,35 +8,42 @@ All infrastructure is defined as **Bicep IaC** under `/infra/` and deployed via 
 
 **Region:** East US 2 — selected for availability of all required services: Content Understanding, text-embedding-3-small, gpt-5-mini, Azure AI Search, and Azure Functions Flex Consumption.
 
+**Resource naming** is parameterized via two values set during `azd provision`:
+
+- **`PROJECT_NAME`** (2–8 chars) — short project identifier, default `{project}`
+- **`AZURE_ENV_NAME`** (2–7 chars) — environment name (`dev`, `staging`, `prod`)
+
+All resources follow the pattern `{prefix}-{projectName}-{env}` (e.g., `func-{project}-dev`). Storage accounts drop hyphens to meet Azure's alphanumeric constraint (e.g., `st{project}staging dev`). The 8-char project name limit ensures storage accounts stay within the 24-character Azure maximum.
+
 ## Resource Inventory
 
 | Resource | Bicep Module | Name Pattern | SKU / Tier |
 |----------|-------------|--------------|------------|
-| Resource Group | _(AZD-managed)_ | `rg-kbidx-{env}` | — |
-| Log Analytics Workspace | `monitoring.bicep` | `log-kbidx-{env}` | PerGB2018, 30-day retention |
-| Application Insights | `monitoring.bicep` | `appi-kbidx-{env}` | Workspace-based |
-| Storage — Staging | `storage.bicep` | `stkbidxstaging{env}` | Standard_LRS, Hot |
-| Storage — Serving | `storage.bicep` | `stkbidxserving{env}` | Standard_LRS, Hot |
-| Storage — Functions Runtime | `function-app.bicep` | `stkbidxfunc{env}` | Standard_LRS |
-| Azure AI Services (Foundry) | `ai-services.bicep` | `ai-kbidx-{env}` | S0 (AIServices kind) |
+| Resource Group | _(AZD-managed)_ | `rg-{project}-{env}` | — |
+| Log Analytics Workspace | `monitoring.bicep` | `log-{project}-{env}` | PerGB2018, 30-day retention |
+| Application Insights | `monitoring.bicep` | `appi-{project}-{env}` | Workspace-based |
+| Storage — Staging | `storage.bicep` | `st{project}staging{env}` | Standard_LRS, Hot |
+| Storage — Serving | `storage.bicep` | `st{project}serving{env}` | Standard_LRS, Hot |
+| Storage — Functions Runtime | `function-app.bicep` | `st{project}func{env}` | Standard_LRS |
+| Azure AI Services (Foundry) | `ai-services.bicep` | `ai-{project}-{env}` | S0 (AIServices kind) |
 | → Embedding Deployment | `ai-services.bicep` | `text-embedding-3-small` | GlobalStandard, 120K TPM |
 | → Agent Deployment | `ai-services.bicep` | `gpt-5-mini` | GlobalStandard, 30K TPM |
 | → CU Completion Deployment | `ai-services.bicep` | `gpt-4.1` | GlobalStandard, 30K TPM |
 | → CU Internal: Embedding † | `ai-services.bicep` | `text-embedding-3-large` | GlobalStandard, 120K TPM |
 | → CU Internal: Analysis † | `ai-services.bicep` | `gpt-4.1-mini` | GlobalStandard, 30K TPM |
 | → Mistral OCR Deployment | `ai-services.bicep` | `mistral-document-ai-2512` | GlobalStandard, capacity 1 |
-| Azure AI Search | `search.bicep` | `srch-kbidx-{env}` | Free, 1 partition, 1 replica |
-| Function App (Container App) | `function-app.bicep` | `func-kbidx-{env}` | Container App, 1.0 vCPU / 2 GiB, Python 3.11 custom Docker |
-| Container Registry | `container-registry.bicep` | `crkbidx{env}` | Basic |
-| Container Apps Environment | `container-app.bicep` | `cae-kbidx-{env}` | Consumption |
-| Container App (Web App) | `container-app.bicep` | `webapp-kbidx-{env}` | 0.5 vCPU, 1 GiB |
-| Foundry Project | `foundry-project.bicep` | `proj-kbidx-{env}` | — (child of AI Services) |
-| Cosmos DB (NoSQL) | `cosmos-db.bicep` | `cosmos-kbidx-{env}` | Serverless |
+| Azure AI Search | `search.bicep` | `srch-{project}-{env}` | Free, 1 partition, 1 replica |
+| Function App (Container App) | `function-app.bicep` | `func-{project}-{env}` | Container App, 1.0 vCPU / 2 GiB, Python 3.11 custom Docker |
+| Container Registry | `container-registry.bicep` | `cr{project}{env}` | Basic |
+| Container Apps Environment | `container-app.bicep` | `cae-{project}-{env}` | Consumption |
+| Container App (Web App) | `container-app.bicep` | `webapp-{project}-{env}` | 0.5 vCPU, 1 GiB |
+| Foundry Project | `foundry-project.bicep` | `proj-{project}-{env}` | — (child of AI Services) |
+| Cosmos DB (NoSQL) | `cosmos-db.bicep` | `cosmos-{project}-{env}` | Serverless |
 | → Database | `cosmos-db.bicep` | `kb-agent` | — |
 | → Container | `cosmos-db.bicep` | `conversations` | Partition key `/userId` |
-| Entra App Registration | Pre-provision hook | `webapp-kbidx-{env}` | — |
+| Entra App Registration | Pre-provision hook | `webapp-{project}-{env}` | — |
 
-> `{env}` is the AZD environment name (e.g., `dev`, `staging`, `prod`).
+> `{project}` is the `PROJECT_NAME` (default `{project}`). `{env}` is the `AZURE_ENV_NAME` (e.g., `dev`, `staging`, `prod`).
 
 ## Module Structure
 
@@ -104,7 +111,7 @@ A single **AIServices** (Foundry) resource hosting Content Understanding and six
 |---------|-------|
 | Kind | `AIServices` |
 | SKU | S0 |
-| Custom Subdomain | `ai-kbidx-{env}` |
+| Custom Subdomain | `ai-{project}-{env}` |
 | Local Auth | Disabled (`disableLocalAuth: true`) |
 | Public Network | Enabled |
 
@@ -196,9 +203,9 @@ Creates a Foundry project as a child resource of the AI Services account. The pr
 
 | Setting | Value |
 |---------|-------|
-| Parent | AI Services resource (`ai-kbidx-{env}`) |
-| Name | `proj-kbidx-{env}` |
-| Display Name | `KB Agent (proj-kbidx-{env})` |
+| Parent | AI Services resource (`ai-{project}-{env}`) |
+| Name | `proj-{project}-{env}` |
+| Display Name | `KB Agent (proj-{project}-{env})` |
 
 The project endpoint is output for use by agent deployment (AZD `azure.ai.agents` extension) and by the web app client.
 
@@ -220,10 +227,10 @@ Both identities require RBAC on the same set of dependent resources (AI Search, 
 | Variable | Value | Purpose |
 |----------|-------|---------|
 | `AZURE_AI_PROJECT_ID` | Full ARM resource ID of the Foundry project | AZD extension uses this to target deployments |
-| `AZURE_AI_PROJECT_ENDPOINT` | `https://ai-kbidx-{env}.services.ai.azure.com/api/projects/proj-kbidx-{env}` | Agent runtime config |
-| `AZURE_AI_ACCOUNT_NAME` | `ai-kbidx-{env}` | AZD extension uses this for account lookups |
-| `AZURE_AI_PROJECT_NAME` | `proj-kbidx-{env}` | AZD extension uses this for project lookups |
-| `AZURE_OPENAI_ENDPOINT` | `https://ai-kbidx-{env}.openai.azure.com/` | OpenAI-compatible endpoint |
+| `AZURE_AI_PROJECT_ENDPOINT` | `https://ai-{project}-{env}.services.ai.azure.com/api/projects/proj-{project}-{env}` | Agent runtime config |
+| `AZURE_AI_ACCOUNT_NAME` | `ai-{project}-{env}` | AZD extension uses this for account lookups |
+| `AZURE_AI_PROJECT_NAME` | `proj-{project}-{env}` | AZD extension uses this for project lookups |
+| `AZURE_OPENAI_ENDPOINT` | `https://ai-{project}-{env}.openai.azure.com/` | OpenAI-compatible endpoint |
 
 ### Cosmos DB (`cosmos-db.bicep`)
 
@@ -426,34 +433,34 @@ The following values are exported by `main.bicep` and available as AZD environme
 | Output | Example Value |
 |--------|--------------|
 | `AZURE_LOCATION` | `eastus2` |
-| `RESOURCE_GROUP` | `rg-kbidx-dev` |
-| `STAGING_STORAGE_ACCOUNT` | `stkbidxstagingdev` |
-| `STAGING_BLOB_ENDPOINT` | `https://stkbidxstagingdev.blob.core.windows.net/` |
-| `SERVING_STORAGE_ACCOUNT` | `stkbidxservingdev` |
-| `SERVING_BLOB_ENDPOINT` | `https://stkbidxservingdev.blob.core.windows.net/` |
-| `AI_SERVICES_NAME` | `ai-kbidx-dev` |
-| `AI_SERVICES_ENDPOINT` | `https://ai-kbidx-dev.cognitiveservices.azure.com/` |
+| `RESOURCE_GROUP` | `rg-{project}-dev` |
+| `STAGING_STORAGE_ACCOUNT` | `st{project}stagingdev` |
+| `STAGING_BLOB_ENDPOINT` | `https://st{project}stagingdev.blob.core.windows.net/` |
+| `SERVING_STORAGE_ACCOUNT` | `st{project}servingdev` |
+| `SERVING_BLOB_ENDPOINT` | `https://st{project}servingdev.blob.core.windows.net/` |
+| `AI_SERVICES_NAME` | `ai-{project}-dev` |
+| `AI_SERVICES_ENDPOINT` | `https://ai-{project}-dev.cognitiveservices.azure.com/` |
 | `EMBEDDING_DEPLOYMENT_NAME` | `text-embedding-3-small` |
 | `AGENT_DEPLOYMENT_NAME` | `gpt-5-mini` |
 | `CU_COMPLETION_DEPLOYMENT_NAME` | `gpt-4.1` |
 | `MISTRAL_DEPLOYMENT_NAME` | `mistral-document-ai-2512` |
-| `SEARCH_SERVICE_NAME` | `srch-kbidx-dev` |
-| `SEARCH_ENDPOINT` | `https://srch-kbidx-dev.search.windows.net` |
-| `FUNCTION_APP_NAME` | `func-kbidx-dev` |
-| `FUNCTION_APP_URL` | `https://func-kbidx-dev.<hash>.<region>.azurecontainerapps.io` |
-| `APPINSIGHTS_NAME` | `appi-kbidx-dev` |
-| `CONTAINER_REGISTRY_NAME` | `crkbidxdev` |
-| `CONTAINER_REGISTRY_LOGIN_SERVER` | `crkbidxdev.azurecr.io` |
-| `WEBAPP_NAME` | `webapp-kbidx-dev` |
-| `WEBAPP_URL` | `https://webapp-kbidx-dev.<region>.azurecontainerapps.io` |
-| `FOUNDRY_PROJECT_NAME` | `proj-kbidx-dev` |
-| `FOUNDRY_PROJECT_ENDPOINT` | `https://ai-kbidx-dev.services.ai.azure.com/api/projects/proj-kbidx-dev` |
-| `AZURE_AI_PROJECT_ID` | `/subscriptions/.../providers/Microsoft.CognitiveServices/accounts/ai-kbidx-dev/projects/proj-kbidx-dev` |
-| `AZURE_AI_PROJECT_ENDPOINT` | `https://ai-kbidx-dev.services.ai.azure.com/api/projects/proj-kbidx-dev` |
-| `AZURE_AI_ACCOUNT_NAME` | `ai-kbidx-dev` |
-| `AZURE_AI_PROJECT_NAME` | `proj-kbidx-dev` |
-| `AZURE_OPENAI_ENDPOINT` | `https://ai-kbidx-dev.openai.azure.com/` |
-| `COSMOS_ENDPOINT` | `https://cosmos-kbidx-dev.documents.azure.com:443/` |
+| `SEARCH_SERVICE_NAME` | `srch-{project}-dev` |
+| `SEARCH_ENDPOINT` | `https://srch-{project}-dev.search.windows.net` |
+| `FUNCTION_APP_NAME` | `func-{project}-dev` |
+| `FUNCTION_APP_URL` | `https://func-{project}-dev.<hash>.<region>.azurecontainerapps.io` |
+| `APPINSIGHTS_NAME` | `appi-{project}-dev` |
+| `CONTAINER_REGISTRY_NAME` | `cr{project}dev` |
+| `CONTAINER_REGISTRY_LOGIN_SERVER` | `cr{project}dev.azurecr.io` |
+| `WEBAPP_NAME` | `webapp-{project}-dev` |
+| `WEBAPP_URL` | `https://webapp-{project}-dev.<region>.azurecontainerapps.io` |
+| `FOUNDRY_PROJECT_NAME` | `proj-{project}-dev` |
+| `FOUNDRY_PROJECT_ENDPOINT` | `https://ai-{project}-dev.services.ai.azure.com/api/projects/proj-{project}-dev` |
+| `AZURE_AI_PROJECT_ID` | `/subscriptions/.../providers/Microsoft.CognitiveServices/accounts/ai-{project}-dev/projects/proj-{project}-dev` |
+| `AZURE_AI_PROJECT_ENDPOINT` | `https://ai-{project}-dev.services.ai.azure.com/api/projects/proj-{project}-dev` |
+| `AZURE_AI_ACCOUNT_NAME` | `ai-{project}-dev` |
+| `AZURE_AI_PROJECT_NAME` | `proj-{project}-dev` |
+| `AZURE_OPENAI_ENDPOINT` | `https://ai-{project}-dev.openai.azure.com/` |
+| `COSMOS_ENDPOINT` | `https://cosmos-{project}-dev.documents.azure.com:443/` |
 | `COSMOS_DATABASE_NAME` | `kb-agent` |
 
 ---

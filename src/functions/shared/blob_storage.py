@@ -57,7 +57,7 @@ def download_article(
     Parameters
     ----------
     blob_endpoint:
-        Blob storage account URL (e.g. ``https://stkbidxstagingdev.blob.core.windows.net/``).
+        Blob storage account URL (e.g. ``https://st{project}stagingdev.blob.core.windows.net/``).
     container_name:
         Container name (``staging`` or ``serving``).
     article_id:

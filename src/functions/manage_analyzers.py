@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 from azure.ai.contentunderstanding import ContentUnderstandingClient
-from azure.core.exceptions import ResourceNotFoundError
+from azure.core.exceptions import HttpResponseError, ResourceNotFoundError
 from azure.identity import DefaultAzureCredential
 
 from shared.config import config
@@ -50,8 +50,12 @@ def setup() -> None:
     print("Setting CU default model deployments...")
 
     # Read current defaults and build a patch that removes stale entries.
-    current = client.get_defaults()
-    current_mappings = current.model_deployments or {}
+    try:
+        current = client.get_defaults()
+        current_mappings = current.model_deployments or {}
+    except HttpResponseError:
+        # Defaults not yet set (fresh deployment) — nothing stale to clean up.
+        current_mappings = {}
     stale_keys = set(current_mappings.keys()) - set(MODEL_DEPLOYMENTS.keys())
 
     patch: dict[str, str | None] = {}

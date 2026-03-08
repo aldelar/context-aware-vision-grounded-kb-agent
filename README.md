@@ -263,6 +263,35 @@ Run `make help` to see all targets. Here is the full list:
 - **Azure Functions Core Tools** (`func`) — for Azure deployment
 - An Azure subscription with access to AI Services, AI Search, and model deployments
 
+### Resource Naming
+
+All Azure resources are named using a **project name** (`PROJECT_NAME`) and an **environment name** (`AZURE_ENV_NAME`):
+
+```
+{resource-prefix}-{projectName}-{env}
+```
+
+For example, with `PROJECT_NAME=myproj` and `AZURE_ENV_NAME=dev`:
+
+| Resource | Name |
+|---|---|
+| Resource Group | `rg-myproj-dev` |
+| AI Services | `ai-myproj-dev` |
+| AI Search | `srch-myproj-dev` |
+| Cosmos DB | `cosmos-myproj-dev` |
+| Storage (staging) | `stmyprojstagingdev` |
+
+`PROJECT_NAME` must be set before provisioning. Constraints:
+
+- **`PROJECT_NAME`**: 2–8 characters (alphanumeric + hyphens). Kept short to fit the 24-char Azure Storage Account limit.
+- **`AZURE_ENV_NAME`**: 2–7 characters. Use `dev`, `staging`, or `prod` (not `production`).
+
+Set the project name:
+
+```bash
+make set-project name=myproj
+```
+
 ### Steps
 
 ```bash

@@ -7,8 +7,9 @@
 set -euo pipefail
 
 ENV=$(azd env get-value AZURE_ENV_NAME 2>/dev/null || echo "dev")
-COSMOS_ACCOUNT="cosmos-kbidx-${ENV}"
-RG="rg-kbidx-${ENV}"
+PROJECT=$(azd env get-value PROJECT_NAME)
+COSMOS_ACCOUNT="cosmos-${PROJECT}-${ENV}"
+RG="rg-${PROJECT}-${ENV}"
 
 echo "Resolving developer public IP..."
 DEV_IP=$(curl -s https://ifconfig.me)

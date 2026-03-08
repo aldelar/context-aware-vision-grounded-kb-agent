@@ -18,7 +18,7 @@ param acrPullPrincipalId string = ''
 // ---------------------------------------------------------------------------
 // Container Registry
 // ---------------------------------------------------------------------------
-var acrName = replace('crkbidx${baseName}', '-', '')
+var acrName = replace('cr${baseName}', '-', '')
 
 resource containerRegistry 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
   name: acrName

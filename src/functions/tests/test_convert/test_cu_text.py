@@ -76,6 +76,7 @@ def cu_text_result(request: pytest.FixtureRequest) -> CuTextResult:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.integration
 class TestExtractText:
     """Integration tests for extract_text()."""
 

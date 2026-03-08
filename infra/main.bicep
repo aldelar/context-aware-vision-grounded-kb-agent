@@ -17,9 +17,14 @@ targetScope = 'resourceGroup'
 // Parameters
 // ---------------------------------------------------------------------------
 
-@minLength(1)
-@maxLength(64)
-@description('Name of the environment (e.g., dev, staging, prod). Used for resource naming.')
+@minLength(2)
+@maxLength(8)
+@description('Short project identifier used in all resource names (e.g. "myproj"). Alphanumeric and hyphens only. Max 8 chars to fit Azure Storage 24-char limit.')
+param projectName string
+
+@minLength(2)
+@maxLength(7)
+@description('Name of the environment (e.g., dev, staging, prod). Use "prod" for production.')
 param environmentName string
 
 @description('Primary Azure region for all resources')
@@ -42,10 +47,6 @@ param entraClientId string = ''
 @secure()
 param entraClientSecret string = ''
 
-@description('Chainlit auth secret for JWT signing')
-@secure()
-param chainlitAuthSecret string = ''
-
 @description('Published agent endpoint URL (set by scripts/publish-agent.sh)')
 param agentEndpoint string = ''
 
@@ -53,13 +54,14 @@ param agentEndpoint string = ''
 // Variables
 // ---------------------------------------------------------------------------
 
-// Base name for resources: kebab-case, max ~20 chars to stay within limits
-var baseName = 'kbidx-${environmentName}'
+// Base name for resources: kebab-case, e.g. '{project}-dev'
+var baseName = '${projectName}-${environmentName}'
 
 // Storage account names: lowercase alphanumeric, max 24 chars
-var stagingStorageName = replace('stkbidxstaging${environmentName}', '-', '')
-var servingStorageName = replace('stkbidxserving${environmentName}', '-', '')
-var functionsStorageName = replace('stkbidxfunc${environmentName}', '-', '')
+// Worst case: st(2) + projectName(8) + staging(7) + env(7) = 24
+var stagingStorageName = replace('st${projectName}staging${environmentName}', '-', '')
+var servingStorageName = replace('st${projectName}serving${environmentName}', '-', '')
+var functionsStorageName = replace('st${projectName}func${environmentName}', '-', '')
 
 // Merge default tags
 var defaultTags = union(tags, {
@@ -163,7 +165,7 @@ module containerRegistry 'modules/container-registry.bicep' = {
   name: 'container-registry'
   params: {
     location: location
-    baseName: environmentName
+    baseName: baseName
     tags: defaultTags
   }
 }
@@ -185,7 +187,6 @@ module containerApp 'modules/container-app.bicep' = {
     servingBlobEndpoint: servingStorage.outputs.blobEndpoint
     entraClientId: entraClientId
     entraClientSecret: entraClientSecret
-    chainlitAuthSecret: chainlitAuthSecret
     agentEndpoint: agentEndpoint
     cosmosEndpoint: cosmosDb.outputs.cosmosEndpoint
     cosmosDatabaseName: cosmosDb.outputs.cosmosDatabaseName
@@ -253,16 +254,15 @@ module servingStorageRole 'modules/storage.bicep' = {
   }
 }
 
-// AI Services: Cognitive Services User + OpenAI User
-module aiServicesRole 'modules/ai-services.bicep' = {
+// AI Services: Cognitive Services User + OpenAI User (Function App + deployer)
+module aiServicesRole 'modules/ai-services-role.bicep' = {
   name: 'ai-services-role'
   params: {
-    location: location
     baseName: baseName
-    tags: defaultTags
     cognitiveServicesUserPrincipalId: functionApp.outputs.functionAppPrincipalId
     deployerPrincipalId: principalId
   }
+  dependsOn: [aiServices]
 }
 
 // AI Search: Index Data Contributor + Service Contributor
@@ -287,7 +287,7 @@ module containerRegistryRole 'modules/container-registry.bicep' = {
   name: 'container-registry-role'
   params: {
     location: location
-    baseName: environmentName
+    baseName: baseName
     tags: defaultTags
     acrPullPrincipalId: containerApp.outputs.containerAppPrincipalId
   }
@@ -298,7 +298,7 @@ module containerRegistryFoundryRole 'modules/container-registry.bicep' = {
   name: 'container-registry-foundry-role'
   params: {
     location: location
-    baseName: environmentName
+    baseName: baseName
     tags: defaultTags
     acrPullPrincipalId: foundryProject.outputs.projectPrincipalId
   }
@@ -317,14 +317,13 @@ module servingStorageReaderRole 'modules/storage.bicep' = {
 }
 
 // AI Services: Cognitive Services OpenAI User (Container App MI — OpenAI only, no CU)
-module aiServicesWebAppRole 'modules/ai-services.bicep' = {
+module aiServicesWebAppRole 'modules/ai-services-role.bicep' = {
   name: 'ai-services-webapp-role'
   params: {
-    location: location
     baseName: baseName
-    tags: defaultTags
     openAIOnlyUserPrincipalId: containerApp.outputs.containerAppPrincipalId
   }
+  dependsOn: [aiServices]
 }
 
 // AI Search: Search Index Data Reader (Container App MI — read-only for querying)
@@ -369,14 +368,13 @@ module searchAgentRole 'modules/search.bicep' = {
 }
 
 // AI Services: Cognitive Services OpenAI User (AI Services MI — for embedding calls)
-module aiServicesAgentRole 'modules/ai-services.bicep' = {
+module aiServicesAgentRole 'modules/ai-services-role.bicep' = {
   name: 'ai-services-agent-role'
   params: {
-    location: location
     baseName: baseName
-    tags: defaultTags
     openAIOnlyUserPrincipalId: aiServices.outputs.aiServicesPrincipalId
   }
+  dependsOn: [aiServices]
 }
 
 // Serving storage: Storage Blob Data Reader (AI Services MI — for image proxy)
@@ -410,14 +408,13 @@ module searchFoundryRole 'modules/search.bicep' = {
 }
 
 // AI Services: Cognitive Services OpenAI User (Foundry Project MI — for embeddings)
-module aiServicesFoundryRole 'modules/ai-services.bicep' = {
+module aiServicesFoundryRole 'modules/ai-services-role.bicep' = {
   name: 'ai-services-foundry-role'
   params: {
-    location: location
     baseName: baseName
-    tags: defaultTags
     openAIOnlyUserPrincipalId: foundryProject.outputs.projectPrincipalId
   }
+  dependsOn: [aiServices]
 }
 
 // Serving storage: Storage Blob Data Reader (Foundry Project MI — for images)
@@ -474,7 +471,12 @@ output AZURE_CONTAINER_REGISTRY_ENDPOINT string = containerRegistry.outputs.cont
 output WEBAPP_NAME string = containerApp.outputs.containerAppName
 output WEBAPP_URL string = containerApp.outputs.containerAppUrl
 
-// Foundry Project
+// Foundry Project (AZURE_AI_* outputs required by AZD agent extension)
+output AZURE_AI_PROJECT_ID string = foundryProject.outputs.projectId
+output AZURE_AI_PROJECT_ENDPOINT string = foundryProject.outputs.projectEndpoint
+output AZURE_AI_PROJECT_NAME string = foundryProject.outputs.projectName
+output AZURE_AI_ACCOUNT_NAME string = aiServices.outputs.aiServicesName
+output AZURE_OPENAI_ENDPOINT string = replace(aiServices.outputs.aiServicesEndpoint, '.cognitiveservices.azure.com/', '.openai.azure.com/')
 output FOUNDRY_PROJECT_NAME string = foundryProject.outputs.projectName
 output FOUNDRY_PROJECT_ENDPOINT string = foundryProject.outputs.projectEndpoint
 

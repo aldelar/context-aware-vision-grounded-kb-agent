@@ -2,6 +2,9 @@
   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
+    "projectName": {
+      "value": "${PROJECT_NAME}"
+    },
     "environmentName": {
       "value": "${AZURE_ENV_NAME}"
     },
@@ -19,9 +22,6 @@
     },
     "entraClientSecret": {
       "value": "${ENTRA_CLIENT_SECRET}"
-    },
-    "chainlitAuthSecret": {
-      "value": "${CHAINLIT_AUTH_SECRET}"
     },
     "agentEndpoint": {
       "value": "${AGENT_ENDPOINT}"

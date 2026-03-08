@@ -57,10 +57,15 @@ hooks:
         name: preprovision
         shell: sh
         run: |
+            # Validate PROJECT_NAME is set (should be done via: make set-project name=<name>).
+            if ! azd env get-value PROJECT_NAME >/dev/null 2>&1; then
+              echo "ERROR: PROJECT_NAME is not set. Run: make set-project name=<your-name>"
+              exit 1
+            fi
+
             # Ensure AZURE_PRINCIPAL_ID is set for deployer RBAC role assignments.
-            # AZD uses this to grant the logged-in user access to deploy + interact with resources.
-            if [ -z "$(azd env get-value AZURE_PRINCIPAL_ID 2>/dev/null)" ]; then
-              PRINCIPAL_ID=$(az ad signed-in-user show --query id -o tsv 2>/dev/null)
+            if ! azd env get-value AZURE_PRINCIPAL_ID >/dev/null 2>&1; then
+              PRINCIPAL_ID=$(az ad signed-in-user show --query id -o tsv 2>/dev/null || true)
               if [ -n "$PRINCIPAL_ID" ]; then
                 azd env set AZURE_PRINCIPAL_ID "$PRINCIPAL_ID"
                 echo "Set AZURE_PRINCIPAL_ID=$PRINCIPAL_ID"
@@ -69,9 +74,18 @@ hooks:
               fi
             fi
 
-            # Export AZURE_ENV_NAME for sub-scripts (AZD sets it in env values
-            # but does not always export it as a shell variable to child processes)
-            export AZURE_ENV_NAME="$(azd env get-value AZURE_ENV_NAME 2>/dev/null)"
+            # Export AZURE_ENV_NAME for sub-scripts
+            AZURE_ENV_NAME=$(azd env get-value AZURE_ENV_NAME 2>/dev/null || true)
+            export AZURE_ENV_NAME
+
+            # Ensure the resource group exists (AZD v1.23+ prompts instead of auto-creating).
+            RG_NAME=$(azd env get-value AZURE_RESOURCE_GROUP 2>/dev/null || true)
+            LOCATION=$(azd env get-value AZURE_LOCATION 2>/dev/null || echo "eastus2")
+            if [ -n "$RG_NAME" ]; then
+              az group create --name "$RG_NAME" --location "$LOCATION" --output none 2>/dev/null && \
+                echo "Resource group '$RG_NAME' ready in $LOCATION" || \
+                echo "WARNING: Could not create resource group '$RG_NAME'. It may already exist."
+            fi
 
             # Set up Entra App Registration for web app Easy Auth
             bash scripts/setup-entra-auth.sh

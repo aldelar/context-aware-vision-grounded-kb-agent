@@ -2,25 +2,13 @@
 # ---------------------------------------------------------------------------
 # setup-entra-auth.sh — Create or reuse an Entra App Registration for Easy Auth
 # Called by AZD preprovision hook to set ENTRA_CLIENT_ID and ENTRA_CLIENT_SECRET.
-# Also configures OAUTH_AZURE_AD_* env vars for Chainlit Azure AD OAuth and
-# generates CHAINLIT_AUTH_SECRET for JWT signing.
+# Easy Auth handles authentication at the Container App platform level.
 # ---------------------------------------------------------------------------
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
 # Helper functions (defined before use)
 # ---------------------------------------------------------------------------
-
-set_oauth_env_vars() {
-  local client_id="$1"
-  local tenant_id
-  tenant_id=$(az account show --query tenantId -o tsv)
-
-  azd env set OAUTH_AZURE_AD_CLIENT_ID "$client_id"
-  azd env set OAUTH_AZURE_AD_CLIENT_SECRET "$(azd env get-value ENTRA_CLIENT_SECRET)"
-  azd env set OAUTH_AZURE_AD_TENANT_ID "$tenant_id"
-  echo "OAuth env vars set (OAUTH_AZURE_AD_CLIENT_ID, OAUTH_AZURE_AD_CLIENT_SECRET, OAUTH_AZURE_AD_TENANT_ID)."
-}
 
 update_redirect_uris() {
   local client_id="$1"
@@ -69,21 +57,9 @@ if [ -z "$ENV_NAME" ]; then
   exit 1
 fi
 
-APP_NAME="webapp-kbidx-${ENV_NAME}"
+PROJECT_NAME=$(azd env get-value PROJECT_NAME)
+APP_NAME="webapp-${PROJECT_NAME}-${ENV_NAME}"
 echo "Setting up Entra App Registration: $APP_NAME"
-
-# ---------------------------------------------------------------------------
-# Ensure CHAINLIT_AUTH_SECRET is set (generate if missing)
-# ---------------------------------------------------------------------------
-EXISTING_CHAINLIT_SECRET=$(azd env get-value CHAINLIT_AUTH_SECRET 2>/dev/null || echo "")
-if [ -z "$EXISTING_CHAINLIT_SECRET" ]; then
-  echo "Generating CHAINLIT_AUTH_SECRET..."
-  CHAINLIT_SECRET=$(python3 -c "import secrets; print(secrets.token_hex(32))")
-  azd env set CHAINLIT_AUTH_SECRET "$CHAINLIT_SECRET"
-  echo "CHAINLIT_AUTH_SECRET stored in AZD env."
-else
-  echo "CHAINLIT_AUTH_SECRET already configured."
-fi
 
 # ---------------------------------------------------------------------------
 # Create or reuse Entra App Registration
@@ -107,7 +83,6 @@ if [ -n "$EXISTING_CLIENT_ID" ]; then
 
     # Ensure redirect URIs and OAuth env vars are up to date
     update_redirect_uris "$EXISTING_CLIENT_ID" || true
-    set_oauth_env_vars "$EXISTING_CLIENT_ID"
     exit 0
   elif echo "$APP_CHECK_OUTPUT" | grep -qi "InteractionRequired\|TokenCreated\|Continuous access"; then
     # Graph API unavailable due to CAE or token issues — not proof the app is deleted.
@@ -116,7 +91,6 @@ if [ -n "$EXISTING_CLIENT_ID" ]; then
     if [ -n "$EXISTING_SECRET" ]; then
       echo "WARNING: Graph API unavailable (CAE challenge). Using cached Entra credentials."
       echo "  Run 'az login --scope https://graph.microsoft.com/.default' then re-run this script to verify."
-      set_oauth_env_vars "$EXISTING_CLIENT_ID"
       exit 0
     else
       echo "ERROR: Graph API unavailable and no cached client secret. Please run:"
@@ -146,8 +120,7 @@ SECRET=$(az ad app credential reset --id "$APP_ID" --display-name "easy-auth" --
 azd env set ENTRA_CLIENT_ID "$APP_ID"
 azd env set ENTRA_CLIENT_SECRET "$SECRET"
 
-# Set OAuth env vars and redirect URIs
-set_oauth_env_vars "$APP_ID"
+# Set redirect URIs
 update_redirect_uris "$APP_ID" || true
 
 echo "Entra App Registration configured:"

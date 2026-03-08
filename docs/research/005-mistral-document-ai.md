@@ -99,8 +99,8 @@ On Azure, the model is deployed via Bicep (model format `Mistral AI`, SKU `Globa
 
 ```bash
 # Derive the Foundry endpoint from the Cognitive Services endpoint
-# e.g. https://ai-kbidx-dev.cognitiveservices.azure.com/
-#    → https://ai-kbidx-dev.services.ai.azure.com/
+# e.g. https://ai-{project}-dev.cognitiveservices.azure.com/
+#    → https://ai-{project}-dev.services.ai.azure.com/
 
 TOKEN=$(az account get-access-token --resource https://cognitiveservices.azure.com --query accessToken -o tsv)
 

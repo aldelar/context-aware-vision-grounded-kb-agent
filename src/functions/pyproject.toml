@@ -26,6 +26,7 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = ["integration: tests that call live Azure services"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["fn_convert_cu", "fn_convert_mistral", "fn_index", "shared"]

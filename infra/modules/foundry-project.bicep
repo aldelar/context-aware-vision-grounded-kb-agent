@@ -17,7 +17,7 @@ param tags object = {}
 @description('Principal ID of the deployer (human user) for Azure AI Developer role')
 param deployerPrincipalId string = ''
 
-@description('ACR login server (e.g. crkbidxdev.azurecr.io) for the container registry connection')
+@description('ACR login server (e.g. cr{project}dev.azurecr.io) for the container registry connection')
 param acrLoginServer string = ''
 
 @description('ACR resource ID for the container registry connection')
@@ -188,6 +188,7 @@ resource accountCapabilityHost 'Microsoft.CognitiveServices/accounts/capabilityH
 // ---------------------------------------------------------------------------
 // Outputs
 // ---------------------------------------------------------------------------
+output projectId string = project.id
 output projectName string = project.name
 output projectEndpoint string = project.properties.endpoints['AI Foundry API']
 output projectPrincipalId string = project.identity.principalId

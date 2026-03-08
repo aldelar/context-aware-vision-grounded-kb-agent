@@ -83,7 +83,7 @@ echo "  Blueprint principal: $BLUEPRINT_PRINCIPAL"
 echo ""
 
 # ---------------------------------------------------------------------------
-# 3. Create Agent Deployment via ARM PUT
+# 3. Create Agent Deployment via ARM PUT (with retry for transient errors)
 # ---------------------------------------------------------------------------
 echo "Step 2/2: Creating agent deployment..."
 AGENT_VERSION=$(az rest --method GET \
@@ -103,27 +103,45 @@ DEPLOY_BODY=$(cat <<EOF
 EOF
 )
 
-DEPLOY_OUTPUT=$(az rest --method PUT \
-    --url "$ARM_BASE/applications/kb-agent/agentdeployments/default?api-version=$API_VERSION" \
-    --body "$DEPLOY_BODY" \
-    -o json 2>&1) || {
-    echo "ERROR: Failed to create agent deployment."
-    echo "$DEPLOY_OUTPUT"
-    exit 1
-}
+# Retry up to 4 times with 30s backoff — ARM backend returns transient
+# SystemError when the application identity is still provisioning.
+DEPLOY_OK=false
+for attempt in 1 2 3 4; do
+    DEPLOY_OUTPUT=$(az rest --method PUT \
+        --url "$ARM_BASE/applications/kb-agent/agentdeployments/default?api-version=$API_VERSION" \
+        --body "$DEPLOY_BODY" \
+        -o json 2>&1) && { DEPLOY_OK=true; break; }
 
-DEPLOY_STATE=$(echo "$DEPLOY_OUTPUT" | python3 -c "import json,sys; print(json.load(sys.stdin)['properties']['state'])" 2>/dev/null || echo "Unknown")
-echo "  Deployment state: $DEPLOY_STATE"
+    echo "  Attempt $attempt failed (transient error). Retrying in 30s..."
+    sleep 30
+done
 
-# Wait for deployment to reach Running state (up to 2 minutes)
+if [ "$DEPLOY_OK" = false ]; then
+    # Last resort: check if the deployment already exists and is usable
+    DEPLOY_STATE=$(az rest --method GET \
+        --url "$ARM_BASE/applications/kb-agent/agentdeployments/default?api-version=$API_VERSION" \
+        --query "properties.state" -o tsv 2>/dev/null || echo "")
+    if [ -n "$DEPLOY_STATE" ]; then
+        echo "  Deployment already exists (state=$DEPLOY_STATE). Continuing."
+    else
+        echo "ERROR: Failed to create agent deployment after 4 attempts."
+        echo "$DEPLOY_OUTPUT"
+        exit 1
+    fi
+else
+    DEPLOY_STATE=$(echo "$DEPLOY_OUTPUT" | python3 -c "import json,sys; print(json.load(sys.stdin)['properties']['state'])" 2>/dev/null || echo "Unknown")
+    echo "  Deployment state: $DEPLOY_STATE"
+fi
+
+# Wait for deployment to reach Running state (up to 3 minutes)
 if [ "$DEPLOY_STATE" != "Running" ]; then
     echo "  Waiting for deployment to reach Running state..."
-    for i in $(seq 1 12); do
+    for i in $(seq 1 18); do
         sleep 10
         DEPLOY_STATE=$(az rest --method GET \
             --url "$ARM_BASE/applications/kb-agent/agentdeployments/default?api-version=$API_VERSION" \
             --query "properties.state" -o tsv 2>/dev/null || echo "Unknown")
-        echo "  [$i/12] Deployment state: $DEPLOY_STATE"
+        echo "  [$i/18] Deployment state: $DEPLOY_STATE"
         if [ "$DEPLOY_STATE" = "Running" ]; then
             break
         fi
