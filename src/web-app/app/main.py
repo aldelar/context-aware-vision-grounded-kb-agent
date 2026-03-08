@@ -419,6 +419,8 @@ async def header_auth_callback(headers: dict) -> cl.User | None:
     """Authenticate the user from request headers.
 
     - **Azure (Easy Auth):** trusts ``X-MS-CLIENT-PRINCIPAL-ID``.
+      Decodes ``X-MS-CLIENT-PRINCIPAL`` (Base64 JSON) to extract the
+      friendly display name from the claims.
     - **Local dev:** auto-creates a ``local-user`` identity.
 
     Returning a ``cl.User`` enables Chainlit's login requirement, which
@@ -427,7 +429,18 @@ async def header_auth_callback(headers: dict) -> cl.User | None:
     principal = headers.get("x-ms-client-principal-id")
     if principal:
         display = headers.get("x-ms-client-principal-name", principal)
-        return cl.User(identifier=principal, metadata={"provider": "azure-ad", "display_name": display})
+        # Easy Auth encodes claims in X-MS-CLIENT-PRINCIPAL (Base64 JSON).
+        # Extract the friendly "name" claim for the UI display.
+        encoded = headers.get("x-ms-client-principal")
+        if encoded:
+            try:
+                import base64
+                payload = json.loads(base64.b64decode(encoded))
+                claims = {c["typ"]: c["val"] for c in payload.get("claims", [])}
+                display = claims.get("name", display)
+            except Exception:
+                pass
+        return cl.User(identifier=display, metadata={"provider": "azure-ad", "oid": principal})
     # Local dev — no auth headers, auto-accept as local-user
     return cl.User(identifier="local-user", metadata={"provider": "header"})
 
@@ -440,12 +453,17 @@ def _get_user_id() -> str:
     """Extract user identity for the current session.
 
     Prefers the Chainlit-authenticated user (set by ``header_auth_callback``).
-    Falls back to Easy Auth header or ``"local-user"``.
+    Uses the stable OID from metadata when available, falling back to identifier.
     """
     try:
         user = cl.user_session.get("user")
-        if user and hasattr(user, "identifier") and user.identifier:
-            return user.identifier
+        if user:
+            # Prefer the stable Entra object-ID stored in metadata
+            oid = getattr(user, "metadata", {}).get("oid")
+            if oid:
+                return oid
+            if hasattr(user, "identifier") and user.identifier:
+                return user.identifier
     except Exception:
         pass
     try:
