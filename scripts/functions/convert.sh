@@ -4,6 +4,7 @@
 # Usage:
 #   bash scripts/functions/convert.sh content-understanding
 #   bash scripts/functions/convert.sh mistral-doc-ai
+#   bash scripts/functions/convert.sh markitdown
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -19,11 +20,15 @@ case "$ANALYZER" in
     mistral-doc-ai)
         MODULE="fn_convert_mistral"
         ;;
+    markitdown)
+        MODULE="fn_convert_markitdown"
+        ;;
     *)
         echo "Error: analyzer argument is required." >&2
         echo "Usage:" >&2
         echo "  bash $0 content-understanding" >&2
         echo "  bash $0 mistral-doc-ai" >&2
+        echo "  bash $0 markitdown" >&2
         exit 1
         ;;
 esac

@@ -6,7 +6,7 @@
 
 The solution is a two-stage Azure Functions pipeline that transforms HTML knowledge base articles into an AI-searchable index with image support.
 
-- **Stage 1 (`fn-convert`)** — Converts source articles (HTML + images) into clean Markdown with AI-generated image descriptions, outputting to a normalized serving layer. Two interchangeable backends are available: **Content Understanding** (`fn_convert_cu`) and **Mistral Document AI** (`fn_convert_mistral`), selected at runtime via the `analyzer=` Makefile argument.
+- **Stage 1 (`fn-convert`)** — Converts source articles (HTML + images) into clean Markdown with AI-generated image descriptions, outputting to a normalized serving layer. Three interchangeable backends are available: **Content Understanding** (`fn_convert_cu`), **Mistral Document AI** (`fn_convert_mistral`), and **MarkItDown** (`fn_convert_markitdown`), selected at runtime via the `analyzer=` Makefile argument.
 - **Stage 2 (`fn-index`)** — Chunks the Markdown, embeds it, and pushes chunks + image references into Azure AI Search.
 
 The two stages are decoupled by a **serving layer** (Blob Storage), making `fn-index` source-format agnostic. Future source types (PDF, audio, PowerPoint) only require new `fn-convert` variants — `fn-index` stays unchanged.
@@ -61,12 +61,12 @@ flowchart LR
     I4 -.-> IDX
 ```
 
-**✱ Analyzer** — two interchangeable backends, selected at runtime via `analyzer=`:
+**✱ Analyzer** — three interchangeable backends, selected at runtime via `analyzer=`:
 
-| Component | Content Understanding (`fn_convert_cu`) | Mistral Document AI (`fn_convert_mistral`) |
-|---|---|---|
-| **HTML Analyzer** | CU `prebuilt-documentSearch` (HTML-direct) | Playwright HTML → PDF + Mistral OCR (`mistral-document-ai-2512`) |
-| **Image Analyzer** | Custom CU `kb-image-analyzer` (GPT-4.1) | GPT-4.1 vision (direct calls, same prompt schema) |
+| Component | Content Understanding (`fn_convert_cu`) | Mistral Document AI (`fn_convert_mistral`) | MarkItDown (`fn_convert_markitdown`) |
+|---|---|---|---|
+| **HTML Analyzer** | CU `prebuilt-documentSearch` (HTML-direct) | Playwright HTML → PDF + Mistral OCR (`mistral-document-ai-2512`) | MarkItDown library (local Python, no cloud API) |
+| **Image Analyzer** | Custom CU `kb-image-analyzer` (GPT-4.1) | GPT-4.1 vision (direct calls, same prompt schema) | GPT-4.1 vision (direct calls, same prompt schema) |
 
 ## Azure Services Map
 
@@ -127,7 +127,7 @@ flowchart LR
     class left,right invisible;
 ```
 
-**✱ Analyzer** — Content Understanding (`fn_convert_cu`) or Mistral Document AI + GPT-4.1 vision (`fn_convert_mistral`). See [Pipeline Flow](#pipeline-flow) legend for component details.
+**✱ Analyzer** — Content Understanding (`fn_convert_cu`), Mistral Document AI + GPT-4.1 vision (`fn_convert_mistral`), or MarkItDown + GPT-4.1 vision (`fn_convert_markitdown`). See [Pipeline Flow](#pipeline-flow) legend for component details.
 
 ## Context Aware & Vision Grounded KB Agent
 
@@ -328,19 +328,21 @@ For infrastructure details, see [Infrastructure](../specs/infrastructure.md). Fo
 
 `fn-convert` transforms a source HTML article into a clean Markdown file with AI-generated image descriptions placed in their original document context, plus the source images renamed as PNGs.
 
-There are **two interchangeable backend implementations** that share the same input/output contract:
+There are **three interchangeable backend implementations** that share the same input/output contract:
 
 | Backend | Module | Approach | Gateway-Compatible |
 |---------|--------|----------|--------------------|
 | **Content Understanding** | `fn_convert_cu` | HTML-direct text extraction via CU `prebuilt-documentSearch`, individual image analysis via custom `kb-image-analyzer` | No — CU's internal LLM calls are opaque |
 | **Mistral Document AI** | `fn_convert_mistral` | HTML → PDF rendering (Playwright) with `[[IMG:filename]]` markers, Mistral OCR for text extraction, GPT-4.1 vision for image descriptions | Yes — both OCR and GPT-4.1 are standard Foundry endpoints |
+| **MarkItDown** | `fn_convert_markitdown` | Local Python HTML → Markdown via [MarkItDown](https://github.com/microsoft/markitdown) library, GPT-4.1 vision for image descriptions | Partial — text extraction is local (no API); GPT-4.1 is a standard Foundry endpoint |
 
-Both backends produce the same output: `article.md` + `images/` folder in the serving layer. `fn-index` is completely unaware of which backend generated the content — the serving layer is the contract boundary.
+All three backends produce the same output: `article.md` + `images/` folder in the serving layer. `fn-index` is completely unaware of which backend generated the content — the serving layer is the contract boundary.
 
 The backend is selected at runtime via the `analyzer=` Makefile argument:
 ```bash
 make convert analyzer=content-understanding   # uses fn_convert_cu
 make convert analyzer=mistral-doc-ai          # uses fn_convert_mistral
+make convert analyzer=markitdown              # uses fn_convert_markitdown
 ```
 
 ### Content Understanding Backend (`fn_convert_cu`)
@@ -470,6 +472,42 @@ The spike evaluation across all sample articles showed comparable output quality
 - The Mistral variant adds a Playwright/Chromium dependency; the CU variant has no such requirement
 
 For full spike results, see [Spike 002 — Mistral Document AI](../spikes/002-mistral-document-ai.md).
+
+### MarkItDown Backend (`fn_convert_markitdown`)
+
+The MarkItDown variant uses [MarkItDown](https://github.com/microsoft/markitdown), a Microsoft open-source Python library, to convert HTML directly to Markdown with no cloud API calls for text extraction. Image descriptions still use GPT-4.1 vision (same prompt schema as the other backends). This is the fastest, cheapest, and simplest conversion option — only GPT-4.1 vision calls are billed.
+
+#### Pipeline Steps
+
+| Step | What Happens |
+|------|-------------|
+| **1. HTML → Markdown** | Pass the article HTML to MarkItDown. Returns clean Markdown preserving headings, tables, lists, and hyperlinks natively. No network calls. |
+| **2. Extract images** | Parse the HTML DOM with BeautifulSoup to build an image map — each `<img>` tag's filename stem and preceding text context for positioning. |
+| **3. Describe images** | Send each referenced image to GPT-4.1 vision with the same prompt schema (Description, UIElements, NavigationPath) used by CU and Mistral backends. |
+| **4. Merge & assemble** | Insert image description blocks into the MarkItDown output at correct positions using preceding-text matching. Copy images to `images/` subfolder. |
+
+#### Key Design Decisions
+
+| # | Decision | Rationale |
+|---|----------|-----------|
+| 1 | **MarkItDown for text extraction** | Local Python — no cloud API calls, no Playwright, no PDF rendering. Fastest and cheapest option for HTML sources. |
+| 2 | **DOM-based image positioning** | Same preceding-text matching approach as `fn_convert_cu`. Parse `<img>` tags from the HTML DOM and match their context in the Markdown output. |
+| 3 | **Native hyperlink preservation** | MarkItDown converts `<a href>` to Markdown links natively, eliminating the link recovery step required by CU (which strips URLs) and Mistral (OCR loses links). |
+| 4 | **Same image prompt as CU/Mistral** | Uses the identical Description/UIElements/NavigationPath schema so image descriptions are comparable across all three backends. |
+
+#### Trade-offs vs Other Backends
+
+| Aspect | MarkItDown | CU | Mistral |
+|--------|-----------|-----|---------|
+| **Text extraction cost** | Free (local Python) | CU charges | Mistral OCR charges |
+| **Text extraction latency** | Milliseconds | Seconds (cloud API) | Seconds (cloud API) |
+| **Dependencies** | `markitdown` (pure Python) | `azure-ai-contentunderstanding` | `playwright`, `httpx` |
+| **Link handling** | Native (preserved) | Post-processing recovery | Post-processing recovery |
+| **Image descriptions** | GPT-4.1 vision | Custom CU analyzer (GPT-4.1) | GPT-4.1 vision |
+| **Offline text extraction** | Yes | No | No |
+| **Azure infra required** | GPT-4.1 only | AI Services (CU + GPT) | AI Services (Mistral + GPT-4.1) |
+
+For spike results, see [Spike 003 — MarkItDown](../spikes/003-markitdown.md). For the decision rationale, see [ARD-006](../ards/ARD-006-markitdown-analyzer.md).
 
 ---
 

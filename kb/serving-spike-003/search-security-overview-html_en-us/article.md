@@ -87,8 +87,7 @@ Internal traffic consists of:
 
 A search service is provisioned with a public endpoint that allows access using a public IP address. To restrict which traffic comes through the public endpoint, create an inbound firewall rule that admits requests from a specific IP address or a range of IP addresses. All client connections must be made through an allowed IP address, or the connection is denied.
 
-> **[Image: inbound-firewall-ip-restrictions](images/inbound-firewall-ip-restrictions.png)**
-> This image illustrates a network architecture for securely connecting an on-premises environment to Azure Cognitive Search via ExpressRoute. The connection flows from the on-premises network through ExpressRoute (ER) Private Peering to an ER Gateway, then to an App Service within an Azure Virtual Network. Internet access is denied at this stage, ensuring only private connectivity. The application service then communicates securely with Azure Cognitive Search, which resides in a separate virtual network, protected by a firewall
+[![Sample architecture diagram for IP restricted access.](images/inbound-firewall-ip-restrictions.png)](images/inbound-firewall-ip-restrictions.png)
 
 You can use the Azure portal to [configure firewall access](https://learn.microsoft.com/en-us/azure/search/service-configure-firewall).
 
@@ -100,8 +99,7 @@ For more stringent security, you can establish a [private endpoint](https://lear
 
 The private endpoint uses an IP address from the virtual network address space for connections to your search service. Network traffic between the client and the search service traverses over the virtual network and a private link on the Microsoft backbone network, eliminating exposure from the public internet. A virtual network allows for secure communication among resources, with your on-premises network as well as the Internet.
 
-> **[Image: inbound-private-link-azure-cog-search](images/inbound-private-link-azure-cog-search.png)**
-> This image illustrates a secure architecture for connecting an on-premises network to Azure Cognitive Search using Azure Private Link. The diagram shows data flow starting from an on-premises location, traversing through ExpressRoute Private Peering and an ExpressRoute Gateway, arriving at a virtual machine (VM) in a private virtual network (VNet). This VM accesses Azure Cognitive Search through a private endpoint (10.0.0.5) via Azure Private Link, ensuring that internet access is denied at multiple points so all data remains private to the network. The connectivity is established between two virtual networks: the on-premises VNet and the Azure Cognitive Search VNet, highlighting a secure, isolated integration for enterprise search solutions
+[![Sample architecture diagram for private endpoint access.](images/inbound-private-link-azure-cog-search.png)](images/inbound-private-link-azure-cog-search.png)
 
 While this solution is the most secure, using more services is an added cost so be sure you have a clear understanding of the benefits before diving in. For more information about costs, see the [pricing page](https://azure.microsoft.com/pricing/details/private-link/). For instructions on how to set up the endpoint, see [Create a Private Endpoint for Azure AI Search](https://learn.microsoft.com/en-us/azure/search/service-create-private-endpoint).
 

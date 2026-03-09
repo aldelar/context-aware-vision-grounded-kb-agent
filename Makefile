@@ -342,7 +342,7 @@ azure-upload-staging: ## Upload kb/staging → Azure staging blob
 azure-convert: ## Trigger fn-convert in Azure (analyzer=$(analyzer))
 	@echo "Triggering fn-convert Azure Function (analyzer=$(analyzer))..."
 	@FUNC_URL=$$(azd env get-value FUNCTION_APP_URL) && \
-	ROUTE=$$(if [ "$(analyzer)" = "content-understanding" ]; then echo "convert"; else echo "convert-mistral"; fi) && \
+	ROUTE=$$(case "$(analyzer)" in content-understanding) echo "convert";; mistral-doc-ai) echo "convert-mistral";; markitdown) echo "convert-markitdown";; *) echo "unknown" && exit 1;; esac) && \
 	ENDPOINT="$$FUNC_URL/api/$$ROUTE" && \
 	echo "  POST $$ENDPOINT" && \
 	curl -sf --max-time 600 -X POST "$$ENDPOINT" -H "Content-Type: application/json" -d '{}' | python3 -m json.tool

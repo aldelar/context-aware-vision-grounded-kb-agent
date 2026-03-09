@@ -122,13 +122,15 @@ A single **AIServices** (Foundry) resource hosting Content Understanding and six
 | `text-embedding-3-small` | OpenAI `text-embedding-3-small` v1 | GlobalStandard | 120K TPM | Vector embeddings for fn-index (1536 dimensions) |
 | `text-embedding-3-large` | OpenAI `text-embedding-3-large` v1 | GlobalStandard | 120K TPM | CU-internal † — required by `prebuilt-documentSearch` for field extraction |
 | `gpt-5-mini` | OpenAI `gpt-5-mini` v2025-08-07 | GlobalStandard | 30K TPM | Future agent chat/reasoning |
-| `gpt-4.1` | OpenAI `gpt-4.1` v2025-04-14 | GlobalStandard | 30K TPM | CU custom analyzer completion + Mistral pipeline image descriptions (GPT-4.1 vision) |
+| `gpt-4.1` | OpenAI `gpt-4.1` v2025-04-14 | GlobalStandard | 30K TPM | CU custom analyzer completion + Mistral/MarkItDown pipeline image descriptions (GPT-4.1 vision) |
 | `gpt-4.1-mini` | OpenAI `gpt-4.1-mini` v2025-04-14 | GlobalStandard | 30K TPM | CU-internal † — required by `prebuilt-documentSearch` for document analysis |
 | `mistral-document-ai-2512` | Mistral AI `mistral-document-ai-2512` | GlobalStandard | 1 | Mistral Document AI OCR for `fn_convert_mistral` pipeline |
 
 > **†** `text-embedding-3-large` and `gpt-4.1-mini` are **not called by application code** — they are internal dependencies of CU's `prebuilt-documentSearch`. Without either deployed, CU silently returns 0 contents. These models are only needed when using the Content Understanding backend (`fn_convert_cu`).
 
 Model deployments are serialized (`dependsOn`) to avoid Azure API conflicts.
+
+> **MarkItDown backend (`fn_convert_markitdown`)** requires **no additional infrastructure** — text extraction is a local Python operation via the `markitdown` library. Only the existing `gpt-4.1` deployment is used (for image descriptions). No new model deployments, analyzers, or Azure services are needed.
 
 **RBAC Roles (granted to Function App):**
 
@@ -478,7 +480,8 @@ The following values are exported by `main.bicep` and available as AZD environme
 | 7 | **Modular Bicep structure** | Each service is a self-contained module with optional RBAC parameters. Modules are re-deployed with role assignments after the Function App identity is available. |
 | 8 | **GlobalStandard model SKU** | Provides highest availability and regional flexibility for OpenAI model deployments. Uses Microsoft-managed capacity across Azure regions. |
 | 9 | **Mistral Document AI deployment** | `mistral-document-ai-2512` (format `Mistral AI`) is deployed alongside OpenAI models in the same AIServices resource. The `fn_convert_mistral` pipeline depends on this model plus GPT-4.1 for vision. Requires Playwright (headless Chromium) at runtime for HTML → PDF rendering. |
-| 10 | **Anonymous function auth** | Container Apps does not support Azure Functions host keys. All three HTTP-triggered functions (`fn_convert`, `fn_convert_mistral`, `fn_index`) use `AuthLevel.ANONYMOUS`. Access control relies on the Container App's built-in ingress authentication and network-level controls instead. |
+| 10 | **MarkItDown — zero infra cost** | The `fn_convert_markitdown` pipeline uses the `markitdown` Python library for text extraction (local, no cloud API) and the existing `gpt-4.1` deployment for image descriptions. No new Azure resources, model deployments, or analyzers are required. |
+| 11 | **Anonymous function auth** | Container Apps does not support Azure Functions host keys. All four HTTP-triggered functions (`fn_convert`, `fn_convert_mistral`, `fn_convert_markitdown`, `fn_index`) use `AuthLevel.ANONYMOUS`. Access control relies on the Container App's built-in ingress authentication and network-level controls instead. |
 | 11 | **AcrPull role in function-app module** | The Function App's AcrPull role assignment is co-located in `function-app.bicep` (not in `container-registry.bicep`) to avoid a circular dependency between the Container App resource and the ACR role assignment. See [Technical Brief](#technical-brief-bicep-dependency-ordering-for-container-apps) below. |
 
 ---

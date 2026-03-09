@@ -14,13 +14,15 @@ This accelerator provides an end-to-end pipeline that:
 
 1. **Ingests HTML KB articles** — each article is a folder containing an HTML file and its associated images (see [kb/](kb/) for examples)
 
-2. **Converts articles to clean Markdown** — supports two interchangeable conversion backends, selectable at runtime via the `analyzer=` Makefile argument:
+2. **Converts articles to clean Markdown** — supports three interchangeable conversion backends, selectable at runtime via the `analyzer=` Makefile argument:
 
    - **Content Understanding** (`analyzer=content-understanding`) — leverages [Azure Content Understanding](https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/overview) to extract high-quality text, tables, and document structure from HTML, while separately analyzing each image through a **custom CU analyzer** (`kb-image-analyzer`) with a domain-tuned field schema that extracts `Description`, `UIElements`, and `NavigationPath`. CU is deeply integrated but its internal LLM calls cannot be routed through an API gateway.
 
    - **Mistral Document AI** (`analyzer=mistral-doc-ai`) — renders HTML to PDF (Playwright/Chromium) with image markers, runs [Mistral Document AI OCR](https://learn.microsoft.com/en-us/azure/ai-services/mistral-document-intelligence) for text/structure extraction, then describes each image via GPT-4.1 vision. Both the OCR model and GPT-4.1 are standard Foundry model endpoints that can be fronted by Azure API Management or any API gateway.
 
-   Both backends produce identical output: clean Markdown with AI-generated image descriptions placed in context, each linking back to the original image file. See the [Architecture spec](docs/specs/architecture.md) for details on each backend's approach, the custom analyzer definition, and design rationale.
+   - **MarkItDown** (`analyzer=markitdown`) — uses [MarkItDown](https://github.com/microsoft/markitdown), a Microsoft open-source Python library, to convert HTML directly to Markdown with no cloud API calls for text extraction. Image descriptions use GPT-4.1 vision (same prompt schema). This is the fastest, cheapest, and simplest option — only GPT-4.1 vision calls are billed; text extraction runs locally with no Azure connectivity required.
+
+   All three backends produce identical output: clean Markdown with AI-generated image descriptions placed in context, each linking back to the original image file. See the [Architecture spec](docs/specs/architecture.md) for details on each backend's approach, the custom analyzer definition, and design rationale.
 
 3. **Produces image-aware Markdown** — the resulting Markdown preserves the full article structure with AI-generated image descriptions placed in context, each linking back to the original image file
 
@@ -224,7 +226,7 @@ Run `make help` to see all targets. Here is the full list:
 | `make dev-doctor` | Check if required dev tools are installed |
 | `make dev-setup` | Install required dev tools and Python dependencies (functions + web app + agent) |
 | `make dev-setup-env` | Populate .env files from AZD environment (functions + web app + agent) |
-| `make convert` | Run fn-convert locally — requires `analyzer=content-understanding` or `analyzer=mistral-doc-ai` |
+| `make convert` | Run fn-convert locally — requires `analyzer=content-understanding`, `analyzer=mistral-doc-ai`, or `analyzer=markitdown` |
 | `make index` | Run fn-index locally (kb/serving → Azure AI Search) |
 | `make test` | Run unit tests (pytest) |
 | `make validate-infra` | Validate Azure infra is ready for local dev |
@@ -244,7 +246,7 @@ Run `make help` to see all targets. Here is the full list:
 | `make azure-app-url` | Print the deployed web app URL |
 | `make azure-app-logs` | Stream live logs from the deployed web app |
 | `make azure-upload-staging` | Upload local kb/staging articles to Azure staging blob |
-| `make azure-convert` | Trigger fn-convert in Azure — requires `analyzer=content-understanding` or `analyzer=mistral-doc-ai` |
+| `make azure-convert` | Trigger fn-convert in Azure — requires `analyzer=content-understanding`, `analyzer=mistral-doc-ai`, or `analyzer=markitdown` |
 | `make azure-index` | Trigger fn-index in Azure (processes serving → AI Search) |
 | `make azure-index-summarize` | Show AI Search index contents summary |
 | `make azure-clean-storage` | Empty staging and serving blob containers in Azure |
@@ -325,6 +327,7 @@ In local mode, the pipeline reads source articles from `kb/staging/` on disk, ca
 # Choose a conversion backend:
 make convert analyzer=content-understanding   # uses Azure Content Understanding
 make convert analyzer=mistral-doc-ai          # uses Mistral Document AI + GPT-4.1 vision
+make convert analyzer=markitdown              # uses MarkItDown (local) + GPT-4.1 vision
 
 # Stage 2: Chunk Markdown, generate embeddings, and index into Azure AI Search
 make index
@@ -352,6 +355,7 @@ make azure-upload-staging
 # Choose a conversion backend:
 make azure-convert analyzer=content-understanding   # uses Azure Content Understanding
 make azure-convert analyzer=mistral-doc-ai          # uses Mistral Document AI + GPT-4.1 vision
+make azure-convert analyzer=markitdown              # uses MarkItDown (local) + GPT-4.1 vision
 
 # 3. Trigger fn-index in Azure (serving blob → AI Search index)
 make azure-index

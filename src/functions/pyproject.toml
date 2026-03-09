@@ -4,17 +4,15 @@ version = "0.1.0"
 description = "Azure Functions for KB article ingestion — convert HTML to Markdown and index into AI Search"
 requires-python = ">=3.11"
 dependencies = [
+    "azure-functions>=1.21.0",
     "azure-ai-contentunderstanding>=1.0.0b1",
     "azure-identity>=1.19.0",
     "azure-storage-blob>=12.20.0",
-    "azure-search-documents>=11.6.0b5",
-    "azure-ai-inference>=1.0.0b1",
-    "azure-functions>=1.21.0",
-    "beautifulsoup4>=4.12.0",
     "python-dotenv>=1.0.0",
-    "playwright>=1.40.0",
-    "httpx>=0.27.0",
-    "openai>=1.50.0",
+    "fn-convert-cu",
+    "fn-convert-mistral",
+    "fn-convert-markitdown",
+    "fn-index",
 ]
 
 [project.optional-dependencies]
@@ -23,13 +21,33 @@ dev = [
     "pytest-cov>=5.0.0",
 ]
 
+[tool.uv.workspace]
+members = [
+    "fn_convert_cu",
+    "fn_convert_mistral",
+    "fn_convert_markitdown",
+    "fn_index",
+]
+
+[tool.uv.sources]
+fn-convert-cu = { workspace = true }
+fn-convert-mistral = { workspace = true }
+fn-convert-markitdown = { workspace = true }
+fn-index = { workspace = true }
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
 markers = ["integration: tests that call live Azure services"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["fn_convert_cu", "fn_convert_mistral", "fn_index", "shared"]
+packages = [
+    "shared",
+    "fn_convert_cu",
+    "fn_convert_mistral",
+    "fn_convert_markitdown",
+    "fn_index",
+]
 
 [build-system]
 requires = ["hatchling"]

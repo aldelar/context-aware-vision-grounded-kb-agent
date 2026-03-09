@@ -6,8 +6,7 @@ Azure Content Understanding in Foundry Tools is an [Foundry Tool](https://learn.
 
 Content Understanding is now a generally available (GA) service with the release of the `2025-11-01` API version. It's now available in a broader range of [regions](https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/language-region-support). For details on the updates in the GA release, see the Content Understanding [What's New](https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/whats-new) page.
 
-> **[Image: content-understanding-framework-2025](images/content-understanding-framework-2025.png)**
-> The image depicts the "Content Understanding Framework," an architecture diagram that illustrates how various input types (documents, images, videos, audio) are processed by analyzers such as content extraction, segmentation, field extraction, and postprocessing. Specialized AI models (for OCR, layout, transcription) and foundational models (like GPT-4o and embedding models) support these processes. The analyzers transform inputs into structured outputs (Markdown or JSON schema), which can then be integrated with downstream systems such as search, agents, databases, copilot solutions, applications, and Fabric services. The diagram highlights the stepwise flow of data and modular structure of the framework
+[![Screenshot of Content Understanding overview, process, and workflow.](images/content-understanding-framework-2025.png)](images/content-understanding-framework-2025.png)
 
 ## Why use Content Understanding?
 
@@ -47,8 +46,7 @@ Some common industry-specific applications for Content Understanding include:
 
 The Content Understanding framework processes unstructured content through multiple stages, transforming inputs into structured, actionable outputs. The following table describes each component from left to right as shown in the diagram:
 
-> **[Image: content-understanding-framework-2025](images/content-understanding-framework-2025.png)**
-> The image depicts the "Content Understanding Framework," an architecture diagram that illustrates how various input types (documents, images, videos, audio) are processed by analyzers such as content extraction, segmentation, field extraction, and postprocessing. Specialized AI models (for OCR, layout, transcription) and foundational models (like GPT-4o and embedding models) support these processes. The analyzers transform inputs into structured outputs (Markdown or JSON schema), which can then be integrated with downstream systems such as search, agents, databases, copilot solutions, applications, and Fabric services. The diagram highlights the stepwise flow of data and modular structure of the framework
+[![Diagram showing the Content Understanding framework with inputs flowing through analyzers to structured output.](images/content-understanding-framework-2025.png)](images/content-understanding-framework-2025.png)
 
 | Component | Description |
 | --- | --- |

@@ -2,11 +2,6 @@
 description: "Epic/story planning, task decomposition, and readiness validation. Invoke with @planner."
 instructions:
   - instructions/epic-tracking.instructions.md
-tools:
-  - read_file
-  - grep_search
-  - semantic_search
-  - manage_todo_list
 ---
 
 # Planner Agent

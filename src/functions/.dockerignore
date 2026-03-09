@@ -9,6 +9,7 @@ tests/
 # Dev / local files
 .env
 .env.sample
+manage_analyzers.py
 .pytest_cache/
 .funcignore
 .gitignore

@@ -15,8 +15,13 @@ WORKDIR /home/site/wwwroot
 # Copy everything
 COPY . .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir .
+# Install Python dependencies (workspace root pulls all member packages)
+# Note: shared/ is included via root wheel (hatch.build.targets.wheel.packages)
+RUN pip install --no-cache-dir . \
+    ./fn_convert_cu \
+    ./fn_convert_mistral \
+    ./fn_convert_markitdown \
+    ./fn_index
 
 # Install Playwright Chromium with all required system libraries
 RUN playwright install --with-deps chromium
