@@ -33,7 +33,14 @@ Complete an entire epic from current state to Done, story by story, delegating t
    - Expected test coverage
    - Definition of Done checklist
 2. Identify cross-story dependencies or shared changes
-3. **Produce a high-level dependency graph** — output a Mermaid diagram (or clear textual representation) showing which stories depend on which. This makes the execution order visible at a glance.
+3. **Produce a high-level dependency graph as a Mermaid diagram** — always render the dependency graph using a Mermaid `graph TD` (top-down) diagram. Each node represents a story; edges show "must complete before" relationships. Stories that can run in parallel should appear on the same rank. Example format:
+   ```mermaid
+   graph TD
+     S1[Story 1: Setup] --> S2[Story 2: Core Logic]
+     S1 --> S3[Story 3: Infra]
+     S2 --> S4[Story 4: Integration]
+     S3 --> S4
+   ```
 4. **Maximize parallelism** — using the dependency graph, identify stories (or story phases) that can run concurrently because they have no mutual dependencies. Group independent work into parallel tracks where possible (e.g., a Bicep infra story and an unrelated code story can proceed simultaneously via @deployer and @coder). Present the parallelized execution plan alongside the dependency graph.
 5. Estimate if any story is too large and should be split
 6. **Create a TODO list** using the `manage_todo_list` tool that covers every step of the plan:
