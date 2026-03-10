@@ -8,17 +8,19 @@ Usage:
 """
 
 import json
+import os
 import sys
 from pathlib import Path
 
 from azure.ai.contentunderstanding import ContentUnderstandingClient
 from azure.core.exceptions import HttpResponseError, ResourceNotFoundError
 from azure.identity import DefaultAzureCredential
+from dotenv import load_dotenv
 
-from shared.config import config
+load_dotenv()
 
 ANALYZER_ID = "kb_image_analyzer"
-ANALYZER_DEF_PATH = Path(__file__).resolve().parent.parent / "analyzers" / "kb-image-analyzer.json"
+ANALYZER_DEF_PATH = Path(__file__).resolve().parent / "definitions" / "kb-image-analyzer.json"
 
 # Map CU model names → deployment names in our AI Services account.
 # CU completion models: gpt-4o, gpt-4o-mini, gpt-4.1, gpt-4.1-mini, gpt-4.1-nano
@@ -27,14 +29,14 @@ ANALYZER_DEF_PATH = Path(__file__).resolve().parent.parent / "analyzers" / "kb-i
 MODEL_DEPLOYMENTS = {
     "gpt-4.1": "gpt-4.1",
     "gpt-4.1-mini": "gpt-4.1-mini",
-    "text-embedding-3-small": config.embedding_deployment_name,
+    "text-embedding-3-small": os.environ.get("EMBEDDING_DEPLOYMENT_NAME", "text-embedding-3-small"),
     "text-embedding-3-large": "text-embedding-3-large",
 }
 
 
 def _get_client() -> ContentUnderstandingClient:
     return ContentUnderstandingClient(
-        endpoint=config.ai_services_endpoint,
+        endpoint=os.environ.get("AI_SERVICES_ENDPOINT", ""),
         credential=DefaultAzureCredential(),
     )
 

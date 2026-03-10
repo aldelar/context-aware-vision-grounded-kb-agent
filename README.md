@@ -75,10 +75,11 @@ Teams and organizations that:
 │   │   ├── main.py      FastAPI server exposing Responses API (port 8088)
 │   │   ├── agent/       Agent modules (kb_agent, search_tool, vision_middleware, image_service)
 │   │   └── tests/       pytest test suite
-│   ├── functions/       Azure Functions project (fn-convert, fn-index, shared utils)
-│   │   ├── fn_convert_cu/       Stage 1 backend — Content Understanding (HTML → MD)
-│   │   ├── fn_convert_mistral/  Stage 1 backend — Mistral Document AI (HTML → PDF → OCR → MD)
-│   │   ├── fn_index/    Stage 2 — Markdown → AI Search index
+│   ├── functions/       Azure Functions — 4 independent Container Apps (one per function)
+│   │   ├── fn_convert_cu/       CU converter (HTML → MD via Content Understanding)
+│   │   ├── fn_convert_mistral/  Mistral converter (HTML → PDF → OCR → MD)
+│   │   ├── fn_convert_markitdown/ MarkItDown converter (HTML → MD, local Python)
+│   │   ├── fn_index/    Index builder (MD → AI Search)
 │   │   ├── shared/      Shared config, blob helpers, CU client
 │   │   └── tests/       pytest test suite
 │   ├── web-app/         Chainlit thin client (calls agent via Responses API)
@@ -94,18 +95,20 @@ Teams and organizations that:
 
 ## Architecture
 
-The solution has two layers: a **two-stage ingestion pipeline** (Azure Functions) that builds an image-aware search index, and a **conversational agent** deployed as a **Foundry hosted agent** that can see and reason about the actual images. A **Chainlit thin client** calls the agent via the Responses API and stores conversation history in **Cosmos DB**.
+The solution has two layers: a **two-stage ingestion pipeline** (4 independent function Container Apps) that builds an image-aware search index, and a **conversational agent** deployed as a **Foundry hosted agent** that can see and reason about the actual images. A **Chainlit thin client** calls the agent via the Responses API and stores conversation history in **Cosmos DB**.
 
 ```mermaid
 flowchart LR
     subgraph left[" "]
         direction TB
-        subgraph Pipeline["Ingestion Pipeline — Azure Functions"]
+        subgraph Pipeline["Ingestion Pipeline"]
             direction TB
-            CONV["<b>fn-convert</b><br/>HTML → MD + images"]
-            AN["Analyzer ✱<br/>HTML + image analysis"]
-            IDX["<b>fn-index</b><br/>MD → chunks → index"]
-            CONV --> AN --> IDX
+            subgraph Converters["Converters — 3 Container Apps"]
+                CVT_CU["fn_convert_cu<br/>CU → MD"]
+                CVT_MIS["fn_convert_mistral<br/>Mistral → MD"]
+                CVT_MIT["fn_convert_markitdown<br/>MarkItDown → MD"]
+            end
+            IDX["fn_index<br/>MD → index"]
         end
         subgraph Sources["Storage"]
             direction TB
@@ -134,8 +137,12 @@ flowchart LR
         end
     end
 
-    CONV -->|read| SA1
-    CONV -->|write| SA2
+    CVT_CU -->|read| SA1
+    CVT_CU -->|write| SA2
+    CVT_MIS -->|read| SA1
+    CVT_MIS -->|write| SA2
+    CVT_MIT -->|read| SA1
+    CVT_MIT -->|write| SA2
     IDX -->|read| SA2
 
     IDX -->|embed| AF

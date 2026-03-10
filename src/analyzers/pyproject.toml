@@ -1,0 +1,14 @@
+[project]
+name = "kb-analyzer-tools"
+version = "0.1.0"
+description = "CU custom analyzer management CLI"
+requires-python = ">=3.11"
+dependencies = [
+    "azure-ai-contentunderstanding>=1.0.0b1",
+    "azure-identity>=1.19.0",
+    "python-dotenv>=1.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

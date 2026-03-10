@@ -6,7 +6,11 @@ requires-python = ">=3.11"
 dependencies = [
     "azure-search-documents>=11.6.0b5",
     "azure-ai-inference>=1.0.0b1",
+    "kb-ingestion-shared",
 ]
+
+[tool.uv.sources]
+kb-ingestion-shared = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]

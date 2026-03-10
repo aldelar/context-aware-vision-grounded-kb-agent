@@ -5,10 +5,7 @@ description = "Azure Functions for KB article ingestion — convert HTML to Mark
 requires-python = ">=3.11"
 dependencies = [
     "azure-functions>=1.21.0",
-    "azure-ai-contentunderstanding>=1.0.0b1",
-    "azure-identity>=1.19.0",
-    "azure-storage-blob>=12.20.0",
-    "python-dotenv>=1.0.0",
+    "kb-ingestion-shared",
     "fn-convert-cu",
     "fn-convert-mistral",
     "fn-convert-markitdown",
@@ -23,6 +20,7 @@ dev = [
 
 [tool.uv.workspace]
 members = [
+    "shared",
     "fn_convert_cu",
     "fn_convert_mistral",
     "fn_convert_markitdown",
@@ -30,6 +28,7 @@ members = [
 ]
 
 [tool.uv.sources]
+kb-ingestion-shared = { workspace = true }
 fn-convert-cu = { workspace = true }
 fn-convert-mistral = { workspace = true }
 fn-convert-markitdown = { workspace = true }
@@ -42,7 +41,6 @@ markers = ["integration: tests that call live Azure services"]
 
 [tool.hatch.build.targets.wheel]
 packages = [
-    "shared",
     "fn_convert_cu",
     "fn_convert_mistral",
     "fn_convert_markitdown",

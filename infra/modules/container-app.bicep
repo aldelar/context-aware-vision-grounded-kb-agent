@@ -19,6 +19,9 @@ param logAnalyticsWorkspaceId string
 @description('ACR login server (e.g., cr{project}dev.azurecr.io)')
 param acrLoginServer string
 
+@description('ACR resource ID for role assignment')
+param acrResourceId string
+
 @description('Docker image name and tag (e.g., webapp-{project}:latest). Leave empty for initial provisioning.')
 param imageName string = ''
 
@@ -117,13 +120,16 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
         transport: 'auto'
         allowInsecure: false
       }
-      // Always configure ACR registry so azd deploy can push images with managed identity.
-      registries: [
+      // Only configure ACR registry when a real ACR image is used.
+      // On initial provisioning (placeholder MCR image), omit ACR to avoid
+      // registry validation blocking revision creation before AcrPull role propagates.
+      // azd deploy updates the registry config when pushing the real image.
+      registries: useAcrImage ? [
         {
           server: acrLoginServer
           identity: 'system'
         }
-      ]
+      ] : []
     }
     template: {
       containers: [
@@ -196,6 +202,28 @@ resource authConfig 'Microsoft.App/containerApps/authConfigs@2024-03-01' = if (!
       }
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Role: AcrPull on ACR for container app managed identity
+// (Must be in the same module as the Container App to avoid race condition
+// between the Container App needing ACR access and ACR role needing the principal ID)
+// ---------------------------------------------------------------------------
+var acrPullRoleId = '7f951dda-4ed3-4680-a7ca-43fe172d538d'
+
+resource acrPullRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (useAcrImage) {
+  name: guid(acrResourceId, containerApp.id, acrPullRoleId)
+  scope: existingAcr
+  properties: {
+    principalId: containerApp.identity.principalId
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', acrPullRoleId)
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Reference the existing ACR (for scoping the role assignment)
+resource existingAcr 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
+  name: split(acrResourceId, '/')[8]
 }
 
 // ---------------------------------------------------------------------------

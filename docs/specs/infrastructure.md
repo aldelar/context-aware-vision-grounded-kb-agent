@@ -24,7 +24,7 @@ All resources follow the pattern `{prefix}-{projectName}-{env}` (e.g., `func-{pr
 | Application Insights | `monitoring.bicep` | `appi-{project}-{env}` | Workspace-based |
 | Storage — Staging | `storage.bicep` | `st{project}staging{env}` | Standard_LRS, Hot |
 | Storage — Serving | `storage.bicep` | `st{project}serving{env}` | Standard_LRS, Hot |
-| Storage — Functions Runtime | `function-app.bicep` | `st{project}func{env}` | Standard_LRS |
+| Storage — Functions Runtime | `storage.bicep` | `st{project}func{env}` | Standard_LRS |
 | Azure AI Services (Foundry) | `ai-services.bicep` | `ai-{project}-{env}` | S0 (AIServices kind) |
 | → Embedding Deployment | `ai-services.bicep` | `text-embedding-3-small` | GlobalStandard, 120K TPM |
 | → Agent Deployment | `ai-services.bicep` | `gpt-5-mini` | GlobalStandard, 30K TPM |
@@ -33,7 +33,10 @@ All resources follow the pattern `{prefix}-{projectName}-{env}` (e.g., `func-{pr
 | → CU Internal: Analysis † | `ai-services.bicep` | `gpt-4.1-mini` | GlobalStandard, 30K TPM |
 | → Mistral OCR Deployment | `ai-services.bicep` | `mistral-document-ai-2512` | GlobalStandard, capacity 1 |
 | Azure AI Search | `search.bicep` | `srch-{project}-{env}` | Free, 1 partition, 1 replica |
-| Function App (Container App) | `function-app.bicep` | `func-{project}-{env}` | Container App, 1.0 vCPU / 2 GiB, Python 3.11 custom Docker |
+| Function App — CU Converter | `function-app.bicep` | `func-cvt-cu-{project}-{env}` | Container App, 1.0 vCPU / 2 GiB |
+| Function App — Mistral Converter | `function-app.bicep` | `func-cvt-mis-{project}-{env}` | Container App, 1.0 vCPU / 2 GiB |
+| Function App — MarkItDown Converter | `function-app.bicep` | `func-cvt-mit-{project}-{env}` | Container App, 1.0 vCPU / 2 GiB |
+| Function App — Index Builder | `function-app.bicep` | `func-idx-{project}-{env}` | Container App, 1.0 vCPU / 2 GiB |
 | Container Registry | `container-registry.bicep` | `cr{project}{env}` | Basic |
 | Container Apps Environment | `container-app.bicep` | `cae-{project}-{env}` | Consumption |
 | Container App (Web App) | `container-app.bicep` | `webapp-{project}-{env}` | 0.5 vCPU, 1 GiB |
@@ -59,7 +62,7 @@ infra/
     ├── foundry-project.bicep    # Foundry project (child of AI Services) for hosted agent
     ├── cosmos-db.bicep           # Cosmos DB NoSQL (serverless) — database + conversations container
     ├── cosmos-db-role.bicep      # Cosmos DB Built-in Data Contributor role assignment
-    ├── function-app.bicep       # Functions on Container Apps (custom Docker) + runtime storage + AcrPull RBAC
+    ├── function-app.bicep       # Reusable Functions Container App module (called 4×, one per function)
     ├── container-registry.bicep # Azure Container Registry (Basic) + AcrPull RBAC (web app + Foundry project)
     └── container-app.bicep      # Container Apps Environment + Container App + Easy Auth
 ```
@@ -132,12 +135,14 @@ Model deployments are serialized (`dependsOn`) to avoid Azure API conflicts.
 
 > **MarkItDown backend (`fn_convert_markitdown`)** requires **no additional infrastructure** — text extraction is a local Python operation via the `markitdown` library. Only the existing `gpt-4.1` deployment is used (for image descriptions). No new model deployments, analyzers, or Azure services are needed.
 
-**RBAC Roles (granted to Function App):**
+**RBAC Roles (granted per function — see [RBAC Role Summary](#rbac-role-summary) for per-function breakdown):**
 
 | Role | Role ID | Purpose |
-|------|---------|---------|
+|------|---------|----------|
 | Cognitive Services OpenAI User | `5e0bd9bd-7b93-4f28-af87-19fc36ad61bd` | Call embedding and agent model endpoints |
-| Cognitive Services User | `a97b65f3-24c7-4388-baec-2e87135dc908` | Access Content Understanding APIs |
+| Cognitive Services User | `a97b65f3-24c7-4388-baec-2e87135dc908` | Access Content Understanding APIs (fn_convert_cu + fn_convert_mistral only) |
+
+> **Per-function allocation:** fn_convert_cu and fn_convert_mistral receive both roles (they use CU / Mistral APIs). fn_convert_markitdown and fn_index receive only Cognitive Services OpenAI User (they only call OpenAI model endpoints).
 
 ### Azure AI Search (`search.bicep`)
 
@@ -152,7 +157,7 @@ Model deployments are serialized (`dependsOn`) to avoid Azure API conflicts.
 
 The search index (`kb-articles`) is created by application code at runtime, not in Bicep. See the [Architecture spec](architecture.md) for the full index schema.
 
-**RBAC Roles (granted to Function App):**
+**RBAC Roles (granted to fn_index only — other functions do not access AI Search):**
 
 | Role | Role ID | Purpose |
 |------|---------|---------|
@@ -161,6 +166,8 @@ The search index (`kb-articles`) is created by application code at runtime, not 
 
 ### Function App (`function-app.bicep`)
 
+A reusable module called **4 times** from `main.bicep` — once per pipeline function. Each invocation produces an independent Container App with its own managed identity and scoped environment variables.
+
 | Setting | Value |
 |---------|-------|
 | Plan | Flex Consumption (FC1) |
@@ -168,24 +175,33 @@ The search index (`kb-articles`) is created by application code at runtime, not 
 | OS | Linux |
 | Max Instance Count | 40 |
 | Instance Memory | 2048 MB |
-| Identity | System-assigned managed identity |
-| Deployment Storage | Blob container (`deployments`) on dedicated functions storage account, authenticated via system identity |
+| Identity | System-assigned managed identity (per Container App) |
+| Deployment Storage | Blob container (`deployments`) on shared functions storage account (`st{project}func{env}`), authenticated via system identity |
 
-**Application Settings:**
+**Container Apps (4 instances):**
 
-| Setting | Source | Purpose |
-|---------|--------|---------|
-| `AzureWebJobsStorage__accountName` | Functions storage account name | Functions runtime storage (identity-based) |
-| `APPLICATIONINSIGHTS_CONNECTION_STRING` | App Insights output | Telemetry |
-| `STAGING_BLOB_ENDPOINT` | Staging storage blob endpoint | Read source articles |
-| `SERVING_BLOB_ENDPOINT` | Serving storage blob endpoint | Write processed articles |
-| `AI_SERVICES_ENDPOINT` | AI Services endpoint | Content Understanding + embeddings |
-| `EMBEDDING_DEPLOYMENT_NAME` | `text-embedding-3-small` | Model deployment name for embeddings |
-| `SEARCH_ENDPOINT` | AI Search endpoint | Push chunks to search index |
-| `SEARCH_INDEX_NAME` | `kb-articles` (hardcoded default) | Target search index |
-| `MISTRAL_DEPLOYMENT_NAME` | `mistral-document-ai-2512` | Mistral Document AI OCR model for `fn_convert_mistral` |
+| Container App | Service Name | Dockerfile | Playwright |
+|---|---|---|---|
+| `func-cvt-cu-{project}-{env}` | `func-convert-cu` | `fn_convert_cu/Dockerfile` | No |
+| `func-cvt-mis-{project}-{env}` | `func-convert-mistral` | `fn_convert_mistral/Dockerfile` | Yes |
+| `func-cvt-mit-{project}-{env}` | `func-convert-markitdown` | `fn_convert_markitdown/Dockerfile` | No |
+| `func-idx-{project}-{env}` | `func-index` | `fn_index/Dockerfile` | No |
 
-The Function App's own storage account gets **Storage Blob Data Owner** (role `b7e6dc6d-f1e8-4753-8033-0f276bb0955b`) granted to the Function App identity — required for Flex Consumption deployment and `AzureWebJobsStorage` access.
+**Application Settings (per function):**
+
+| Setting | cvt-cu | cvt-mis | cvt-mit | idx | Purpose |
+|---------|:---:|:---:|:---:|:---:|---------|
+| `AzureWebJobsStorage__accountName` | ✓ | ✓ | ✓ | ✓ | Functions runtime storage (identity-based) |
+| `APPLICATIONINSIGHTS_CONNECTION_STRING` | ✓ | ✓ | ✓ | ✓ | Telemetry |
+| `AI_SERVICES_ENDPOINT` | ✓ | ✓ | ✓ | ✓ | AI Services endpoint |
+| `STAGING_BLOB_ENDPOINT` | ✓ | ✓ | ✓ | — | Read source articles |
+| `SERVING_BLOB_ENDPOINT` | ✓ | ✓ | ✓ | ✓ | Read/write processed articles |
+| `MISTRAL_DEPLOYMENT_NAME` | — | ✓ | — | — | Mistral Document AI OCR model |
+| `EMBEDDING_DEPLOYMENT_NAME` | — | — | — | ✓ | Model deployment for embeddings |
+| `SEARCH_ENDPOINT` | — | — | — | ✓ | AI Search endpoint |
+| `SEARCH_INDEX_NAME` | — | — | — | ✓ | Target search index |
+
+The functions runtime storage account (`st{project}func{env}`) is created once by `storage.bicep` in `main.bicep` and shared across all 4 Container Apps. Each Container App's identity gets **Storage Blob Data Owner** on this account — required for Flex Consumption deployment and `AzureWebJobsStorage` access.
 
 ### Container Registry (`container-registry.bicep`)
 
@@ -313,19 +329,40 @@ No keys, connection strings, or secrets appear in application settings or config
 
 ```mermaid
 flowchart LR
-    FA["Function App<br/><i>System Managed Identity</i>"]
+    FC_CU["fn_convert_cu<br/><i>System MI</i>"]
+    FC_MIS["fn_convert_mistral<br/><i>System MI</i>"]
+    FC_MIT["fn_convert_markitdown<br/><i>System MI</i>"]
+    FC_IDX["fn_index<br/><i>System MI</i>"]
     CA["Container App (Web App)<br/><i>System Managed Identity</i>"]
     PA["Published Agent<br/><i>AI Services Account MI</i>"]
     FP["Unpublished Agent<br/><i>Foundry Project MI</i>"]
 
-    FA -->|"Storage Blob Data<br/>Contributor"| ST["Staging Storage"]
-    FA -->|"Storage Blob Data<br/>Contributor"| SV["Serving Storage"]
-    FA -->|"Storage Blob Data<br/>Owner"| SF["Functions Storage"]
-    FA -->|"AcrPull"| ACR
-    FA -->|"Cognitive Services<br/>OpenAI User"| AI["AI Services"]
-    FA -->|"Cognitive Services<br/>User"| AI
-    FA -->|"Search Index Data<br/>Contributor"| SR["AI Search"]
-    FA -->|"Search Service<br/>Contributor"| SR
+    FC_CU -->|"Storage Blob Data<br/>Contributor"| ST["Staging Storage"]
+    FC_CU -->|"Storage Blob Data<br/>Contributor"| SV["Serving Storage"]
+    FC_CU -->|"Storage Blob Data<br/>Owner"| SF["Functions Storage"]
+    FC_CU -->|"AcrPull"| ACR
+    FC_CU -->|"Cognitive Services<br/>OpenAI User"| AI["AI Services"]
+    FC_CU -->|"Cognitive Services<br/>User"| AI
+
+    FC_MIS -->|"Storage Blob Data<br/>Contributor"| ST
+    FC_MIS -->|"Storage Blob Data<br/>Contributor"| SV
+    FC_MIS -->|"Storage Blob Data<br/>Owner"| SF
+    FC_MIS -->|"AcrPull"| ACR
+    FC_MIS -->|"Cognitive Services<br/>OpenAI User"| AI
+    FC_MIS -->|"Cognitive Services<br/>User"| AI
+
+    FC_MIT -->|"Storage Blob Data<br/>Contributor"| ST
+    FC_MIT -->|"Storage Blob Data<br/>Contributor"| SV
+    FC_MIT -->|"Storage Blob Data<br/>Owner"| SF
+    FC_MIT -->|"AcrPull"| ACR
+    FC_MIT -->|"Cognitive Services<br/>OpenAI User"| AI
+
+    FC_IDX -->|"Storage Blob Data<br/>Reader"| SV
+    FC_IDX -->|"Storage Blob Data<br/>Owner"| SF
+    FC_IDX -->|"AcrPull"| ACR
+    FC_IDX -->|"Cognitive Services<br/>OpenAI User"| AI
+    FC_IDX -->|"Search Index Data<br/>Contributor"| SR["AI Search"]
+    FC_IDX -->|"Search Service<br/>Contributor"| SR
 
     PA -->|"Cognitive Services<br/>OpenAI User"| AI
     PA -->|"Search Index Data<br/>Reader"| SR
@@ -360,14 +397,29 @@ The Container App uses a **dual-layer auth model**: **Easy Auth** (platform-leve
 
 | Principal | Resource | Role |
 |-----------|----------|------|
-| Function App | Staging Storage | Storage Blob Data Contributor |
-| Function App | Serving Storage | Storage Blob Data Contributor |
-| Function App | Functions Storage | Storage Blob Data Owner |
-| Function App | Container Registry | AcrPull |
-| Function App | AI Services | Cognitive Services OpenAI User |
-| Function App | AI Services | Cognitive Services User |
-| Function App | AI Search | Search Index Data Contributor |
-| Function App | AI Search | Search Service Contributor |
+| fn_convert_cu | Staging Storage | Storage Blob Data Contributor |
+| fn_convert_cu | Serving Storage | Storage Blob Data Contributor |
+| fn_convert_cu | Functions Storage | Storage Blob Data Owner |
+| fn_convert_cu | Container Registry | AcrPull |
+| fn_convert_cu | AI Services | Cognitive Services OpenAI User |
+| fn_convert_cu | AI Services | Cognitive Services User |
+| fn_convert_mistral | Staging Storage | Storage Blob Data Contributor |
+| fn_convert_mistral | Serving Storage | Storage Blob Data Contributor |
+| fn_convert_mistral | Functions Storage | Storage Blob Data Owner |
+| fn_convert_mistral | Container Registry | AcrPull |
+| fn_convert_mistral | AI Services | Cognitive Services OpenAI User |
+| fn_convert_mistral | AI Services | Cognitive Services User |
+| fn_convert_markitdown | Staging Storage | Storage Blob Data Contributor |
+| fn_convert_markitdown | Serving Storage | Storage Blob Data Contributor |
+| fn_convert_markitdown | Functions Storage | Storage Blob Data Owner |
+| fn_convert_markitdown | Container Registry | AcrPull |
+| fn_convert_markitdown | AI Services | Cognitive Services OpenAI User |
+| fn_index | Serving Storage | Storage Blob Data Reader |
+| fn_index | Functions Storage | Storage Blob Data Owner |
+| fn_index | Container Registry | AcrPull |
+| fn_index | AI Services | Cognitive Services OpenAI User |
+| fn_index | AI Search | Search Index Data Contributor |
+| fn_index | AI Search | Search Service Contributor |
 | Foundry Project MI (unpublished agent — Foundry UI) | Container Registry | AcrPull |
 | Foundry Project MI (unpublished agent — Foundry UI) | AI Services | Cognitive Services OpenAI User |
 | Foundry Project MI (unpublished agent — Foundry UI) | AI Search | Search Index Data Reader |
@@ -420,6 +472,10 @@ AZD reads `azure.yaml` (project root) and `infra/main.parameters.json` to resolv
 |--------|---------|
 | `make azure-provision` | `azd provision` |
 | `make azure-deploy` | `azd deploy` |
+| _(per-function)_ | `azd deploy --service func-convert-cu` |
+| _(per-function)_ | `azd deploy --service func-convert-mistral` |
+| _(per-function)_ | `azd deploy --service func-convert-markitdown` |
+| _(per-function)_ | `azd deploy --service func-index` |
 | `make azure-agent-deploy` | `azd deploy --service agent` (builds in ACR, deploys to Foundry) |
 | `make azure-agent-capability-host` | Ensures account capability host exists with `enablePublicHostingEnvironment=true` |
 | `make azure-agent-publish` | `bash scripts/publish-agent.sh` (publish + RBAC) |
@@ -448,8 +504,15 @@ The following values are exported by `main.bicep` and available as AZD environme
 | `MISTRAL_DEPLOYMENT_NAME` | `mistral-document-ai-2512` |
 | `SEARCH_SERVICE_NAME` | `srch-{project}-dev` |
 | `SEARCH_ENDPOINT` | `https://srch-{project}-dev.search.windows.net` |
-| `FUNCTION_APP_NAME` | `func-{project}-dev` |
-| `FUNCTION_APP_URL` | `https://func-{project}-dev.<hash>.<region>.azurecontainerapps.io` |
+| `FUNC_CONVERT_CU_NAME` | `func-cvt-cu-{project}-dev` |
+| `FUNC_CONVERT_CU_URL` | `https://func-cvt-cu-{project}-dev.<region>.azurecontainerapps.io` |
+| `FUNC_CONVERT_MISTRAL_NAME` | `func-cvt-mis-{project}-dev` |
+| `FUNC_CONVERT_MISTRAL_URL` | `https://func-cvt-mis-{project}-dev.<region>.azurecontainerapps.io` |
+| `FUNC_CONVERT_MARKITDOWN_NAME` | `func-cvt-mit-{project}-dev` |
+| `FUNC_CONVERT_MARKITDOWN_URL` | `https://func-cvt-mit-{project}-dev.<region>.azurecontainerapps.io` |
+| `FUNC_INDEX_NAME` | `func-idx-{project}-dev` |
+| `FUNC_INDEX_URL` | `https://func-idx-{project}-dev.<region>.azurecontainerapps.io` |
+| `FUNCTIONS_STORAGE_ACCOUNT` | `st{project}funcdev` |
 | `APPINSIGHTS_NAME` | `appi-{project}-dev` |
 | `CONTAINER_REGISTRY_NAME` | `cr{project}dev` |
 | `CONTAINER_REGISTRY_LOGIN_SERVER` | `cr{project}dev.azurecr.io` |
@@ -481,8 +544,9 @@ The following values are exported by `main.bicep` and available as AZD environme
 | 8 | **GlobalStandard model SKU** | Provides highest availability and regional flexibility for OpenAI model deployments. Uses Microsoft-managed capacity across Azure regions. |
 | 9 | **Mistral Document AI deployment** | `mistral-document-ai-2512` (format `Mistral AI`) is deployed alongside OpenAI models in the same AIServices resource. The `fn_convert_mistral` pipeline depends on this model plus GPT-4.1 for vision. Requires Playwright (headless Chromium) at runtime for HTML → PDF rendering. |
 | 10 | **MarkItDown — zero infra cost** | The `fn_convert_markitdown` pipeline uses the `markitdown` Python library for text extraction (local, no cloud API) and the existing `gpt-4.1` deployment for image descriptions. No new Azure resources, model deployments, or analyzers are required. |
-| 11 | **Anonymous function auth** | Container Apps does not support Azure Functions host keys. All four HTTP-triggered functions (`fn_convert`, `fn_convert_mistral`, `fn_convert_markitdown`, `fn_index`) use `AuthLevel.ANONYMOUS`. Access control relies on the Container App's built-in ingress authentication and network-level controls instead. |
-| 11 | **AcrPull role in function-app module** | The Function App's AcrPull role assignment is co-located in `function-app.bicep` (not in `container-registry.bicep`) to avoid a circular dependency between the Container App resource and the ACR role assignment. See [Technical Brief](#technical-brief-bicep-dependency-ordering-for-container-apps) below. |
+| 11 | **Anonymous function auth** | Container Apps does not support Azure Functions host keys. All four HTTP-triggered functions (`fn_convert_cu`, `fn_convert_mistral`, `fn_convert_markitdown`, `fn_index`) use `AuthLevel.ANONYMOUS`. Access control relies on the Container App's built-in ingress authentication and network-level controls instead. |
+| 12 | **AcrPull role in function-app module** | The Function App's AcrPull role assignment is co-located in `function-app.bicep` (not in `container-registry.bicep`) to avoid a circular dependency between the Container App resource and the ACR role assignment. See [Technical Brief](#technical-brief-bicep-dependency-ordering-for-container-apps) below. |
+| 13 | **Per-function Container Apps** | Each function gets its own Container App with isolated managed identity and least-privilege RBAC. Reduces blast radius (a compromise of one function doesn't grant access to all services), eliminates bloated images (only fn_convert_mistral needs Playwright/Chromium), and enables independent scaling and deployment. Trade-off: 4× more Container Apps and RBAC assignments to manage. See [ARD-008](../ards/ARD-008-per-function-containers.md). |
 
 ---
 

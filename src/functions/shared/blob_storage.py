@@ -16,6 +16,7 @@ import tempfile
 from pathlib import Path
 from urllib.parse import urlparse
 
+import azure.functions as func
 from azure.identity import DefaultAzureCredential
 from azure.storage.blob import ContainerClient, ContentSettings
 
@@ -154,3 +155,26 @@ def upload_article(
         article_id,
     )
     return count
+
+
+def get_article_ids(
+    req: func.HttpRequest,
+    blob_endpoint: str,
+    container_name: str,
+) -> list[str]:
+    """Extract article IDs from request body, or list all from blob container.
+
+    Checks the JSON request body for an ``article_id`` field.  If present,
+    returns a single-element list.  Otherwise falls back to listing all
+    article folders in the given blob container.
+    """
+    try:
+        body = req.get_json()
+        article_id = body.get("article_id")
+        if article_id:
+            return [article_id]
+    except (ValueError, AttributeError):
+        pass
+
+    # No specific article — list all from blob
+    return list_articles(blob_endpoint, container_name)

@@ -13,7 +13,7 @@ applyTo: "src/**/*.py"
   - `src/agent/` — KB Agent (FastAPI + Agent Framework)
   - `src/functions/` — Azure Functions (convert + index pipeline)
   - `src/web-app/` — Chainlit thin client
-- Workspace-level `src/pyproject.toml` exists for spike code only
+- Spike code lives under `src/spikes/` — each spike has its own `pyproject.toml`
 
 ## Dependencies
 

@@ -1,12 +1,11 @@
-"""Shared configuration — loads environment variables and validates required settings.
+"""Shared configuration — lazy-loaded, per-function validation.
 
 Usage:
-    from shared.config import config
-    print(config.ai_services_endpoint)
+    from shared.config import get_config
+    cfg = get_config()    # validates required env vars on first call
 """
 
 import os
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -31,22 +30,19 @@ class Config:
     """Typed configuration loaded from environment variables."""
 
     # Azure AI Services (Content Understanding + Embeddings)
-    ai_services_endpoint: str
+    ai_services_endpoint: str = ""
 
     # Embedding model deployment name
-    embedding_deployment_name: str
-
-    # Agent / completion model deployment name
-    agent_deployment_name: str
+    embedding_deployment_name: str = "text-embedding-3-small"
 
     # Mistral Document AI deployment name
-    mistral_deployment_name: str
+    mistral_deployment_name: str = "mistral-document-ai-2512"
 
     # Azure AI Search
-    search_endpoint: str
-    search_index_name: str
+    search_endpoint: str = ""
+    search_index_name: str = "kb-articles"
 
-    # Azure Blob Storage endpoints (set when running in Azure or via .env)
+    # Azure Blob Storage endpoints
     staging_blob_endpoint: str = ""
     serving_blob_endpoint: str = ""
 
@@ -67,37 +63,43 @@ class Config:
         return bool(self.staging_blob_endpoint and self.serving_blob_endpoint)
 
 
-def _load_config() -> Config:
-    """Load and validate configuration from environment."""
+_config: Config | None = None
+
+
+def get_config() -> Config:
+    """Load configuration from environment (lazy, cached).
+
+    Returns a Config instance populated from environment variables.
+    No validation of required vars here — each function validates
+    what it needs at its own entry point.
+    """
+    global _config
+    if _config is not None:
+        return _config
+
     env_file = _find_env_file()
     if env_file:
         load_dotenv(env_file, override=False)
 
-    required = {
-        "AI_SERVICES_ENDPOINT": "ai_services_endpoint",
-        "SEARCH_ENDPOINT": "search_endpoint",
-    }
-
-    missing = [var for var in required if not os.environ.get(var)]
-    if missing:
-        print(
-            f"Error: Missing required environment variables: {', '.join(missing)}\n"
-            f"Copy .env.sample to .env and fill in values, or run: azd env get-values > src/functions/.env",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    return Config(
-        ai_services_endpoint=os.environ["AI_SERVICES_ENDPOINT"],
+    _config = Config(
+        ai_services_endpoint=os.environ.get("AI_SERVICES_ENDPOINT", ""),
         embedding_deployment_name=os.environ.get("EMBEDDING_DEPLOYMENT_NAME", "text-embedding-3-small"),
-        agent_deployment_name=os.environ.get("AGENT_DEPLOYMENT_NAME", "gpt-5-mini"),
         mistral_deployment_name=os.environ.get("MISTRAL_DEPLOYMENT_NAME", "mistral-document-ai-2512"),
-        search_endpoint=os.environ["SEARCH_ENDPOINT"],
+        search_endpoint=os.environ.get("SEARCH_ENDPOINT", ""),
         search_index_name=os.environ.get("SEARCH_INDEX_NAME", "kb-articles"),
         staging_blob_endpoint=os.environ.get("STAGING_BLOB_ENDPOINT", ""),
         serving_blob_endpoint=os.environ.get("SERVING_BLOB_ENDPOINT", ""),
     )
+    return _config
 
 
-# Singleton — imported as `from shared.config import config`
-config = _load_config()
+# Backward compat: `from shared.config import config` still works.
+# This is a lazy property that loads on first access.
+class _ConfigProxy:
+    """Proxy that loads config on first attribute access."""
+
+    def __getattr__(self, name: str):
+        return getattr(get_config(), name)
+
+
+config = _ConfigProxy()

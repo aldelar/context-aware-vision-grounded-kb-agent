@@ -134,28 +134,127 @@ module search 'modules/search.bicep' = {
 }
 
 // ---------------------------------------------------------------------------
-// Module: Function App
+// Module: Functions Runtime Storage Account (shared by all function Container Apps)
 // ---------------------------------------------------------------------------
-module functionApp 'modules/function-app.bicep' = {
-  name: 'function-app'
+module functionsStorage 'modules/storage.bicep' = {
+  name: 'functions-storage'
+  params: {
+    location: location
+    storageAccountName: functionsStorageName
+    tags: defaultTags
+    containerNames: ['deployments']
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Module: Function Apps (one per function)
+// ---------------------------------------------------------------------------
+
+// fn_convert_cu — Content Understanding HTML→Markdown converter
+module funcConvertCu 'modules/function-app.bicep' = {
+  name: 'func-convert-cu'
   params: {
     location: location
     baseName: baseName
+    functionName: 'cvt-cu'
+    azdServiceName: 'func-convert-cu'
     tags: defaultTags
-    appInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
     functionsStorageAccountName: functionsStorageName
-    stagingBlobEndpoint: stagingStorage.outputs.blobEndpoint
-    servingBlobEndpoint: servingStorage.outputs.blobEndpoint
-    aiServicesEndpoint: aiServices.outputs.aiServicesEndpoint
-    embeddingDeploymentName: aiServices.outputs.embeddingDeploymentName
-    agentDeploymentName: aiServices.outputs.agentDeploymentName
-    mistralDeploymentName: aiServices.outputs.mistralDeploymentName
-    searchEndpoint: search.outputs.searchEndpoint
+    envVars: [
+      { name: 'AzureWebJobsStorage__accountName', value: functionsStorageName }
+      { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: monitoring.outputs.appInsightsConnectionString }
+      { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }
+      { name: 'STAGING_BLOB_ENDPOINT', value: stagingStorage.outputs.blobEndpoint }
+      { name: 'SERVING_BLOB_ENDPOINT', value: servingStorage.outputs.blobEndpoint }
+      { name: 'AI_SERVICES_ENDPOINT', value: aiServices.outputs.aiServicesEndpoint }
+    ]
     deployerPrincipalId: principalId
     acrLoginServer: containerRegistry.outputs.containerRegistryLoginServer
     acrResourceId: containerRegistry.outputs.containerRegistryId
     containerAppsEnvId: containerApp.outputs.containerAppsEnvId
   }
+  dependsOn: [functionsStorage]
+}
+
+// fn_convert_mistral — Mistral Document AI HTML→Markdown converter
+module funcConvertMistral 'modules/function-app.bicep' = {
+  name: 'func-convert-mistral'
+  params: {
+    location: location
+    baseName: baseName
+    functionName: 'cvt-mis'
+    azdServiceName: 'func-convert-mistral'
+    tags: defaultTags
+    functionsStorageAccountName: functionsStorageName
+    envVars: [
+      { name: 'AzureWebJobsStorage__accountName', value: functionsStorageName }
+      { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: monitoring.outputs.appInsightsConnectionString }
+      { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }
+      { name: 'STAGING_BLOB_ENDPOINT', value: stagingStorage.outputs.blobEndpoint }
+      { name: 'SERVING_BLOB_ENDPOINT', value: servingStorage.outputs.blobEndpoint }
+      { name: 'AI_SERVICES_ENDPOINT', value: aiServices.outputs.aiServicesEndpoint }
+      { name: 'MISTRAL_DEPLOYMENT_NAME', value: aiServices.outputs.mistralDeploymentName }
+    ]
+    deployerPrincipalId: principalId
+    acrLoginServer: containerRegistry.outputs.containerRegistryLoginServer
+    acrResourceId: containerRegistry.outputs.containerRegistryId
+    containerAppsEnvId: containerApp.outputs.containerAppsEnvId
+  }
+  dependsOn: [functionsStorage]
+}
+
+// fn_convert_markitdown — MarkItDown HTML→Markdown converter
+module funcConvertMarkitdown 'modules/function-app.bicep' = {
+  name: 'func-convert-markitdown'
+  params: {
+    location: location
+    baseName: baseName
+    functionName: 'cvt-mit'
+    azdServiceName: 'func-convert-markitdown'
+    tags: defaultTags
+    functionsStorageAccountName: functionsStorageName
+    envVars: [
+      { name: 'AzureWebJobsStorage__accountName', value: functionsStorageName }
+      { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: monitoring.outputs.appInsightsConnectionString }
+      { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }
+      { name: 'STAGING_BLOB_ENDPOINT', value: stagingStorage.outputs.blobEndpoint }
+      { name: 'SERVING_BLOB_ENDPOINT', value: servingStorage.outputs.blobEndpoint }
+      { name: 'AI_SERVICES_ENDPOINT', value: aiServices.outputs.aiServicesEndpoint }
+    ]
+    deployerPrincipalId: principalId
+    acrLoginServer: containerRegistry.outputs.containerRegistryLoginServer
+    acrResourceId: containerRegistry.outputs.containerRegistryId
+    containerAppsEnvId: containerApp.outputs.containerAppsEnvId
+  }
+  dependsOn: [functionsStorage]
+}
+
+// fn_index — Search index builder
+module funcIndex 'modules/function-app.bicep' = {
+  name: 'func-index'
+  params: {
+    location: location
+    baseName: baseName
+    functionName: 'idx'
+    azdServiceName: 'func-index'
+    tags: defaultTags
+    functionsStorageAccountName: functionsStorageName
+    envVars: [
+      { name: 'AzureWebJobsStorage__accountName', value: functionsStorageName }
+      { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: monitoring.outputs.appInsightsConnectionString }
+      { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }
+      { name: 'SERVING_BLOB_ENDPOINT', value: servingStorage.outputs.blobEndpoint }
+      { name: 'AI_SERVICES_ENDPOINT', value: aiServices.outputs.aiServicesEndpoint }
+      { name: 'EMBEDDING_DEPLOYMENT_NAME', value: aiServices.outputs.embeddingDeploymentName }
+      { name: 'SEARCH_ENDPOINT', value: search.outputs.searchEndpoint }
+      { name: 'SEARCH_INDEX_NAME', value: 'kb-articles' }
+    ]
+    deployerPrincipalId: principalId
+    acrLoginServer: containerRegistry.outputs.containerRegistryLoginServer
+    acrResourceId: containerRegistry.outputs.containerRegistryId
+    containerAppsEnvId: containerApp.outputs.containerAppsEnvId
+  }
+  dependsOn: [functionsStorage]
 }
 
 // ---------------------------------------------------------------------------
@@ -181,6 +280,7 @@ module containerApp 'modules/container-app.bicep' = {
     tags: defaultTags
     logAnalyticsWorkspaceId: monitoring.outputs.logAnalyticsWorkspaceId
     acrLoginServer: containerRegistry.outputs.containerRegistryLoginServer
+    acrResourceId: containerRegistry.outputs.containerRegistryId
     aiServicesEndpoint: aiServices.outputs.aiServicesEndpoint
     embeddingDeploymentName: aiServices.outputs.embeddingDeploymentName
     searchEndpoint: search.outputs.searchEndpoint
@@ -209,7 +309,6 @@ module foundryProject 'modules/foundry-project.bicep' = {
     appInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
     webAppPrincipalId: containerApp.outputs.containerAppPrincipalId
   }
-  dependsOn: [containerApp]
 }
 
 // ---------------------------------------------------------------------------
@@ -225,55 +324,137 @@ module cosmosDb 'modules/cosmos-db.bicep' = {
 }
 
 // ---------------------------------------------------------------------------
-// Post-deploy: Grant Function App managed identity access to all services
+// Post-deploy: Grant per-function managed identity access to services
 // ---------------------------------------------------------------------------
 
-// Staging storage: Blob Data Contributor (Function App MI)
-module stagingStorageRole 'modules/storage.bicep' = {
-  name: 'staging-storage-role'
+// --- Staging storage: Blob Data Contributor (3 convert functions) ---
+module stagingStorageRoleCvtCu 'modules/storage.bicep' = {
+  name: 'staging-role-cvt-cu'
   params: {
     location: location
     storageAccountName: stagingStorageName
     tags: defaultTags
     containerNames: ['staging']
-    contributorPrincipalId: functionApp.outputs.functionAppPrincipalId
+    contributorPrincipalId: funcConvertCu.outputs.functionAppPrincipalId
     deployerPrincipalId: principalId
   }
 }
 
-// Serving storage: Blob Data Contributor (Function App MI)
-module servingStorageRole 'modules/storage.bicep' = {
-  name: 'serving-storage-role'
+module stagingStorageRoleCvtMis 'modules/storage.bicep' = {
+  name: 'staging-role-cvt-mis'
+  params: {
+    location: location
+    storageAccountName: stagingStorageName
+    tags: defaultTags
+    containerNames: ['staging']
+    contributorPrincipalId: funcConvertMistral.outputs.functionAppPrincipalId
+  }
+}
+
+module stagingStorageRoleCvtMit 'modules/storage.bicep' = {
+  name: 'staging-role-cvt-mit'
+  params: {
+    location: location
+    storageAccountName: stagingStorageName
+    tags: defaultTags
+    containerNames: ['staging']
+    contributorPrincipalId: funcConvertMarkitdown.outputs.functionAppPrincipalId
+  }
+}
+
+// --- Serving storage: Blob Data Contributor (3 converts) + Reader (fn_index) ---
+module servingStorageRoleCvtCu 'modules/storage.bicep' = {
+  name: 'serving-role-cvt-cu'
   params: {
     location: location
     storageAccountName: servingStorageName
     tags: defaultTags
     containerNames: ['serving']
-    contributorPrincipalId: functionApp.outputs.functionAppPrincipalId
+    contributorPrincipalId: funcConvertCu.outputs.functionAppPrincipalId
     deployerPrincipalId: principalId
   }
 }
 
-// AI Services: Cognitive Services User + OpenAI User (Function App + deployer)
-module aiServicesRole 'modules/ai-services-role.bicep' = {
-  name: 'ai-services-role'
+module servingStorageRoleCvtMis 'modules/storage.bicep' = {
+  name: 'serving-role-cvt-mis'
+  params: {
+    location: location
+    storageAccountName: servingStorageName
+    tags: defaultTags
+    containerNames: ['serving']
+    contributorPrincipalId: funcConvertMistral.outputs.functionAppPrincipalId
+  }
+}
+
+module servingStorageRoleCvtMit 'modules/storage.bicep' = {
+  name: 'serving-role-cvt-mit'
+  params: {
+    location: location
+    storageAccountName: servingStorageName
+    tags: defaultTags
+    containerNames: ['serving']
+    contributorPrincipalId: funcConvertMarkitdown.outputs.functionAppPrincipalId
+  }
+}
+
+module servingStorageRoleIdx 'modules/storage.bicep' = {
+  name: 'serving-role-idx'
+  params: {
+    location: location
+    storageAccountName: servingStorageName
+    tags: defaultTags
+    containerNames: ['serving']
+    readerPrincipalId: funcIndex.outputs.functionAppPrincipalId
+  }
+}
+
+// --- AI Services: per-function roles ---
+// CU converter: full Cognitive Services User + OpenAI User (+ deployer)
+module aiServicesRoleCvtCu 'modules/ai-services-role.bicep' = {
+  name: 'ai-role-cvt-cu'
   params: {
     baseName: baseName
-    cognitiveServicesUserPrincipalId: functionApp.outputs.functionAppPrincipalId
+    cognitiveServicesUserPrincipalId: funcConvertCu.outputs.functionAppPrincipalId
     deployerPrincipalId: principalId
   }
-  dependsOn: [aiServices]
 }
 
-// AI Search: Index Data Contributor + Service Contributor
-module searchRole 'modules/search.bicep' = {
-  name: 'search-role'
+// Mistral converter: full Cognitive Services User + OpenAI User
+module aiServicesRoleCvtMis 'modules/ai-services-role.bicep' = {
+  name: 'ai-role-cvt-mis'
+  params: {
+    baseName: baseName
+    cognitiveServicesUserPrincipalId: funcConvertMistral.outputs.functionAppPrincipalId
+  }
+}
+
+// MarkItDown converter: OpenAI User only
+module aiServicesRoleCvtMit 'modules/ai-services-role.bicep' = {
+  name: 'ai-role-cvt-mit'
+  params: {
+    baseName: baseName
+    openAIOnlyUserPrincipalId: funcConvertMarkitdown.outputs.functionAppPrincipalId
+  }
+}
+
+// Index function: OpenAI User only
+module aiServicesRoleIdx 'modules/ai-services-role.bicep' = {
+  name: 'ai-role-idx'
+  params: {
+    baseName: baseName
+    openAIOnlyUserPrincipalId: funcIndex.outputs.functionAppPrincipalId
+  }
+}
+
+// --- AI Search: Index Data Contributor + Service Contributor (fn_index only) ---
+module searchRoleIdx 'modules/search.bicep' = {
+  name: 'search-role-idx'
   params: {
     location: location
     baseName: baseName
     tags: defaultTags
     skuName: searchSkuName
-    indexContributorPrincipalId: functionApp.outputs.functionAppPrincipalId
+    indexContributorPrincipalId: funcIndex.outputs.functionAppPrincipalId
     deployerPrincipalId: principalId
   }
 }
@@ -282,16 +463,8 @@ module searchRole 'modules/search.bicep' = {
 // Post-deploy: Grant Container App managed identity access to services
 // ---------------------------------------------------------------------------
 
-// ACR: AcrPull (Container App MI)
-module containerRegistryRole 'modules/container-registry.bicep' = {
-  name: 'container-registry-role'
-  params: {
-    location: location
-    baseName: baseName
-    tags: defaultTags
-    acrPullPrincipalId: containerApp.outputs.containerAppPrincipalId
-  }
-}
+// ACR: AcrPull role for webapp is now inside container-app.bicep module to avoid
+// race condition during initial provisioning (revision needs ACR access immediately).
 
 // ACR: AcrPull (Foundry Project MI used by unpublished hosted agent runtime)
 module containerRegistryFoundryRole 'modules/container-registry.bicep' = {
@@ -323,7 +496,6 @@ module aiServicesWebAppRole 'modules/ai-services-role.bicep' = {
     baseName: baseName
     openAIOnlyUserPrincipalId: containerApp.outputs.containerAppPrincipalId
   }
-  dependsOn: [aiServices]
 }
 
 // AI Search: Search Index Data Reader (Container App MI — read-only for querying)
@@ -346,7 +518,6 @@ module cosmosDbWebAppRole 'modules/cosmos-db-role.bicep' = {
     baseName: baseName
     principalId: containerApp.outputs.containerAppPrincipalId
   }
-  dependsOn: [cosmosDb]
 }
 
 // ---------------------------------------------------------------------------
@@ -374,7 +545,6 @@ module aiServicesAgentRole 'modules/ai-services-role.bicep' = {
     baseName: baseName
     openAIOnlyUserPrincipalId: aiServices.outputs.aiServicesPrincipalId
   }
-  dependsOn: [aiServices]
 }
 
 // Serving storage: Storage Blob Data Reader (AI Services MI — for image proxy)
@@ -414,7 +584,6 @@ module aiServicesFoundryRole 'modules/ai-services-role.bicep' = {
     baseName: baseName
     openAIOnlyUserPrincipalId: foundryProject.outputs.projectPrincipalId
   }
-  dependsOn: [aiServices]
 }
 
 // Serving storage: Storage Blob Data Reader (Foundry Project MI — for images)
@@ -453,10 +622,16 @@ output MISTRAL_DEPLOYMENT_NAME string = aiServices.outputs.mistralDeploymentName
 output SEARCH_SERVICE_NAME string = search.outputs.searchName
 output SEARCH_ENDPOINT string = search.outputs.searchEndpoint
 
-// Functions (Container App)
-output FUNCTION_APP_NAME string = functionApp.outputs.functionAppName
-output FUNCTION_APP_URL string = functionApp.outputs.functionAppUrl
-output FUNCTIONS_STORAGE_ACCOUNT string = functionApp.outputs.functionsStorageAccountName
+// Functions (Container Apps — one per function)
+output FUNC_CONVERT_CU_NAME string = funcConvertCu.outputs.functionAppName
+output FUNC_CONVERT_CU_URL string = funcConvertCu.outputs.functionAppUrl
+output FUNC_CONVERT_MISTRAL_NAME string = funcConvertMistral.outputs.functionAppName
+output FUNC_CONVERT_MISTRAL_URL string = funcConvertMistral.outputs.functionAppUrl
+output FUNC_CONVERT_MARKITDOWN_NAME string = funcConvertMarkitdown.outputs.functionAppName
+output FUNC_CONVERT_MARKITDOWN_URL string = funcConvertMarkitdown.outputs.functionAppUrl
+output FUNC_INDEX_NAME string = funcIndex.outputs.functionAppName
+output FUNC_INDEX_URL string = funcIndex.outputs.functionAppUrl
+output FUNCTIONS_STORAGE_ACCOUNT string = functionsStorageName
 
 // Monitoring
 output APPINSIGHTS_NAME string = monitoring.outputs.appInsightsName

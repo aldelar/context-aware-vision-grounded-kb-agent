@@ -309,7 +309,7 @@ azure-provision: _check-project-name ## Provision all Azure resources (azd provi
 azure-deploy: _check-project-name ## Deploy all services + CU analyzer + publish agent
 	AZD_EXT_TIMEOUT=180 azd deploy
 	@echo "Configuring CU defaults and deploying kb-image-analyzer..."
-	@(cd src/functions && uv run python -m manage_analyzers deploy)
+	@(cd src/analyzers && uv run python -m manage_analyzers deploy)
 	@echo "Publishing agent..."
 	@bash scripts/publish-agent.sh
 
@@ -341,8 +341,13 @@ azure-upload-staging: ## Upload kb/staging → Azure staging blob
 
 azure-convert: ## Trigger fn-convert in Azure (analyzer=$(analyzer))
 	@echo "Triggering fn-convert Azure Function (analyzer=$(analyzer))..."
-	@FUNC_URL=$$(azd env get-value FUNCTION_APP_URL) && \
-	ROUTE=$$(case "$(analyzer)" in content-understanding) echo "convert";; mistral-doc-ai) echo "convert-mistral";; markitdown) echo "convert-markitdown";; *) echo "unknown" && exit 1;; esac) && \
+	@case "$(analyzer)" in \
+	  content-understanding) FUNC_URL=$$(azd env get-value FUNC_CONVERT_CU_URL);; \
+	  mistral-doc-ai) FUNC_URL=$$(azd env get-value FUNC_CONVERT_MISTRAL_URL);; \
+	  markitdown) FUNC_URL=$$(azd env get-value FUNC_CONVERT_MARKITDOWN_URL);; \
+	  *) echo "Unknown analyzer: $(analyzer)" && exit 1;; \
+	esac && \
+	ROUTE=$$(case "$(analyzer)" in content-understanding) echo "convert";; mistral-doc-ai) echo "convert-mistral";; markitdown) echo "convert-markitdown";; esac) && \
 	ENDPOINT="$$FUNC_URL/api/$$ROUTE" && \
 	echo "  POST $$ENDPOINT" && \
 	curl -sf --max-time 600 -X POST "$$ENDPOINT" -H "Content-Type: application/json" -d '{}' | python3 -m json.tool
@@ -350,7 +355,7 @@ azure-convert: ## Trigger fn-convert in Azure (analyzer=$(analyzer))
 
 azure-index: ## Trigger fn-index in Azure (serving → AI Search)
 	@echo "Triggering fn-index Azure Function..."
-	@FUNC_URL=$$(azd env get-value FUNCTION_APP_URL) && \
+	@FUNC_URL=$$(azd env get-value FUNC_INDEX_URL) && \
 	ENDPOINT="$$FUNC_URL/api/index" && \
 	echo "  POST $$ENDPOINT" && \
 	curl -sf --max-time 600 -X POST "$$ENDPOINT" -H "Content-Type: application/json" -d '{}' | python3 -m json.tool
@@ -442,7 +447,7 @@ azure-clean-index: ## Delete the AI Search index
 
 azure-clean: azure-clean-storage azure-clean-index ## Clean all Azure data (storage + index + analyzer)
 	@echo "Deleting kb-image-analyzer..."
-	@(cd src/functions && uv run python -m manage_analyzers delete) 2>/dev/null || true
+	@(cd src/analyzers && uv run python -m manage_analyzers delete) 2>/dev/null || true
 	@echo "All Azure data cleaned."
 
 azure-down: ## DELETE entire Azure resource group + purge all soft-deletes (irreversible!)

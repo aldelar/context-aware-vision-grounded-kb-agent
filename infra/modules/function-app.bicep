@@ -2,7 +2,7 @@
 // Module: function-app.bicep
 // Deploys Azure Functions as a Container App (custom Docker container)
 // inside the shared Container Apps Environment.
-// Custom container is required for Playwright + Chromium (Mistral converter).
+// Reusable module — called once per function with per-function env vars.
 // ---------------------------------------------------------------------------
 
 @description('Azure region for resources')
@@ -11,38 +11,20 @@ param location string
 @description('Base name used for resource naming')
 param baseName string
 
+@description('Short function identifier used in naming: func-{functionName}-{baseName}. Empty string produces func-{baseName}.')
+param functionName string
+
+@description('AZD service name tag value for azure.yaml mapping')
+param azdServiceName string
+
 @description('Tags to apply to all resources')
 param tags object = {}
 
-@description('Application Insights connection string')
-param appInsightsConnectionString string
-
-@description('Storage account name for Functions runtime')
+@description('Storage account name for Functions runtime (shared, created externally)')
 param functionsStorageAccountName string
 
-@description('Staging storage blob endpoint')
-param stagingBlobEndpoint string
-
-@description('Serving storage blob endpoint')
-param servingBlobEndpoint string
-
-@description('Azure AI Services endpoint')
-param aiServicesEndpoint string
-
-@description('Embedding deployment name')
-param embeddingDeploymentName string
-
-@description('Agent / completion deployment name')
-param agentDeploymentName string
-
-@description('Mistral Document AI deployment name')
-param mistralDeploymentName string = 'mistral-document-ai-2512'
-
-@description('Azure AI Search endpoint')
-param searchEndpoint string
-
-@description('Azure AI Search index name')
-param searchIndexName string = 'kb-articles'
+@description('Per-function environment variable array')
+param envVars array
 
 @description('Principal ID of the deployer (human user) for storage access')
 param deployerPrincipalId string = ''
@@ -63,28 +45,14 @@ param imageName string = ''
 var useAcrImage = !empty(imageName)
 var containerImage = useAcrImage ? '${acrLoginServer}/${imageName}' : 'mcr.microsoft.com/azure-functions/python:4-python3.11'
 
+// When functionName is empty, produce the same name as before: func-{baseName}
+var containerAppName = empty(functionName) ? 'func-${baseName}' : 'func-${functionName}-${baseName}'
+
 // ---------------------------------------------------------------------------
-// Storage account for Functions runtime
-// (Dedicated account, separate from staging/serving)
+// Reference: Shared Functions runtime storage account (created in main.bicep)
 // ---------------------------------------------------------------------------
-resource functionsStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
+resource functionsStorage 'Microsoft.Storage/storageAccounts@2023-05-01' existing = {
   name: functionsStorageAccountName
-  location: location
-  tags: tags
-  kind: 'StorageV2'
-  sku: {
-    name: 'Standard_LRS'
-  }
-  properties: {
-    supportsHttpsTrafficOnly: true
-    minimumTlsVersion: 'TLS1_2'
-    allowBlobPublicAccess: false
-    publicNetworkAccess: 'Enabled'
-    networkAcls: {
-      bypass: 'AzureServices'
-      defaultAction: 'Allow'
-    }
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -92,10 +60,10 @@ resource functionsStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
 // (Runs inside the shared Container Apps Environment)
 // ---------------------------------------------------------------------------
 resource functionApp 'Microsoft.App/containerApps@2024-03-01' = {
-  name: 'func-${baseName}'
+  name: containerAppName
   location: location
   tags: union(tags, {
-    'azd-service-name': 'functions'
+    'azd-service-name': azdServiceName
   })
   identity: {
     type: 'SystemAssigned'
@@ -110,14 +78,16 @@ resource functionApp 'Microsoft.App/containerApps@2024-03-01' = {
         transport: 'auto'
         allowInsecure: false
       }
-      // Always configure ACR registry so azd deploy can push images with managed identity.
-      // The AcrPull role is assigned after the Container App is created.
-      registries: [
+      // Only configure ACR registry when a real ACR image is used.
+      // On initial provisioning (placeholder image), omit ACR to avoid
+      // registry validation blocking revision creation before AcrPull role propagates.
+      // azd deploy updates the registry config when pushing the real image.
+      registries: useAcrImage ? [
         {
           server: acrLoginServer
           identity: 'system'
         }
-      ]
+      ] : []
     }
     template: {
       containers: [
@@ -128,19 +98,7 @@ resource functionApp 'Microsoft.App/containerApps@2024-03-01' = {
             cpu: json('1.0')
             memory: '2Gi'
           }
-          env: [
-            { name: 'AzureWebJobsStorage__accountName', value: functionsStorage.name }
-            { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsightsConnectionString }
-            { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }
-            { name: 'STAGING_BLOB_ENDPOINT', value: stagingBlobEndpoint }
-            { name: 'SERVING_BLOB_ENDPOINT', value: servingBlobEndpoint }
-            { name: 'AI_SERVICES_ENDPOINT', value: aiServicesEndpoint }
-            { name: 'EMBEDDING_DEPLOYMENT_NAME', value: embeddingDeploymentName }
-            { name: 'AGENT_DEPLOYMENT_NAME', value: agentDeploymentName }
-            { name: 'SEARCH_ENDPOINT', value: searchEndpoint }
-            { name: 'SEARCH_INDEX_NAME', value: searchIndexName }
-            { name: 'MISTRAL_DEPLOYMENT_NAME', value: mistralDeploymentName }
-          ]
+          env: envVars
         }
       ]
       scale: {
@@ -220,4 +178,3 @@ output functionAppName string = functionApp.name
 output functionAppPrincipalId string = functionApp.identity.principalId
 output functionAppFqdn string = functionApp.properties.configuration.ingress.fqdn
 output functionAppUrl string = 'https://${functionApp.properties.configuration.ingress.fqdn}'
-output functionsStorageAccountName string = functionsStorage.name

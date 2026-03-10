@@ -1,7 +1,7 @@
 """Content Understanding client factory.
 
 Usage:
-    from shared.cu_client import get_cu_client
+    from fn_convert_cu.cu_client import get_cu_client
     client = get_cu_client()
 """
 

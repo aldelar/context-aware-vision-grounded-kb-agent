@@ -47,7 +47,7 @@ The source images are UI screenshots and technical diagrams from knowledge base 
 }
 ```
 
-The analyzer definition is stored in [src/analyzers/kb-image-analyzer.json](../../src/analyzers/kb-image-analyzer.json) and managed via `manage_analyzers.py`. It is created/updated during `make azure-deploy` and deleted during `make azure-clean`.
+The analyzer definition is stored in [src/analyzers/definitions/kb-image-analyzer.json](../../src/analyzers/definitions/kb-image-analyzer.json) and managed via `manage_analyzers.py`. It is created/updated during `make azure-deploy` and deleted during `make azure-clean`.
 
 ## Alternatives Considered
 
@@ -115,5 +115,5 @@ From production output, a typical image description block:
 
 - [Analyzer Options Research](../research/001-analyzer-options.md)
 - [Architecture Spec — Image Analysis Custom Analyzer](../specs/architecture.md)
-- [Analyzer Definition](../../src/analyzers/kb-image-analyzer.json)
+- [Analyzer Definition](../../src/analyzers/definitions/kb-image-analyzer.json)
 - [Spike: Content Understanding](../research/003-content-understanding.md)

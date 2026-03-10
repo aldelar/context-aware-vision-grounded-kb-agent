@@ -28,12 +28,30 @@ services:
                   sku:
                     capacity: 30
                     name: GlobalStandard
-    functions:
+    func-convert-cu:
         project: ./src/functions
         host: containerapp
         language: python
         docker:
-            path: ./Dockerfile
+            path: ./fn_convert_cu/Dockerfile
+    func-convert-markitdown:
+        project: ./src/functions
+        host: containerapp
+        language: python
+        docker:
+            path: ./fn_convert_markitdown/Dockerfile
+    func-convert-mistral:
+        project: ./src/functions
+        host: containerapp
+        language: python
+        docker:
+            path: ./fn_convert_mistral/Dockerfile
+    func-index:
+        project: ./src/functions
+        host: containerapp
+        language: python
+        docker:
+            path: ./fn_index/Dockerfile
     web-app:
         project: ./src/web-app
         host: containerapp

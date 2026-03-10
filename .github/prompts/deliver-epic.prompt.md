@@ -33,21 +33,31 @@ Complete an entire epic from current state to Done, story by story, delegating t
    - Expected test coverage
    - Definition of Done checklist
 2. Identify cross-story dependencies or shared changes
-3. **Produce a high-level dependency graph as a Mermaid diagram** — always render the dependency graph using a Mermaid `graph TD` (top-down) diagram. Each node represents a story; edges show "must complete before" relationships. Stories that can run in parallel should appear on the same rank. Example format:
-   ```mermaid
-   graph TD
-     S1[Story 1: Setup] --> S2[Story 2: Core Logic]
-     S1 --> S3[Story 3: Infra]
-     S2 --> S4[Story 4: Integration]
-     S3 --> S4
-   ```
-4. **Maximize parallelism** — using the dependency graph, identify stories (or story phases) that can run concurrently because they have no mutual dependencies. Group independent work into parallel tracks where possible (e.g., a Bicep infra story and an unrelated code story can proceed simultaneously via @deployer and @coder). Present the parallelized execution plan alongside the dependency graph.
-5. Estimate if any story is too large and should be split
-6. **Create a TODO list** using the `manage_todo_list` tool that covers every step of the plan:
-   - One TODO per story phase (e.g., "Story 1 — Implement", "Story 1 — Test", "Story 1 — Review", "Story 1 — Update Epic")
-   - Include Phase 1 assessment and Phase 4 finalization as TODOs as well
-   - Mark completed items as you go — this TODO list is the live progress tracker for the entire epic delivery
-7. Present the full plan (dependency graph, parallel tracks, and TODO list) and confirm with the user before proceeding
+3. Estimate if any story is too large and should be split
+4. Present the full plan and confirm with the user before proceeding
+
+## Delegation Mechanism
+
+You are the **orchestrator**. You do NOT implement code, write tests, review code, or modify infrastructure yourself.
+
+For every step that names an agent (@coder, @tester, @reviewer, @deployer, @debugger), you MUST delegate by calling the `runSubagent` tool with:
+- `agentName` — the agent name (e.g., `"coder"`, `"tester"`, `"reviewer"`, `"deployer"`, `"debugger"`)
+- `prompt` — a self-contained task description with all context the agent needs (see Context Packets below)
+
+After each `runSubagent` call, report:
+1. **Agent called:** which agent was invoked
+2. **Summary returned:** the key points from the agent's response
+3. **Next action:** what happens next based on the result
+
+The only work you do directly is: reading the epic, building the plan, preparing context packets, updating the epic doc (Step E), and deciding what to do next.
+
+### Context Packets
+
+Each `runSubagent` prompt must be **self-contained** — the subagent has no access to this conversation. Include:
+- The story title, acceptance criteria, and Definition of Done
+- Specific file paths to read and modify
+- Any relevant output from prior agents in this story (e.g., coder's summary for the tester)
+- The instruction: "Return a structured summary with: Status (success/partial/failed), Files created, Files modified, Tests run (pass/fail count), Issues found, Notes for next agent"
 
 ## Phase 3: Deliver Each Story
 
@@ -55,31 +65,35 @@ For each remaining story, execute this cycle in strict order:
 
 ### Step A — Implement (@coder)
 
-Hand off to @coder with the task breakdown for this story.
+Delegate to @coder via `runSubagent(agentName="coder")` with the task breakdown for this story.
 - Implement all tasks following existing project patterns
+- Write basic happy-path tests to validate the implementation works
 - If the story involves infrastructure changes (Bicep modules, `azure.yaml`, deployment config), hand those tasks to @deployer instead
-- Run `make test` after each significant change
+- @coder runs `make test` after each significant change and debugs failures in-context using the debugging skill
 - Do not proceed to testing until implementation is complete
 
 ### Step B — Test (@tester)
 
-Hand off to @tester to validate the implementation.
-- Write tests covering acceptance criteria, edge cases, and error paths
+Delegate to @tester via `runSubagent(agentName="tester")` to write comprehensive tests.
+Include the coder's summary in the prompt so the tester knows what changed.
+- Build on @coder's happy-path tests — add edge cases, error paths, boundary conditions, and parametrised variants
 - Run the full test suite: `make test`
+- @tester debugs any failures in-context using the debugging skill
 - Do not proceed until all tests pass
 
-### Step B.1 — Diagnose Failures (@debugger)
+### Step B.1 — Escalate Persistent Failures (@debugger)
 
-If any tests fail or runtime errors occur during Step A or Step B:
-- Hand off to @debugger with the full error traceback and context
-- @debugger traces the root cause through code, config, and dependencies
-- @debugger proposes the minimal fix and hands back to @coder to apply it
+If @coder or @tester cannot resolve a failure after one debugging pass:
+- Delegate to @debugger via `runSubagent(agentName="debugger")` with: the error traceback, what was investigated, the hypothesis, and what was tried
+- @debugger handles complex multi-system issues (cross-service errors, config/RBAC problems, deployment failures)
+- Delegate back to @coder via `runSubagent(agentName="coder")` with the debugger's diagnosis to apply the fix
 - Re-run `make test` to confirm the fix resolves the issue
 - Repeat until all tests pass, then resume the normal flow
 
 ### Step C — Review (@reviewer)
 
-Hand off to @reviewer for quality gate.
+Delegate to @reviewer via `runSubagent(agentName="reviewer")` for quality gate.
+Include both the coder's and tester's summaries in the prompt.
 - Review all changed files against the review checklist (security, correctness, tests, style, docs)
 - Produce a GO / NO-GO verdict
 - If NO-GO: route blockers back to @coder (or @deployer for infra issues), then repeat Step C
@@ -88,7 +102,7 @@ Hand off to @reviewer for quality gate.
 ### Step D — Deploy Infrastructure (@deployer)
 
 If the story introduced or modified infrastructure:
-- Hand off to @deployer to validate changes:
+- Delegate to @deployer via `runSubagent(agentName="deployer")` to validate changes:
   - Verify Bicep compiles: `az bicep build --file infra/main.bicep`
   - Cross-reference `infra/modules/` against `docs/specs/infrastructure.md`
   - Validate `azure.yaml` service definitions match project structure
@@ -125,10 +139,11 @@ Update the epic doc for this story:
 
 ## Rules
 
-- **Respect the dependency graph** — never start a story until all its upstream dependencies are ✅. Independent stories may run in parallel when the dependency graph allows it.
+- **Always use `runSubagent`** — never do an agent's job yourself; always delegate via the tool
+- **Strict story ordering** — never start story N+1 until story N is fully ✅
 - **No skipped validation** — every story must pass @tester and @reviewer before marking done
 - **Epic doc is the source of truth** — update it at every step; it drives visibility
 - **Stop on blockers** — if @reviewer gives NO-GO twice on the same issue, escalate to the user
 - **Minimal changes** — implement exactly what each story requires, nothing more
 - **No secrets in code** — use `DefaultAzureCredential` and environment variables everywhere
-- **Always maintain a TODO list** — create it in Phase 2, update it throughout delivery; every phase and story step must be tracked as a TODO item using `manage_todo_list`
+- **Transparency** — after every delegation, report: which agent was called and the summary returned

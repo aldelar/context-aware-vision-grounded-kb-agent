@@ -17,6 +17,7 @@ members = [
     "fn-convert-mistral",
     "fn-index",
     "kb-ingestion-functions",
+    "kb-ingestion-shared",
 ]
 
 [[package]]
@@ -541,11 +542,17 @@ name = "fn-convert-cu"
 version = "0.1.0"
 source = { editable = "fn_convert_cu" }
 dependencies = [
+    { name = "azure-ai-contentunderstanding" },
     { name = "beautifulsoup4" },
+    { name = "kb-ingestion-shared" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "beautifulsoup4", specifier = ">=4.12.0" }]
+requires-dist = [
+    { name = "azure-ai-contentunderstanding", specifier = ">=1.0.0b1" },
+    { name = "beautifulsoup4", specifier = ">=4.12.0" },
+    { name = "kb-ingestion-shared", editable = "shared" },
+]
 
 [[package]]
 name = "fn-convert-markitdown"
@@ -553,6 +560,7 @@ version = "0.1.0"
 source = { editable = "fn_convert_markitdown" }
 dependencies = [
     { name = "beautifulsoup4" },
+    { name = "kb-ingestion-shared" },
     { name = "markitdown" },
     { name = "openai" },
 ]
@@ -560,6 +568,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "beautifulsoup4", specifier = ">=4.12.0" },
+    { name = "kb-ingestion-shared", editable = "shared" },
     { name = "markitdown", specifier = ">=0.1.5" },
     { name = "openai", specifier = ">=1.50.0" },
 ]
@@ -570,6 +579,7 @@ version = "0.1.0"
 source = { editable = "fn_convert_mistral" }
 dependencies = [
     { name = "httpx" },
+    { name = "kb-ingestion-shared" },
     { name = "openai" },
     { name = "playwright" },
 ]
@@ -577,6 +587,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "httpx", specifier = ">=0.27.0" },
+    { name = "kb-ingestion-shared", editable = "shared" },
     { name = "openai", specifier = ">=1.50.0" },
     { name = "playwright", specifier = ">=1.40.0" },
 ]
@@ -588,12 +599,14 @@ source = { editable = "fn_index" }
 dependencies = [
     { name = "azure-ai-inference" },
     { name = "azure-search-documents" },
+    { name = "kb-ingestion-shared" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "azure-ai-inference", specifier = ">=1.0.0b1" },
     { name = "azure-search-documents", specifier = ">=11.6.0b5" },
+    { name = "kb-ingestion-shared", editable = "shared" },
 ]
 
 [[package]]
@@ -814,15 +827,12 @@ name = "kb-ingestion-functions"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "azure-ai-contentunderstanding" },
     { name = "azure-functions" },
-    { name = "azure-identity" },
-    { name = "azure-storage-blob" },
     { name = "fn-convert-cu" },
     { name = "fn-convert-markitdown" },
     { name = "fn-convert-mistral" },
     { name = "fn-index" },
-    { name = "python-dotenv" },
+    { name = "kb-ingestion-shared" },
 ]
 
 [package.optional-dependencies]
@@ -833,19 +843,33 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "azure-ai-contentunderstanding", specifier = ">=1.0.0b1" },
     { name = "azure-functions", specifier = ">=1.21.0" },
-    { name = "azure-identity", specifier = ">=1.19.0" },
-    { name = "azure-storage-blob", specifier = ">=12.20.0" },
     { name = "fn-convert-cu", editable = "fn_convert_cu" },
     { name = "fn-convert-markitdown", editable = "fn_convert_markitdown" },
     { name = "fn-convert-mistral", editable = "fn_convert_mistral" },
     { name = "fn-index", editable = "fn_index" },
+    { name = "kb-ingestion-shared", editable = "shared" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0.0" },
-    { name = "python-dotenv", specifier = ">=1.0.0" },
 ]
 provides-extras = ["dev"]
+
+[[package]]
+name = "kb-ingestion-shared"
+version = "0.1.0"
+source = { editable = "shared" }
+dependencies = [
+    { name = "azure-identity" },
+    { name = "azure-storage-blob" },
+    { name = "python-dotenv" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "azure-identity", specifier = ">=1.19.0" },
+    { name = "azure-storage-blob", specifier = ">=12.20.0" },
+    { name = "python-dotenv", specifier = ">=1.0.0" },
+]
 
 [[package]]
 name = "magika"

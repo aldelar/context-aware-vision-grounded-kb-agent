@@ -15,7 +15,7 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from shared.cu_client import get_cu_client
+from fn_convert_cu.cu_client import get_cu_client
 
 logger = logging.getLogger(__name__)
 

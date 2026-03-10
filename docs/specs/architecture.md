@@ -74,12 +74,14 @@ flowchart LR
 flowchart LR
     subgraph left[" "]
         direction TB
-        subgraph Pipeline["Ingestion Pipeline — Azure Functions"]
+        subgraph Pipeline["Ingestion Pipeline"]
             direction TB
-            CONV["<b>fn-convert</b><br/>HTML → MD + images"]
-            AN["Analyzer ✱<br/>HTML + image analysis"]
-            IDX["<b>fn-index</b><br/>MD → chunks → index"]
-            CONV --> AN --> IDX
+            subgraph Converters["Converters — 3 Container Apps"]
+                CVT_CU["fn_convert_cu<br/>CU → MD"]
+                CVT_MIS["fn_convert_mistral<br/>Mistral → MD"]
+                CVT_MIT["fn_convert_markitdown<br/>MarkItDown → MD"]
+            end
+            IDX["fn_index<br/>MD → index"]
         end
         subgraph Sources["Storage"]
             direction TB
@@ -108,8 +110,12 @@ flowchart LR
         end
     end
 
-    CONV -->|read| SA1
-    CONV -->|write| SA2
+    CVT_CU -->|read| SA1
+    CVT_CU -->|write| SA2
+    CVT_MIS -->|read| SA1
+    CVT_MIS -->|write| SA2
+    CVT_MIT -->|read| SA1
+    CVT_MIT -->|write| SA2
     IDX -->|read| SA2
 
     IDX -->|embed| AF
@@ -245,10 +251,11 @@ For implementation details, see [Epic 002](../epics/002-kb-search-web-app.md) an
 
 ### Deployment
 
-The solution deploys two services:
+The solution deploys **six services**: 4 function Container Apps (one per pipeline function), a Foundry hosted agent, and a Chainlit web app.
 
-1. **Agent** — Deployed as a **Foundry hosted agent** via AZD's `azure.ai.agents` extension. The agent container is built remotely in ACR and deployed to the Foundry project within Azure AI Services.
-2. **Web App** — Deployed to **Azure Container Apps** with **Entra ID Easy Auth** (single-tenant).
+1. **Function Apps** — 4 independent Container Apps, one per pipeline function, each with its own Docker image and managed identity. See [Function Apps Deployment](#function-apps-deployment-container-apps) below.
+2. **Agent** — Deployed as a **Foundry hosted agent** via AZD's `azure.ai.agents` extension. The agent container is built remotely in ACR and deployed to the Foundry project within Azure AI Services.
+3. **Web App** — Deployed to **Azure Container Apps** with **Entra ID Easy Auth** (single-tenant).
 
 #### Agent Deployment (Foundry)
 
@@ -264,6 +271,21 @@ The solution deploys two services:
 - **Agent endpoint** stored in AZD env as `AGENT_ENDPOINT` for the web app to consume
 
 See [ARD-005](../ards/ARD-005-foundry-hosted-agent.md) and [Research 006](../research/006-foundry-hosted-agent-deployment.md) for the deployment approach and findings.
+
+#### Function Apps Deployment (Container Apps)
+
+The ingestion pipeline is deployed as **4 independent Container Apps**, each with its own Docker image, managed identity, and RBAC:
+
+| Service (azure.yaml) | Container App | Dockerfile | Playwright |
+|---|---|---|---|
+| `func-convert-cu` | `func-cvt-cu-{project}-{env}` | `fn_convert_cu/Dockerfile` | No |
+| `func-convert-mistral` | `func-cvt-mis-{project}-{env}` | `fn_convert_mistral/Dockerfile` | Yes |
+| `func-convert-markitdown` | `func-cvt-mit-{project}-{env}` | `fn_convert_markitdown/Dockerfile` | No |
+| `func-index` | `func-idx-{project}-{env}` | `fn_index/Dockerfile` | No |
+
+Each Container App is deployed independently via `azd deploy --service <service-name>`, using separate Docker images built from per-function Dockerfiles. Only `fn_convert_mistral` includes Playwright/Chromium.
+
+See [ARD-008](../ards/ARD-008-per-function-containers.md) for the decision rationale.
 
 #### Web App Deployment (Container Apps)
 
@@ -409,7 +431,7 @@ Each image is analyzed individually through a **custom Content Understanding ana
 
 The custom analyzer produces richer, more contextual descriptions than the generic `prebuilt-documentSearch` — each image gets dedicated analysis with a prompt tuned for UI screenshots. The extracted `UIElements` and `NavigationPath` fields further enrich the Markdown output and improve search relevance.
 
-The analyzer definition is stored in `src/analyzers/kb-image-analyzer.json` and managed via `src/functions/manage_analyzers.py`. It must be created once in the Content Understanding resource before running the pipeline (deployed via `make azure-deploy`). Note: CU requires model defaults to be set via `manage_analyzers.py setup` — the `deploy` command auto-runs this. CU forbids hyphens in analyzer IDs, so the actual ID is `kb_image_analyzer`.
+The analyzer definition is stored in `src/analyzers/definitions/kb-image-analyzer.json` and managed via `src/analyzers/manage_analyzers.py`. It must be created once in the Content Understanding resource before running the pipeline (deployed via `make azure-deploy`). Note: CU requires model defaults to be set via `manage_analyzers.py setup` — the `deploy` command auto-runs this. CU forbids hyphens in analyzer IDs, so the actual ID is `kb_image_analyzer`.
 
 ### Output Format
 
@@ -608,7 +630,7 @@ The `{article-id}` folder name is preserved from the source and stored as `artic
 
 ## Custom Analyzer Lifecycle
 
-The custom `kb-image-analyzer` is not deployed by Bicep infrastructure — it is an **application-level resource** managed by `src/functions/manage_analyzers.py`. The analyzer must exist in the Content Understanding resource before `fn-convert` can process images.
+The custom `kb-image-analyzer` is not deployed by Bicep infrastructure — it is an **application-level resource** managed by `src/analyzers/manage_analyzers.py`. The analyzer must exist in the Content Understanding resource before `fn-convert` can process images.
 
 ### What Needs to Happen
 
@@ -634,7 +656,7 @@ All model deployments are defined in `infra/modules/ai-services.bicep` and provi
 
 ### Analyzer Definition
 
-The analyzer JSON is version-controlled at `src/analyzers/kb-image-analyzer.json`. It defines:
+The analyzer JSON is version-controlled at `src/analyzers/definitions/kb-image-analyzer.json`. It defines:
 
 - **Base analyzer:** `prebuilt-image` (CU's image analysis foundation)
 - **Completion model:** `gpt-4.1` (generates field values from image content)
@@ -644,16 +666,16 @@ The analyzer JSON is version-controlled at `src/analyzers/kb-image-analyzer.json
 
 ### Management Commands
 
-The CLI (`src/functions/manage_analyzers.py`) provides four subcommands:
+The CLI (`src/analyzers/manage_analyzers.py`) provides four subcommands:
 
 | Command | What It Does |
 |---|---|
 | `python -m manage_analyzers setup` | Registers model deployment mappings as CU defaults. Uses JSON Merge Patch to add new mappings and remove stale ones. Idempotent. |
-| `python -m manage_analyzers deploy` | **Auto-runs `setup` first**, then creates or updates the analyzer from `src/analyzers/kb-image-analyzer.json`. Uses `allow_replace=True` so re-running is safe. |
+| `python -m manage_analyzers deploy` | **Auto-runs `setup` first**, then creates or updates the analyzer from `src/analyzers/definitions/kb-image-analyzer.json`. Uses `allow_replace=True` so re-running is safe. |
 | `python -m manage_analyzers status` | Checks if the analyzer exists and prints its status and field names. |
 | `python -m manage_analyzers delete` | Deletes the analyzer from CU. No-ops if already deleted. |
 
-All commands run from `src/functions/` and authenticate via `DefaultAzureCredential` (i.e., `az login`).
+All commands run from `src/analyzers/` and authenticate via `DefaultAzureCredential` (i.e., `az login`).
 
 ### Makefile Integration
 
@@ -667,7 +689,7 @@ make azure-clean     # Deletes storage data, search index, and the analyzer
 For first-time setup or manual management:
 
 ```
-cd src/functions
+cd src/analyzers
 uv run python -m manage_analyzers deploy   # Deploy (or update) the analyzer
 uv run python -m manage_analyzers status   # Verify it exists and is ready
 uv run python -m manage_analyzers delete   # Remove it from CU
@@ -677,7 +699,7 @@ uv run python -m manage_analyzers delete   # Remove it from CU
 
 To change the analyzer (e.g., modify field descriptions, add new fields, or switch the completion model):
 
-1. Edit `src/analyzers/kb-image-analyzer.json`
+1. Edit `src/analyzers/definitions/kb-image-analyzer.json`
 2. Run `make azure-deploy` (or `python -m manage_analyzers deploy` directly)
 3. Re-run `make convert` (or `make azure-convert`) to re-process articles with the updated analyzer
 
