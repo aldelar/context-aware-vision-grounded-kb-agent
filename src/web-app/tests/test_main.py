@@ -254,6 +254,7 @@ class TestGetUserId:
 
         mock_user = MagicMock(spec=cl.User)
         mock_user.identifier = "oid-abc-123"
+        mock_user.metadata = {}  # override MagicMock auto-attr so .get("oid") isn't truthy
 
         with patch("chainlit.user_session") as mock_session:
             mock_session.get.side_effect = lambda key: {
