@@ -42,6 +42,11 @@ resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' = {
     disableLocalAuth: true
     minimalTlsVersion: 'Tls12'
     publicNetworkAccess: 'Enabled'
+    // Allow traffic from Azure services (e.g. Container Apps without VNet integration).
+    // Safe because disableLocalAuth=true ensures only RBAC-authenticated identities can access data.
+    ipRules: [
+      { ipAddressOrRange: '0.0.0.0' } // "Accept connections from within Azure datacenters"
+    ]
   }
 }
 

@@ -506,6 +506,12 @@ class CosmosDataLayer(BaseDataLayer):
                 "elements": [],
             }
 
+        # Detect partition key change.  In Cosmos DB the partition key
+        # (/userId) is immutable — upserting with a different value
+        # silently creates a duplicate document instead of updating.
+        # Delete the old doc first so we don't leave an orphan.
+        old_user_id = doc.get("userId")
+
         if name is not None:
             doc["name"] = name
         if user_id is not None:
@@ -515,6 +521,16 @@ class CosmosDataLayer(BaseDataLayer):
         if tags is not None:
             doc["tags"] = tags
         doc["updatedAt"] = now
+
+        if old_user_id and old_user_id != doc["userId"]:
+            try:
+                self._container.delete_item(item=thread_id, partition_key=old_user_id)
+                logger.info(
+                    "update_thread: partition migrated %s → %s for thread %s",
+                    old_user_id, doc["userId"], thread_id,
+                )
+            except CosmosResourceNotFoundError:
+                pass
 
         self._container.upsert_item(doc)
 

@@ -16,29 +16,33 @@ echo "=== Configure Web App Agent Endpoint ==="
 echo ""
 
 # Read values from AZD env
-AGENT_REGISTERED_URL=$(azd env get-value AGENT_REGISTERED_URL 2>/dev/null || echo "")
+# Use the APIM gateway URL as the agent endpoint. The Foundry proxy URL
+# (AGENT_REGISTERED_URL) does not support token-based CheckAccess for the
+# Applications_Wildcard_Post operation, so traffic must go through our APIM
+# gateway which passes requests through to the agent Container App.
+APIM_GATEWAY_URL=$(azd env get-value APIM_GATEWAY_URL 2>/dev/null || echo "")
 WEBAPP_NAME=$(azd env get-value WEBAPP_NAME)
 RESOURCE_GROUP=$(azd env get-value RESOURCE_GROUP)
 
-if [ -z "$AGENT_REGISTERED_URL" ]; then
-  echo "WARNING: AGENT_REGISTERED_URL not set in AZD env."
-  echo "  Run 'make azure-register-agent' first."
+if [ -z "$APIM_GATEWAY_URL" ]; then
+  echo "WARNING: APIM_GATEWAY_URL not set in AZD env."
+  echo "  Run 'azd provision' first."
   echo "  Skipping web app configuration."
   exit 0
 fi
 
 echo "  Web App:            $WEBAPP_NAME"
 echo "  Resource Group:     $RESOURCE_GROUP"
-echo "  Agent Endpoint:     $AGENT_REGISTERED_URL"
+echo "  Agent Endpoint:     $APIM_GATEWAY_URL"
 echo ""
 
 echo "Updating web app AGENT_ENDPOINT..."
 az containerapp update \
   --name "$WEBAPP_NAME" \
   --resource-group "$RESOURCE_GROUP" \
-  --set-env-vars "AGENT_ENDPOINT=$AGENT_REGISTERED_URL" \
+  --set-env-vars "AGENT_ENDPOINT=$APIM_GATEWAY_URL" \
   -o none
 
-echo "  Web app AGENT_ENDPOINT updated to: $AGENT_REGISTERED_URL"
+echo "  Web app AGENT_ENDPOINT updated to: $APIM_GATEWAY_URL"
 echo ""
 echo "=== Done ==="
