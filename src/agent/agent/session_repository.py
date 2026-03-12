@@ -23,10 +23,9 @@ logger = logging.getLogger(__name__)
 class CosmosAgentSessionRepository(SerializedAgentSessionRepository):
     """Persists serialized AgentSession dicts to Cosmos DB.
 
-    The 'agent-sessions' container uses partition key '/conversationId'.
+    The 'agent-sessions' container uses partition key '/id'.
     Each document has:
-      - id: conversation_id
-      - conversationId: conversation_id (partition key)
+      - id: conversation_id (partition key)
       - session: serialized session dict from AgentSession.to_dict()
     """
 
@@ -92,7 +91,7 @@ class CosmosAgentSessionRepository(SerializedAgentSessionRepository):
                 item=conversation_id, partition_key=conversation_id
             )
         except CosmosResourceNotFoundError:
-            doc = {"id": conversation_id, "conversationId": conversation_id}
+            doc = {"id": conversation_id}
         doc["session"] = serialized_session
         await container.upsert_item(doc)
         logger.info("Saved session for conversation_id=%s", conversation_id)

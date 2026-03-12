@@ -64,7 +64,7 @@ resource database 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2024-05-15
 }
 
 // ---------------------------------------------------------------------------
-// Container: agent-sessions (partition key: /conversationId)
+// Container: agent-sessions (partition key: /id)
 // ---------------------------------------------------------------------------
 resource agentSessionsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-05-15' = {
   parent: database
@@ -73,7 +73,7 @@ resource agentSessionsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDataba
     resource: {
       id: 'agent-sessions'
       partitionKey: {
-        paths: ['/conversationId']
+        paths: ['/id']
         kind: 'Hash'
       }
       indexingPolicy: {

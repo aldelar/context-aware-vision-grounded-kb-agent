@@ -45,7 +45,7 @@ All resources follow the pattern `{prefix}-{projectName}-{env}` (e.g., `func-{pr
 | API Management (AI Gateway) | `apim.bicep` | `apim-{project}-{env}` | BasicV2 |
 | Cosmos DB (NoSQL) | `cosmos-db.bicep` | `cosmos-{project}-{env}` | Serverless |
 | → Database | `cosmos-db.bicep` | `kb-agent` | — |
-| → Container | `cosmos-db.bicep` | `agent-sessions` | Partition key `/conversationId` |
+| → Container | `cosmos-db.bicep` | `agent-sessions` | Partition key `/id` |
 | Entra App Registration | Pre-provision hook | `webapp-{project}-{env}` | — |
 
 > `{project}` is the `PROJECT_NAME` (default `{project}`). `{env}` is the `AZURE_ENV_NAME` (e.g., `dev`, `staging`, `prod`).

@@ -1,6 +1,6 @@
 # Epic 010 — Agent Memory Layer
 
-> **Status:** In Progress
+> **Status:** Done
 > **Created:** March 11, 2026
 > **Updated:** March 12, 2026
 
@@ -19,18 +19,18 @@ After this epic:
 ## Success Criteria
 
 - [x] `agent-framework-core` upgraded to `1.0.0rc3`, `azure-ai-agentserver-agentframework` to `1.0.0b16`
-- [ ] Agent creates `ChatAgent` with `InMemoryHistoryProvider` as context provider
-- [ ] Custom `CosmosAgentSessionRepository` subclasses `SerializedAgentSessionRepository`
-- [ ] `from_agent_framework()` receives `session_repository=CosmosAgentSessionRepository(...)`
-- [ ] Agent container app has Cosmos DB RBAC role assignment and env vars (`COSMOS_ENDPOINT`, `COSMOS_DATABASE_NAME`)
-- [ ] Cosmos DB `agent-sessions` container deployed with partition key `/id`
-- [ ] Web app passes `conversation_id` via `extra_body={"conversation": {"id": thread_id}}`
-- [ ] Web app no longer builds `conversation_context`, no longer calls `_trim_context()`, no longer sends `instructions=conversation_context`
-- [ ] Web app `on_chat_resume()` reads from `agent-sessions` container (not old `conversations`)
-- [ ] Legacy `conversations` container removed from Bicep
-- [ ] Multi-turn conversations persist across web app restarts (agent loads history from Cosmos)
-- [ ] `make test` passes with zero regressions
-- [ ] Architecture and agent-memory spec docs updated
+- [x] Agent creates `ChatAgent` with `InMemoryHistoryProvider` as context provider
+- [x] Custom `CosmosAgentSessionRepository` subclasses `SerializedAgentSessionRepository`
+- [x] `from_agent_framework()` receives `session_repository=CosmosAgentSessionRepository(...)`
+- [x] Agent container app has Cosmos DB RBAC role assignment and env vars (`COSMOS_ENDPOINT`, `COSMOS_DATABASE_NAME`)
+- [x] Cosmos DB `agent-sessions` container deployed with partition key `/id`
+- [x] Web app passes `conversation_id` via `extra_body={"conversation": {"id": thread_id}}`
+- [x] Web app no longer builds `conversation_context`, no longer calls `_trim_context()`, no longer sends `instructions=conversation_context`
+- [x] Web app `on_chat_resume()` reads from `agent-sessions` container (not old `conversations`)
+- [x] Legacy `conversations` container removed from Bicep
+- [x] Multi-turn conversations persist across web app restarts (agent loads history from Cosmos)
+- [x] `make test` passes with zero regressions
+- [x] Architecture and agent-memory spec docs updated
 
 ---
 
@@ -327,9 +327,9 @@ Remove the `conversations` container from Cosmos DB Bicep now that all reads/wri
 
 ---
 
-### Story 10 — Cosmos DB Schema Cleanup: Remove conversationId, Adopt /id Partition Key ⬜
+### Story 10 — Cosmos DB Schema Cleanup: Remove conversationId, Adopt /id Partition Key ✅
 
-> **Status:** Not Started
+> **Status:** Done
 > **Depends on:** Stories 5–9 ✅
 
 Clean up the Cosmos DB `agent-sessions` schema introduced in Stories 2–9. The current schema carries redundancies from the initial implementation that should be resolved before hardening:
@@ -344,28 +344,29 @@ Clean up the Cosmos DB `agent-sessions` schema introduced in Stories 2–9. The 
 
 **Acceptance Criteria:**
 
-- [ ] `infra/modules/cosmos-db.bicep` — `agent-sessions` container partition key changed from `/conversationId` to `/id`
-- [ ] `src/agent/agent/session_repository.py` — `conversationId` field no longer written to documents; docstrings updated to reference "session" not "thread"
-- [ ] `src/web-app/app/data_layer.py` — all `conversationId` insertions removed (4 sites); `__users__` document creation removed; private methods renamed from `_thread_*` to `_session_*`
-- [ ] `docs/specs/agent-memory.md` — updated with new document schema example (no `conversationId`), session field explanation, updated ASCII container diagram (no `__users__`), field ownership table updated
-- [ ] `docs/specs/infrastructure.md` — Cosmos container row updated: partition key `/conversationId` → `/id`
-- [ ] No code anywhere references `conversationId` (verified by grep)
-- [ ] No code creates `__users__` documents (verified by grep)
-- [ ] All internal method names use `session` not `thread` (verified by grep in `data_layer.py`)
-- [ ] `make test` passes — all agent and web-app tests green after schema changes
-- [ ] Existing tests updated to reflect removed `conversationId` field and renamed methods
+- [x] `infra/modules/cosmos-db.bicep` — `agent-sessions` container partition key changed from `/conversationId` to `/id`
+- [x] `src/agent/agent/session_repository.py` — `conversationId` field no longer written to documents; docstrings updated to reference "session" not "thread"
+- [x] `src/web-app/app/data_layer.py` — all `conversationId` insertions removed (4 sites); `__users__` document creation removed; private methods renamed from `_thread_*` to `_session_*`
+- [x] `docs/specs/agent-memory.md` — updated with new document schema example (no `conversationId`), session field explanation, updated ASCII container diagram (no `__users__`), field ownership table updated
+- [x] `docs/specs/infrastructure.md` — Cosmos container row updated: partition key `/conversationId` → `/id`
+- [x] No code anywhere references `conversationId` (verified by grep)
+- [x] No code creates `__users__` documents (verified by grep)
+- [x] All internal method names use `session` not `thread` (verified by grep in `data_layer.py`)
+- [x] `make test` passes — all agent and web-app tests green after schema changes (agent: 111, web-app: 123)
+- [x] Existing tests updated to reflect removed `conversationId` field and renamed methods
 
 **Implementation Scope:**
 
 | File | Change |
 |------|--------|
-| `infra/modules/cosmos-db.bicep` | Change `agent-sessions` partition key from `/conversationId` to `/id` |
-| `src/agent/agent/session_repository.py` | Remove `conversationId` from document creation in `write_to_storage()`; update docstrings (thread → session) |
-| `src/web-app/app/data_layer.py` | Remove 4× `conversationId` insertions; remove `__users__` document creation; rename `_thread_*` → `_session_*` methods |
-| `docs/specs/agent-memory.md` | Update §2 (schema, examples, diagram), §3 (repository docstring, code), §7 (summary table) |
-| `docs/specs/infrastructure.md` | Update Cosmos container row: partition key `/conversationId` → `/id` |
-| `src/agent/tests/test_session_repository.py` | Remove assertions on `conversationId` field; update test names if needed |
-| `src/web-app/tests/test_data_layer.py` | Remove `conversationId` from test fixtures; remove `__users__` tests; rename thread→session test helpers |
+| `infra/modules/cosmos-db.bicep` | ✅ Partition key `/conversationId` → `/id` |
+| `infra/main.json` | ✅ Regenerated ARM template with updated partition key |
+| `src/agent/agent/session_repository.py` | ✅ Removed `conversationId` from new doc creation; updated docstrings (thread → session) |
+| `src/web-app/app/data_layer.py` | ✅ Removed 4× `conversationId` insertions; removed `__users__` persistence; renamed `_read_thread_doc` → `_read_session_doc` (8 call sites); updated docstrings |
+| `docs/specs/agent-memory.md` | ✅ Updated schema, field ownership, diagrams, code examples — all `conversationId` and `__users__` references removed |
+| `docs/specs/infrastructure.md` | ✅ Cosmos container row: partition key `/conversationId` → `/id` |
+| `src/agent/tests/test_session_repository.py` | ✅ Removed `conversationId` from fixtures; +7 edge-case tests (111 total) |
+| `src/web-app/tests/test_data_layer.py` | ✅ Removed `conversationId` from fixtures; updated `__users__` tests; renamed thread→session; +19 edge-case tests (123 total) |
 
 **Documentation Scope** (`docs/specs/agent-memory.md`):
 
@@ -438,11 +439,11 @@ The `session` field contains the serialized output of `AgentSession.to_dict()` f
 ## Definition of Done
 
 - [x] All stories 1–9 completed and marked ✅
-- [ ] Story 10 — schema cleanup completed (remove `conversationId`, partition key `/id`, remove `__users__`)
+- [x] Story 10 — schema cleanup completed (remove `conversationId`, partition key `/id`, remove `__users__`)
 - [x] Agent owns conversation history — loads/saves `AgentSession` from Cosmos per request
 - [x] Web app is a thin relay — passes `conversation_id`, reads Cosmos for display only
 - [x] Multi-turn conversations work across restarts
 - [x] No data in legacy `conversations` container (container deleted from Bicep)
-- [x] `make test` passes with zero regressions (agent: 105, web-app: 98, functions: 192)
+- [x] `make test` passes with zero regressions (agent: 111, web-app: 123, functions: 192)
 - [x] `docs/specs/agent-memory.md` and `docs/specs/infrastructure.md` updated
 - [x] Conversation compaction tracked as [GitHub Issue #10](https://github.com/aldelar/azure-knowledge-base-ingestion/issues/10)

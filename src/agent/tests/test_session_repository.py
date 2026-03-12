@@ -50,7 +50,6 @@ async def test_read_returns_session_when_document_exists(
     session_data = {"messages": [{"role": "user", "content": "hello"}], "state": {}}
     mock_container.read_item.return_value = {
         "id": "conv-123",
-        "conversationId": "conv-123",
         "session": session_data,
     }
 
@@ -97,7 +96,6 @@ async def test_write_upserts_correct_document_structure(
     mock_container.upsert_item.assert_awaited_once_with(
         {
             "id": "conv-456",
-            "conversationId": "conv-456",
             "session": session_data,
         }
     )
@@ -119,7 +117,6 @@ async def test_write_preserves_existing_fields(
     """Write must preserve web-app fields (userId, steps, etc.)."""
     existing_doc = {
         "id": "conv-789",
-        "conversationId": "conv-789",
         "userId": "alice",
         "name": "My Thread",
         "steps": [{"id": "s1", "type": "user_message"}],
@@ -268,7 +265,6 @@ async def test_read_returns_none_when_session_key_missing(
     """If a Cosmos doc exists but has no 'session' key, read returns None."""
     mock_container.read_item.return_value = {
         "id": "conv-no-session",
-        "conversationId": "conv-no-session",
     }
 
     result = await repo_with_container.read_from_storage("conv-no-session")
@@ -314,7 +310,6 @@ async def test_concurrent_writes_same_conversation_id(
     mock_container.read_item.side_effect = None
     mock_container.read_item.return_value = {
         "id": "conv-dup",
-        "conversationId": "conv-dup",
         "session": session_v1,
     }
     await repo_with_container.write_to_storage("conv-dup", session_v2)
@@ -371,3 +366,125 @@ async def test_write_propagates_non_404_read_error(
     with pytest.raises(CosmosHttpResponseError):
         await repo_with_container.write_to_storage("conv-err", {"data": 1})
     mock_container.upsert_item.assert_not_awaited()
+
+
+# ── Story 10: conversationId removal — edge cases ───────────────────────
+
+
+@pytest.mark.asyncio
+async def test_new_doc_has_no_conversationId_field(
+    repo_with_container, mock_container
+):
+    """New document must only contain 'id' — NO 'conversationId' key."""
+    mock_container.read_item.side_effect = CosmosResourceNotFoundError(
+        status_code=404, message="Not Found"
+    )
+    await repo_with_container.write_to_storage("conv-new", {"m": []})
+
+    upserted = mock_container.upsert_item.call_args[0][0]
+    assert upserted["id"] == "conv-new"
+    assert "conversationId" not in upserted
+
+
+@pytest.mark.asyncio
+async def test_read_modify_write_does_not_inject_conversationId(
+    repo_with_container, mock_container
+):
+    """Read-modify-write must not add a 'conversationId' key."""
+    existing = {
+        "id": "conv-existing",
+        "userId": "alice",
+        "steps": [],
+        "session": {"old": True},
+    }
+    mock_container.read_item.return_value = existing
+
+    await repo_with_container.write_to_storage(
+        "conv-existing", {"messages": []}
+    )
+
+    upserted = mock_container.upsert_item.call_args[0][0]
+    assert "conversationId" not in upserted
+    assert upserted["userId"] == "alice"  # preserved
+
+
+@pytest.mark.asyncio
+async def test_write_with_uuid_conversation_id(
+    repo_with_container, mock_container
+):
+    """UUID-format conversation_id (typical in production) works correctly."""
+    conv_id = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+    mock_container.read_item.side_effect = CosmosResourceNotFoundError(
+        status_code=404, message="Not Found"
+    )
+
+    await repo_with_container.write_to_storage(conv_id, {"state": {}})
+
+    upserted = mock_container.upsert_item.call_args[0][0]
+    assert upserted["id"] == conv_id
+    assert "conversationId" not in upserted
+
+
+@pytest.mark.asyncio
+async def test_read_with_uuid_conversation_id(
+    repo_with_container, mock_container
+):
+    """UUID-format conversation_id reads correctly (partition_key == id)."""
+    conv_id = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+    mock_container.read_item.return_value = {
+        "id": conv_id,
+        "session": {"state": {"counter": 1}},
+    }
+
+    result = await repo_with_container.read_from_storage(conv_id)
+
+    assert result == {"state": {"counter": 1}}
+    mock_container.read_item.assert_awaited_once_with(
+        item=conv_id, partition_key=conv_id,
+    )
+
+
+@pytest.mark.asyncio
+async def test_roundtrip_without_conversationId_in_stored_doc(
+    repo_with_container, mock_container
+):
+    """Full write→read round-trip: stored doc never gets conversationId."""
+    session = {"messages": [{"role": "user", "content": "test"}]}
+
+    # Write (new doc)
+    mock_container.read_item.side_effect = CosmosResourceNotFoundError(
+        status_code=404, message="Not Found"
+    )
+    await repo_with_container.write_to_storage("conv-rt2", session)
+    upserted_doc = mock_container.upsert_item.call_args[0][0]
+    assert "conversationId" not in upserted_doc
+
+    # Read back from the upserted doc
+    mock_container.read_item.side_effect = None
+    mock_container.read_item.return_value = upserted_doc
+    result = await repo_with_container.read_from_storage("conv-rt2")
+    assert result == session
+
+
+@pytest.mark.asyncio
+async def test_write_preserves_legacy_doc_with_conversationId(
+    repo_with_container, mock_container
+):
+    """If a pre-migration doc has conversationId, write preserves it
+    (read-modify-write doesn't strip existing fields)."""
+    legacy_doc = {
+        "id": "conv-legacy",
+        "conversationId": "conv-legacy",
+        "userId": "alice",
+        "session": {"old": True},
+    }
+    mock_container.read_item.return_value = legacy_doc
+
+    await repo_with_container.write_to_storage(
+        "conv-legacy", {"messages": []}
+    )
+
+    upserted = mock_container.upsert_item.call_args[0][0]
+    # The field is preserved because read-modify-write keeps all fields
+    assert upserted["conversationId"] == "conv-legacy"
+    assert upserted["session"] == {"messages": []}

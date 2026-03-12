@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "7549481584673227217"
+      "templateHash": "18121916158307261251"
     }
   },
   "parameters": {
@@ -3889,7 +3889,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "13378213735689484987"
+              "templateHash": "3170857097577514367"
             }
           },
           "parameters": {
@@ -3971,49 +3971,13 @@
             {
               "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers",
               "apiVersion": "2024-05-15",
-              "name": "[format('{0}/{1}/{2}', format('cosmos-{0}', parameters('baseName')), parameters('databaseName'), 'conversations')]",
-              "properties": {
-                "resource": {
-                  "id": "conversations",
-                  "partitionKey": {
-                    "paths": [
-                      "/userId"
-                    ],
-                    "kind": "Hash"
-                  },
-                  "indexingPolicy": {
-                    "indexingMode": "consistent",
-                    "includedPaths": [
-                      {
-                        "path": "/*"
-                      }
-                    ],
-                    "excludedPaths": [
-                      {
-                        "path": "/messages/*"
-                      },
-                      {
-                        "path": "/\"_etag\"/?"
-                      }
-                    ]
-                  },
-                  "defaultTtl": -1
-                }
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', format('cosmos-{0}', parameters('baseName')), parameters('databaseName'))]"
-              ]
-            },
-            {
-              "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers",
-              "apiVersion": "2024-05-15",
               "name": "[format('{0}/{1}/{2}', format('cosmos-{0}', parameters('baseName')), parameters('databaseName'), 'agent-sessions')]",
               "properties": {
                 "resource": {
                   "id": "agent-sessions",
                   "partitionKey": {
                     "paths": [
-                      "/conversationId"
+                      "/id"
                     ],
                     "kind": "Hash"
                   },
