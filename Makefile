@@ -196,6 +196,9 @@ dev-setup-env: ## Populate .env files from AZD environment
 	@echo "Done. $$(wc -l < src/web-app/.env) variables written."
 	@echo "Writing AZD environment values to src/agent/.env..."
 	@azd env get-values > src/agent/.env
+	@if ! grep -q '^REQUIRE_AUTH=' src/agent/.env 2>/dev/null; then \
+		echo 'REQUIRE_AUTH=false' >> src/agent/.env; \
+	fi
 	@echo "Done. $$(wc -l < src/agent/.env) variables written."
 
 validate-infra: ## Validate Azure infra is ready for local dev
@@ -298,9 +301,12 @@ test-agent-integration: ## Run agent integration tests (needs running local agen
 ## UTIL-AZURE-START
 
 # --- Provision ---
-.PHONY: azure-provision
+.PHONY: azure-provision azure-provision-clean
 
 azure-provision: _check-project-name ## Provision all Azure resources (azd provision)
+	azd provision
+
+azure-provision-clean: _check-project-name ## Provision from scratch, ignoring prior state (use after major infra changes)
 	azd provision --no-state
 
 # --- Deploy ---

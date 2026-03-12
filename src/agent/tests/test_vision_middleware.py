@@ -95,7 +95,7 @@ class TestVisionMiddlewareProcess:
         assert appended_msg.role == "user"
         # First content is the text instruction, rest are images
         assert len(appended_msg.contents) == 2
-        next_fn.assert_awaited_once_with(context)
+        next_fn.assert_awaited_once_with()
 
     @pytest.mark.asyncio
     @patch("agent.vision_middleware.download_image")
@@ -112,7 +112,7 @@ class TestVisionMiddlewareProcess:
         # No new messages should be appended
         assert len(context.messages) == 1
         mock_download.assert_not_called()
-        next_fn.assert_awaited_once_with(context)
+        next_fn.assert_awaited_once_with()
 
     @pytest.mark.asyncio
     @patch("agent.vision_middleware.download_image")
@@ -263,7 +263,7 @@ class TestVisionMiddlewareProcess:
         middleware = VisionImageMiddleware()
         await middleware.process(context, next_fn)
 
-        next_fn.assert_awaited_once_with(context)
+        next_fn.assert_awaited_once_with()
 
 
 # ---------------------------------------------------------------------------

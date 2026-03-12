@@ -133,4 +133,4 @@ class VisionImageMiddleware(ChatMiddleware):
                 len(image_items),
             )
 
-        await next(context)
+        await next()
