@@ -263,8 +263,35 @@ class CosmosDataLayer(BaseDataLayer):
     # Steps (messages)
     # ------------------------------------------------------------------
 
+    # Chainlit lifecycle hooks that generate framework-internal "run" steps.
+    # These are noise (empty output, duplicated input) — skip persisting them.
+    _LIFECYCLE_RUN_NAMES = frozenset({"on_chat_start", "on_message", "on_chat_resume"})
+
+    def _is_lifecycle_run(self, step_dict: "StepDict") -> bool:
+        return (
+            step_dict.get("type") == "run"
+            and step_dict.get("name") in self._LIFECYCLE_RUN_NAMES
+        )
+
+    @staticmethod
+    def _clear_orphan_parent(step_dict: "StepDict", steps: list) -> None:
+        """Null out parentId if the parent step doesn't exist in the list.
+
+        Lifecycle run steps (on_message, etc.) are filtered and never
+        persisted, so child steps that reference them would have a
+        dangling parentId.  Chainlit won't render orphaned children
+        during resume, so we must promote them to top-level.
+        """
+        parent_id = step_dict.get("parentId")
+        if not parent_id:
+            return
+        if not any(s.get("id") == parent_id for s in steps):
+            step_dict["parentId"] = None
+
     async def create_step(self, step_dict: "StepDict") -> None:
         if not self._container:
+            return
+        if self._is_lifecycle_run(step_dict):
             return
         thread_id = step_dict.get("threadId")
         if not thread_id:
@@ -284,7 +311,9 @@ class CosmosDataLayer(BaseDataLayer):
             }
             logger.debug("create_step: auto-created session %s", thread_id)
         steps: list = doc.get("steps", [])
-        steps.append(dict(step_dict))
+        persisted = dict(step_dict)
+        self._clear_orphan_parent(persisted, steps)
+        steps.append(persisted)
         doc["steps"] = steps
         doc["updatedAt"] = datetime.now(timezone.utc).isoformat()
 
@@ -297,6 +326,8 @@ class CosmosDataLayer(BaseDataLayer):
 
     async def update_step(self, step_dict: "StepDict") -> None:
         if not self._container:
+            return
+        if self._is_lifecycle_run(step_dict):
             return
         thread_id = step_dict.get("threadId")
         if not thread_id:
@@ -316,15 +347,17 @@ class CosmosDataLayer(BaseDataLayer):
             logger.debug("update_step: auto-created session %s", thread_id)
         steps: list = doc.get("steps", [])
         step_id = step_dict.get("id")
+        persisted = dict(step_dict)
+        self._clear_orphan_parent(persisted, steps)
         # Replace existing step or append
         replaced = False
         for i, s in enumerate(steps):
             if s.get("id") == step_id:
-                steps[i] = dict(step_dict)
+                steps[i] = persisted
                 replaced = True
                 break
         if not replaced:
-            steps.append(dict(step_dict))
+            steps.append(persisted)
         doc["steps"] = steps
         doc["updatedAt"] = datetime.now(timezone.utc).isoformat()
         self._container.upsert_item(doc)
