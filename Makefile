@@ -279,7 +279,7 @@ upload-serving: _check-env ## Upload kb/serving/ images to Azure serving blob
 	@echo "Done."
 
 # --- Test ---
-.PHONY: test-agent test-app test-functions test-agent-integration
+.PHONY: test-agent test-app test-functions test-agent-integration test-ui test-ui-auto
 
 test-agent: ## Run agent unit + endpoint tests
 	@cd src/agent && uv run pytest tests/ -v -m "not integration" || test $$? -eq 5
@@ -292,6 +292,15 @@ test-functions: ## Run functions unit tests
 
 test-agent-integration: ## Run agent integration tests (needs running local agent)
 	@cd src/agent && AGENT_ENDPOINT=http://localhost:8088 uv run pytest tests/ -v -m integration || test $$? -eq 5
+
+test-ui: _check-env ## Interactive UI testing with Playwright CLI (needs running agent + app)
+	@echo "Opening Playwright CLI browser at http://localhost:8080..."
+	@echo "  (Start 'make agent' + 'make app' in separate terminals first)"
+	@echo ""
+	@playwright-cli open http://localhost:8080
+
+test-ui-auto: _check-env ## Run automated Playwright UI tests (needs running agent + app)
+	@cd src/web-app && uv run pytest tests/test_ui.py -v -m uitest
 
 ## UTIL-LOCAL-END
 

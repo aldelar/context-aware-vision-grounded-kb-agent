@@ -242,6 +242,7 @@ Run `make help` to see all targets. Here is the full list:
 | `make agent-test` | Run agent unit tests |
 | `make app` | Run Chainlit web app locally (http://localhost:8080) |
 | `make app-test` | Run web app unit tests |
+| `make test-ui` | Interactive UI testing with Playwright CLI (needs running agent + app) |
 | **Azure Operations** | |
 | `make azure-provision` | Provision all Azure resources (azd provision) |
 | `make azure-deploy` | Deploy functions, search index, and CU analyzer (azd deploy) |
@@ -259,6 +260,19 @@ Run `make help` to see all targets. Here is the full list:
 | `make azure-clean-storage` | Empty staging and serving blob containers in Azure |
 | `make azure-clean-index` | Delete the AI Search index |
 | `make azure-clean` | Clean all Azure data (storage + index + analyzer) |
+
+### Interactive UI Testing
+
+The `make test-ui` target opens [Playwright CLI](https://github.com/anthropics/playwright-cli) for interactive browser-based testing of the web app.
+
+**Prerequisites:** Node.js and Playwright CLI (`npm install -g @anthropic-ai/playwright-cli`)
+
+**Workflow:**
+1. Start the agent: `make agent` (terminal 1)
+2. Start the web app: `make app` (terminal 2)
+3. Run: `make test-ui` (terminal 3)
+
+Playwright CLI opens a Chromium browser at http://localhost:8080 and provides a REPL for commands like `snapshot` (page accessibility tree), `click <element>`, `type <element> <text>`, and `screenshot`.
 
 ---
 

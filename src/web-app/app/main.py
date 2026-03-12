@@ -468,10 +468,38 @@ async def on_chat_resume(thread: ThreadDict) -> None:
 
     The agent owns conversation history via conversation_id, so we only
     need to re-create the client — no local messages rebuild needed.
+
+    Element content is persisted in Cosmos (custom ``content`` field) but
+    the ``chainlitKey`` used by the frontend to fetch file content is
+    ephemeral.  Re-hydrate each element by writing its content back to
+    the session file store so the frontend can retrieve it.
     """
     client = _create_agent_client()
     cl.user_session.set("client", client)
     cl.user_session.set("user_id", _get_user_id())
+
+    # Re-hydrate element content so Refs work after resume
+    session = cl.context.session
+    elements = thread.get("elements", [])
+    logger.info("Resume: found %d elements in thread", len(elements))
+    for el in elements:
+        logger.info("Resume element: name=%s, type=%s, keys=%s, content_len=%s",
+                     el.get("name"), el.get("type"), list(el.keys()),
+                     len(el.get("content", "")) if el.get("content") else 0)
+        content = el.get("content")
+        if not content:
+            continue
+        name = el.get("name", "element")
+        mime = el.get("mime") or "text/plain"
+        ref = await session.persist_file(name=name, content=content, mime=mime)
+        el["chainlitKey"] = ref["id"]
+        # The frontend's resume_thread handler does NOT resolve
+        # chainlitKey → URL (unlike the element/set_sidebar_elements
+        # handlers), so we must set the URL explicitly.
+        el["url"] = f"/project/file/{ref['id']}?session_id={session.id}"
+        logger.info("Resume element persisted: name=%s, chainlitKey=%s, url=%s",
+                     name, ref["id"], el["url"])
+
     logger.info("Chat resumed: thread=%s", thread.get("id", "?"))
 
 

@@ -16,6 +16,7 @@ dependencies = [
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
+    "pytest-playwright>=0.6.2",
 ]
 
 [build-system]
@@ -23,7 +24,11 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.pytest.ini_options]
-markers = ["integration: requires running services and Azure credentials"]
+markers = [
+    "integration: requires running services and Azure credentials",
+    "uitest: browser-based UI tests requiring running agent + app",
+]
+addopts = "-m 'not integration and not uitest'"
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
