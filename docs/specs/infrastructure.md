@@ -290,7 +290,7 @@ Hosts the web app as a containerized Chainlit application with Entra ID Easy Aut
 | Setting | Source | Purpose |
 |---------|--------|---------|
 | `AGENT_ENDPOINT` | Agent Container App internal FQDN | Agent Responses API base URL |
-| `AI_SERVICES_ENDPOINT` | AI Services endpoint | Azure AI Foundry (token auth) |
+| `AI_SERVICES_ENDPOINT` | AI Services endpoint | Microsoft Foundry (token auth) |
 | `SERVING_BLOB_ENDPOINT` | Serving storage blob endpoint | Article images for proxy |
 | `SERVING_CONTAINER_NAME` | `serving` | Blob container name |
 | `COSMOS_ENDPOINT` | Cosmos DB endpoint | Conversation persistence |

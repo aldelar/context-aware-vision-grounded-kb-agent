@@ -40,7 +40,7 @@ flowchart LR
         I3["Embed chunks & push to index"]
     end
 
-    subgraph Embed["Azure AI<br/>Foundry"]
+    subgraph Embed["Microsoft<br/>Foundry"]
         EMB["text-embedding-3-small"]
     end
 
@@ -87,7 +87,7 @@ flowchart LR
         direction TB
         subgraph Center["AI Services"]
             direction TB
-            AF["AI Foundry<br/>GPT-4.1 + Embeddings"]
+            AF["Foundry<br/>GPT-4.1 + Embeddings"]
             AIS["AI Search<br/>kb-articles index"]
             COSMOS["Cosmos DB<br/>Agent sessions"]
         end
@@ -550,7 +550,7 @@ After splitting by headers, each chunk is scanned for image references matching 
 
 ### Embedding
 
-Chunk text is embedded via the Azure AI Foundry embedding endpoint using `text-embedding-3-small` (1536 dimensions). The image descriptions are part of the chunk text, so they are vectorized naturally alongside the surrounding content — no separate image embedding is needed.
+Chunk text is embedded via the Microsoft Foundry embedding endpoint using `text-embedding-3-small` (1536 dimensions). The image descriptions are part of the chunk text, so they are vectorized naturally alongside the surrounding content — no separate image embedding is needed.
 
 ### How It Works for an Agent
 
@@ -803,7 +803,7 @@ When deployed to Foundry, `APPLICATIONINSIGHTS_CONNECTION_STRING` is set automat
 | `azure-identity` | All | Azure authentication (DefaultAzureCredential) |
 | `azure-storage-blob` | All | Read from staging, write to serving blob containers |
 | `azure-search-documents` | `fn_index` | Push chunks to AI Search index |
-| `azure-ai-inference` | `fn_index` | Call Azure Foundry embedding model |
+| `azure-ai-inference` | `fn_index` | Call Foundry embedding model |
 | `beautifulsoup4` | `fn_convert_cu`, `fn_convert_mistral` | HTML DOM parsing for image/link extraction |
 | `python-dotenv` | All | Environment configuration |
 | `playwright` | `fn_convert_mistral` | HTML → PDF rendering (headless Chromium) |

@@ -118,7 +118,7 @@ flowchart LR
         direction TB
         subgraph Center["AI Services"]
             direction TB
-            AF["AI Foundry<br/>GPT-4.1 + Embeddings"]
+            AF["Foundry<br/>GPT-4.1 + Embeddings"]
             AIS["AI Search<br/>kb-articles index"]
             COSMOS["Cosmos DB<br/>Agent sessions"]
         end

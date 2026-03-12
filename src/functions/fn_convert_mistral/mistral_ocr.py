@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 def _derive_foundry_endpoint(endpoint: str) -> str:
     """Derive the Foundry Services endpoint from a Cognitive Services endpoint.
 
-    Azure AI Foundry models (Mistral, Cohere, etc.) use the
+    Microsoft Foundry models (Mistral, Cohere, etc.) use the
     ``https://<name>.services.ai.azure.com`` domain, while the classic
     Cognitive Services / OpenAI endpoint uses
     ``https://<name>.cognitiveservices.azure.com``.
