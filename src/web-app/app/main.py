@@ -233,50 +233,6 @@ def _build_citation_content(cit: Citation, idx: int) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Context window management
-# ---------------------------------------------------------------------------
-_MAX_CONTEXT_TOKENS = 128_000
-_RESPONSE_HEADROOM = 8_000
-_CHARS_PER_TOKEN = 4
-
-
-def _estimate_tokens(text: str) -> int:
-    """Estimate token count using a char-based heuristic (1 token ≈ 4 chars)."""
-    return len(text) // _CHARS_PER_TOKEN
-
-
-def _trim_context(messages: list[dict], max_tokens: int | None = None) -> list[dict]:
-    """Trim oldest messages if estimated tokens exceed the context window.
-
-    Messages are dropped from the front (oldest first).
-    Cosmos DB is append-only — trimming only affects in-memory context sent
-    to the agent.
-    """
-    limit = max_tokens or (_MAX_CONTEXT_TOKENS - _RESPONSE_HEADROOM)
-
-    total = sum(_estimate_tokens(m.get("content", "")) for m in messages)
-    if total <= limit:
-        return messages
-
-    dropped = 0
-    trimmed = list(messages)
-    while len(trimmed) > 1:
-        est = sum(_estimate_tokens(m.get("content", "")) for m in trimmed)
-        if est <= limit:
-            break
-        trimmed.pop(0)
-        dropped += 1
-
-    if dropped:
-        logger.warning(
-            "Context window trimmed: dropped %d oldest messages (estimated %d tokens remaining)",
-            dropped,
-            sum(_estimate_tokens(m.get("content", "")) for m in trimmed),
-        )
-    return trimmed
-
-
-# ---------------------------------------------------------------------------
 # Agent client — plain HTTP (internal Container App or local)
 # ---------------------------------------------------------------------------
 
@@ -502,7 +458,6 @@ async def on_chat_start() -> None:
     """Initialise per-session agent client and conversation history."""
     client = _create_agent_client()
     cl.user_session.set("client", client)
-    cl.user_session.set("messages", [])
     cl.user_session.set("user_id", _get_user_id())
     logger.info("New chat session started (agent endpoint: %s)", config.agent_endpoint)
 
@@ -511,48 +466,48 @@ async def on_chat_start() -> None:
 async def on_chat_resume(thread: ThreadDict) -> None:
     """Resume a previous conversation from the data layer.
 
-    Rebuilds the in-memory messages list from the stored steps so the
-    agent receives the correct conversation context.
+    The agent owns conversation history via conversation_id, so we only
+    need to re-create the client — no local messages rebuild needed.
+
+    Element content is persisted in Cosmos (custom ``content`` field) but
+    the ``chainlitKey`` used by the frontend to fetch file content is
+    ephemeral.  Re-hydrate each element by writing its content back to
+    the session file store so the frontend can retrieve it.
     """
     client = _create_agent_client()
     cl.user_session.set("client", client)
     cl.user_session.set("user_id", _get_user_id())
 
-    # Rebuild messages from stored steps
-    messages: list[dict] = []
-    for step in thread.get("steps", []):
-        step_type = step.get("type", "")
-        output = step.get("output", "")
-        if step_type == "user_message":
-            messages.append({"role": "user", "content": output})
-        elif step_type == "assistant_message":
-            messages.append({"role": "assistant", "content": output})
+    # Re-hydrate element content so Refs work after resume
+    session = cl.context.session
+    elements = thread.get("elements", [])
+    logger.info("Resume: found %d elements in thread", len(elements))
+    for el in elements:
+        logger.info("Resume element: name=%s, type=%s, keys=%s, content_len=%s",
+                     el.get("name"), el.get("type"), list(el.keys()),
+                     len(el.get("content", "")) if el.get("content") else 0)
+        content = el.get("content")
+        if not content:
+            continue
+        name = el.get("name", "element")
+        mime = el.get("mime") or "text/plain"
+        ref = await session.persist_file(name=name, content=content, mime=mime)
+        el["chainlitKey"] = ref["id"]
+        # The frontend's resume_thread handler does NOT resolve
+        # chainlitKey → URL (unlike the element/set_sidebar_elements
+        # handlers), so we must set the URL explicitly.
+        el["url"] = f"/project/file/{ref['id']}?session_id={session.id}"
+        logger.info("Resume element persisted: name=%s, chainlitKey=%s, url=%s",
+                     name, ref["id"], el["url"])
 
-    cl.user_session.set("messages", messages)
-    logger.info(
-        "Chat resumed: thread=%s, messages=%d",
-        thread.get("id", "?"),
-        len(messages),
-    )
+    logger.info("Chat resumed: thread=%s", thread.get("id", "?"))
 
 
 @cl.on_message
 async def on_message(message: cl.Message) -> None:
     """Handle an incoming user message — stream the agent answer."""
     client: OpenAI = cl.user_session.get("client")  # type: ignore[assignment]
-    messages: list[dict] = cl.user_session.get("messages")  # type: ignore[assignment]
-
-    # Append user message to conversation history
-    messages.append({"role": "user", "content": message.content})
-
-    # Build context: trim to fit context window
-    context = _trim_context(messages)
-
-    # Build conversation context string for the agent
-    input_parts = []
-    for msg_item in context[:-1]:  # All messages except the current one
-        input_parts.append(f"[{msg_item['role']}]: {msg_item['content']}")
-    conversation_context = "\n".join(input_parts) if input_parts else None
+    thread_id = cl.context.session.thread_id
 
     # Create the response message and stream tokens into it
     msg = cl.Message(content="")
@@ -562,8 +517,8 @@ async def on_message(message: cl.Message) -> None:
         response = client.responses.create(
             model="kb-agent",
             input=message.content,
-            instructions=conversation_context,
             stream=True,
+            extra_body={"conversation": {"id": thread_id}},
         )
 
         full_text = ""
@@ -606,10 +561,6 @@ async def on_message(message: cl.Message) -> None:
             msg.content = "I wasn't able to generate a response. Please try again."
             await msg.send()
             return
-
-        # Append assistant response to history
-        messages.append({"role": "assistant", "content": full_text})
-        cl.user_session.set("messages", messages)
 
     except Exception as e:
         logger.error("Error calling agent: %s", e, exc_info=True)

@@ -50,6 +50,10 @@ class Config:
     serving_blob_endpoint: str
     serving_container_name: str
 
+    # Cosmos DB — agent session persistence (optional: empty = no persistence)
+    cosmos_endpoint: str
+    cosmos_database_name: str
+
 
 def _load_config() -> Config:
     """Load and validate configuration from environment."""
@@ -84,6 +88,8 @@ def _load_config() -> Config:
         search_index_name=os.environ.get("SEARCH_INDEX_NAME", "kb-articles"),
         serving_blob_endpoint=os.environ.get("SERVING_BLOB_ENDPOINT", ""),
         serving_container_name=os.environ.get("SERVING_CONTAINER_NAME", "serving"),
+        cosmos_endpoint=os.environ.get("COSMOS_ENDPOINT", ""),
+        cosmos_database_name=os.environ.get("COSMOS_DATABASE_NAME", "kb-agent"),
     )
 
 

@@ -1,4 +1,4 @@
-"""Embedding — call Azure AI Foundry text-embedding-3-small.
+"""Embedding — call Microsoft Foundry text-embedding-3-small.
 
 Embeds chunk text via the ``azure-ai-inference`` SDK using the
 ``text-embedding-3-small`` model (1536 dimensions).

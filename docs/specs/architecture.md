@@ -1,6 +1,6 @@
 # Architecture
 
-> **Status:** Updated — July 14, 2026
+> **Status:** Updated — March 12, 2026
 
 ## Overview
 
@@ -20,7 +20,6 @@ flowchart LR
     end
 
     subgraph Convert["fn-convert<br/><i>Azure Function</i>"]
-        C1["Read HTML + images"]
         C2["Extract text & structure"]
         C3["Analyze images individually"]
         C4["Merge MD + image descriptions"]
@@ -38,11 +37,10 @@ flowchart LR
     subgraph Index["fn-index<br/><i>Azure Function</i>"]
         I1["Chunk MD by headings"]
         I2["Map image refs per chunk"]
-        I3["Embed chunks"]
-        I4["Push to index"]
+        I3["Embed chunks & push to index"]
     end
 
-    subgraph Embed["Azure AI<br/>Foundry"]
+    subgraph Embed["Microsoft<br/>Foundry"]
         EMB["text-embedding-3-small"]
     end
 
@@ -50,15 +48,14 @@ flowchart LR
         IDX[("kb-articles<br/>index")]
     end
 
-    SRC --> C1
-    C1 --> C2 --> C4
-    C1 --> C3 --> C4
+    SRC --> C2 --> C4
+    SRC --> C3 --> C4
     C2 -.-> A1
     C3 -.-> A2
     C4 --> OUT
-    OUT --> I1 --> I2 --> I3 --> I4
+    OUT --> I1 --> I2 --> I3
     I3 -.-> EMB
-    I4 -.-> IDX
+    I3 -.-> IDX
 ```
 
 **✱ Analyzer** — three interchangeable backends, selected at runtime via `analyzer=`:
@@ -76,11 +73,7 @@ flowchart LR
         direction TB
         subgraph Pipeline["Ingestion Pipeline"]
             direction TB
-            subgraph Converters["Converters — 3 Container Apps"]
-                CVT_CU["fn_convert_cu<br/>CU → MD"]
-                CVT_MIS["fn_convert_mistral<br/>Mistral → MD"]
-                CVT_MIT["fn_convert_markitdown<br/>MarkItDown → MD"]
-            end
+            CVT["fn_convert ✱<br/>HTML → MD"]
             IDX["fn_index<br/>MD → index"]
         end
         subgraph Sources["Storage"]
@@ -94,9 +87,9 @@ flowchart LR
         direction TB
         subgraph Center["AI Services"]
             direction TB
-            AF["AI Foundry<br/>GPT-4.1 + Embeddings"]
+            AF["Foundry<br/>GPT-4.1 + Embeddings"]
             AIS["AI Search<br/>kb-articles index"]
-            COSMOS["Cosmos DB<br/>Conversation history"]
+            COSMOS["Cosmos DB<br/>Agent sessions"]
         end
         subgraph AgentSvc["KB Agent — Container App"]
             direction TB
@@ -111,12 +104,8 @@ flowchart LR
         end
     end
 
-    CVT_CU -->|read| SA1
-    CVT_CU -->|write| SA2
-    CVT_MIS -->|read| SA1
-    CVT_MIS -->|write| SA2
-    CVT_MIT -->|read| SA1
-    CVT_MIT -->|write| SA2
+    CVT -->|read| SA1
+    CVT -->|write| SA2
     IDX -->|read| SA2
 
     IDX -->|embed| AF
@@ -128,22 +117,23 @@ flowchart LR
 
     CHAT -->|Responses API| APIM
     APIM -->|proxy| AGENT
-    CHAT -->|read/write| COSMOS
+    AGENT -->|read/write sessions| COSMOS
+    CHAT -->|read sessions| COSMOS
     PROXY -->|serve images| SA2
 
     classDef invisible fill:none,stroke:none;
     class left,right invisible;
 ```
 
-**✱ Analyzer** — Content Understanding (`fn_convert_cu`), Mistral Document AI + GPT-4.1 vision (`fn_convert_mistral`), or MarkItDown + GPT-4.1 vision (`fn_convert_markitdown`). See [Pipeline Flow](#pipeline-flow) legend for component details.
+**✱ fn_convert** — three interchangeable converter backends, selected at runtime via `analyzer=`: Content Understanding (`fn_convert_cu`), Mistral Document AI (`fn_convert_mistral`), or MarkItDown (`fn_convert_markitdown`). Each runs as its own Container App. See [Pipeline Flow](#pipeline-flow) for details.
 
 ## Context Aware & Vision Grounded KB Agent
 
-The solution consists of two services: a standalone **KB Agent** deployed as an **Azure Container App** (with Foundry integration for tracing and registration) and a **Chainlit thin client** web app that calls the agent via the OpenAI-compatible **Responses API** and stores conversation history in **Cosmos DB**.
+The solution consists of two services: a standalone **KB Agent** deployed as an **Azure Container App** (with Foundry integration for tracing and registration) and a **Chainlit thin client** web app that calls the agent via the OpenAI-compatible **Responses API** through an APIM AI Gateway. The agent owns conversation history — it persists and loads `AgentSession` state via Cosmos DB using the Agent Framework's session persistence model (see [Agent Memory](agent-memory.md)).
 
 ### Agent (Container App)
 
-The agent runs as a FastAPI service on port 8088, deployed as an Azure Container App with external HTTPS ingress and in-code JWT validation. It exposes three endpoints:
+The agent runs as a Starlette ASGI service on port 8088 (built with `from_agent_framework`), deployed as an Azure Container App with external HTTPS ingress and in-code JWT validation. It exposes three endpoints:
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
@@ -153,9 +143,10 @@ The agent runs as a FastAPI service on port 8088, deployed as an Azure Container
 
 #### Agent Components
 
-- **KB Agent** — A `ChatAgent` (from `agent-framework-core` + `agent-framework-azure-ai`) with a single tool: `search_knowledge_base`. The agent uses `gpt-4.1` for reasoning and calls the tool to perform hybrid search (vector + keyword) against the index.
+- **KB Agent** — An `Agent` (from `agent-framework-core` + `agent-framework-azure-ai`) with a single tool: `search_knowledge_base`, and `InMemoryHistoryProvider` as context provider for multi-turn history. The agent uses `gpt-4.1` for reasoning and calls the tool to perform hybrid search (vector + keyword) against the index.
+- **Session Repository** — `CosmosAgentSessionRepository` (subclass of `SerializedAgentSessionRepository`) persists `AgentSession` to Cosmos DB `agent-sessions` container. Wired via `from_agent_framework(agent, session_repository=...)` which auto-loads/saves sessions per request.
 - **Search Tool** — Embeds the agent's query with `text-embedding-3-small`, performs hybrid search via `azure-search-documents`, and returns ranked chunks with image references.
-- **Vision Middleware** — A `ChatMiddleware` on the Azure OpenAI chat client that intercepts tool results, detects image URLs in the search response JSON, downloads the images from blob storage, and injects them into the LLM conversation as `DataContent` (base64 image payloads). This enables GPT-4.1's vision capabilities — the LLM can **see** the actual images (diagrams, screenshots, architecture charts) and reason about their visual content when composing answers.
+- **Vision Middleware** — A `ChatMiddleware` on the Azure OpenAI chat client that intercepts tool results, detects image URLs in the search response JSON, downloads the images from blob storage, and injects them into the LLM conversation as `Content.from_data()` (base64 image payloads). This enables GPT-4.1's vision capabilities — the LLM can **see** the actual images (diagrams, screenshots, architecture charts) and reason about their visual content when composing answers.
 - **Image Service** — Downloads images from blob storage for the vision middleware. Uses `DefaultAzureCredential` for blob access.
 
 ### Web App (Chainlit Thin Client)
@@ -165,8 +156,7 @@ The web app is a Chainlit-based UI that calls the agent via the Responses API. I
 #### Web App Components
 
 - **OpenAI SDK Client** — Calls the agent via `client.responses.create(input=..., stream=True)`. Local dev uses plain HTTP (`http://localhost:8088`). Deployed: routed through registered APIM proxy URL with Entra bearer token.
-- **Context Window Management** — Maintains in-memory conversation history per session. Estimates tokens (4 chars ≈ 1 token) and drops oldest messages when context exceeds 120K tokens (leaving headroom for response). Cosmos DB retains the full conversation (append-only).
-- **Cosmos DB Data Layer** — `CosmosDataLayer(BaseDataLayer)` stores conversations in Cosmos DB NoSQL (serverless). Partition key: `/userId`. Auto-title from first user message (80 chars max). Supports thread listing, resume, and deletion.
+- **Cosmos DB Data Layer** — `CosmosDataLayer(BaseDataLayer)` reads from the `agent-sessions` Cosmos container (shared with the agent). The web app reads `session.state.messages` for conversation resume, writes `steps` and `elements` for Chainlit UI fidelity, and queries by `userId` for the sidebar thread list. Auto-title from first user message (80 chars max).
 - **Image Proxy** — A FastAPI endpoint (`/api/images/{article_id}/{image_path}`) that downloads images from the serving blob account on demand. Chainlit renders standard `![alt](/api/images/...)` markdown natively, and the browser fetches images from this same-origin proxy.
 - **Image Normaliser** — Post-processing step that normalises all `![alt](url)` references in the LLM output to clean `/api/images/...` proxy URLs. Handles the variety of URL formats the LLM may generate (hallucinated domains, missing leading slashes, `attachment:` schemes) via pattern matching and filename-to-citation lookup.
 - **Chainlit Chat UI** — Streaming chat interface with real-time token display, native Markdown rendering (including inline images via the proxy), clickable `[Ref #N]` citation links with side-panel detail views, and conversation history panel.
@@ -174,14 +164,16 @@ The web app is a Chainlit-based UI that calls the agent via the Responses API. I
 ### Conversation Flow
 
 ```
-User message → Web App → Build context (system prompt + history from Cosmos)
-                       → POST /v1/responses (stream=True) via APIM proxy
-                       → APIM → Agent (FastAPI) → ChatAgent.run_stream()
+User message → Web App → POST /v1/responses (stream=True, extra_body={conversation: {id: thread_id}})
+                       → APIM proxy → Agent (Starlette)
+                       → from_agent_framework loads AgentSession from Cosmos
+                       → ChatAgent.run_stream() (with full history from session)
                                          → search_knowledge_base tool
                                          → Vision middleware (download + inject images)
                                          → LLM response (streamed SSE)
+                       → from_agent_framework saves AgentSession to Cosmos
                        ← Stream tokens to Chainlit UI
-                       → Save to Cosmos DB (user message + agent response)
+                       → Web app saves steps/elements to Cosmos (same document)
 ```
 
 ### Image Flow: From Index to Browser
@@ -192,7 +184,7 @@ The image-aware chunks created by the ingestion pipeline (Epic 001) are the foun
 sequenceDiagram
     participant User
     participant WebApp as Web App (Chainlit)
-    participant Agent as Agent (FastAPI)
+    participant Agent as Agent (Starlette)
     participant Search as AI Search
     participant VisionMW as Vision Middleware
     participant Blob as Serving Blob Storage
@@ -206,7 +198,7 @@ sequenceDiagram
     Note over VisionMW: Middleware intercepts tool result
     VisionMW->>Blob: Download images referenced in chunks
     Blob-->>VisionMW: Image bytes (PNG)
-    VisionMW->>Agent: Append DataContent (base64 images) to conversation
+    VisionMW->>Agent: Append Content (base64 images) to conversation
 
     Note over Agent: LLM sees actual images + text chunks
     Agent-->>WebApp: Stream SSE tokens with ![alt](/api/images/...)
@@ -219,7 +211,7 @@ sequenceDiagram
 ```
 
 **Key insight:** Each search chunk carries an `image_urls` array of blob paths. This is used twice:
-1. **Vision middleware** downloads the images and injects them as base64 `DataContent` into the LLM conversation — the LLM can *see* diagrams and screenshots.
+1. **Vision middleware** downloads the images and injects them as base64 `Content.from_data()` into the LLM conversation — the LLM can *see* diagrams and screenshots.
 2. **Search tool** converts the blob paths to `/api/images/...` proxy URLs in the tool result JSON — the LLM copies these URLs into its markdown output for the browser to render.
 
 ### Image URL Normalisation
@@ -240,10 +232,10 @@ Despite explicit system prompt instructions, LLMs generate image URLs in many cr
 | # | Decision | Rationale |
 |---|----------|-----------|
 | 1 | Two-service split (Agent + Web App) | Agent is a standalone Container App with its own managed identity and RBAC. Web app is a thin client — no agent logic, search code, or vision middleware. Clean separation of concerns. |
-| 2 | Microsoft Agent Framework | Provides `ChatAgent` with built-in tool calling, conversation threading, and Azure OpenAI integration — avoids manual Responses API loop management. |
+| 2 | Microsoft Agent Framework | Provides `Agent` with built-in tool calling, conversation threading, and Azure OpenAI integration — avoids manual Responses API loop management. |
 | 3 | Responses API integration | Web app calls agent via OpenAI SDK `client.responses.create()`. Standard protocol, local dev uses plain HTTP, deployed uses APIM proxy with Entra bearer token, streaming SSE. |
-| 4 | Vision middleware for image injection | `ChatMiddleware` intercepts tool results and injects images as `DataContent`. The framework auto-converts to OpenAI's vision format. The LLM can reason about visual content (diagrams, architecture charts) not just text descriptions — producing higher-fidelity answers. |
-| 5 | Cosmos DB conversation persistence | Serverless NoSQL with `/userId` partition key. Replaces in-memory-only thread storage. Supports conversation resume, history panel, and cross-session continuity. |
+| 4 | Vision middleware for image injection | `ChatMiddleware` intercepts tool results and injects images as `Content.from_data()`. The framework auto-converts to OpenAI's vision format. The LLM can reason about visual content (diagrams, architecture charts) not just text descriptions — producing higher-fidelity answers. |
+| 5 | Agent-owned conversation persistence | Agent persists `AgentSession` to Cosmos DB `agent-sessions` container (partition key `/id`) via `CosmosAgentSessionRepository`. Web app is a thin client — passes `conversation_id`, reads from same container for sidebar/resume. See [Agent Memory](agent-memory.md). |
 | 6 | Same-origin image proxy | Avoids SAS URL complexity (token expiry, CORS). Chainlit renders `![alt](/api/images/...)` as native markdown; browser fetches from same origin. Images persist across `msg.update()` re-renders. |
 | 7 | Post-processing normalisation (not base64 `<img>`) | Chainlit strips HTML `<img>` tags on `msg.update()`, causing grey boxes. Native markdown `![alt](url)` survives re-rendering. The normaliser ensures all URLs point to the proxy. |
 | 8 | Hybrid search | Best relevance — combines vector similarity and keyword matching. |
@@ -262,7 +254,7 @@ The solution deploys **six services**: 4 function Container Apps (one per pipeli
 
 #### Agent Deployment (Container App)
 
-- **Container image** built from `src/agent/Dockerfile` (Python 3.12, FastAPI + uvicorn, port 8088)
+- **Container image** built from `src/agent/Dockerfile` (Python 3.12, Starlette + uvicorn, port 8088)
 - **AZD service** defined in `azure.yaml` as `host: containerapp`, `language: python`
 - **Infrastructure** defined in `infra/modules/agent-container-app.bicep`: external HTTPS ingress with JWT auth, 1.0 CPU / 2 GiB memory, system-assigned managed identity
 - **RBAC** (Bicep-managed): Cognitive Services User + Azure AI User on AI Services, Search Index Data Reader + Search Service Contributor on AI Search, Storage Blob Data Reader on Serving Storage
@@ -325,6 +317,7 @@ Each service has its own identity with least-privilege roles.
 | Search Index Data Reader | AI Search | Query the `kb-articles` index |
 | Search Service Contributor | AI Search | Manage search indexes |
 | Storage Blob Data Reader | Serving Storage | Download article images for vision middleware |
+| Cosmos DB Built-in Data Contributor | Cosmos DB | Read/write agent sessions (conversation history) |
 | AcrPull | Container Registry | Pull the agent Docker image |
 
 **Web App Container App Managed Identity**:
@@ -333,7 +326,7 @@ Each service has its own identity with least-privilege roles.
 |------|----------|---------|
 | Cognitive Services OpenAI User | AI Services | Call agent via Responses API |
 | Storage Blob Data Reader | Serving Storage | Download article images via proxy |
-| Cosmos DB Built-in Data Contributor | Cosmos DB | Read/write conversation history |
+| Cosmos DB Built-in Data Contributor | Cosmos DB | Read/write sessions (steps, elements, sidebar) |
 | AcrPull | Container Registry | Pull Docker images |
 
 For infrastructure details, see [Infrastructure](../specs/infrastructure.md). For deployment epics, see [Epic 003](../epics/003-web-app-azure-deployment.md) and [Epic 005](../epics/005-hosted-agent-foundry.md).
@@ -557,7 +550,7 @@ After splitting by headers, each chunk is scanned for image references matching 
 
 ### Embedding
 
-Chunk text is embedded via the Azure AI Foundry embedding endpoint using `text-embedding-3-small` (1536 dimensions). The image descriptions are part of the chunk text, so they are vectorized naturally alongside the surrounding content — no separate image embedding is needed.
+Chunk text is embedded via the Microsoft Foundry embedding endpoint using `text-embedding-3-small` (1536 dimensions). The image descriptions are part of the chunk text, so they are vectorized naturally alongside the surrounding content — no separate image embedding is needed.
 
 ### How It Works for an Agent
 
@@ -733,7 +726,7 @@ The agent emits OpenTelemetry traces, metrics, and logs for full end-to-end visi
 ### Telemetry Pipeline
 
 ```
-Agent (FastAPI)                        Azure Monitor
+Agent (Starlette)                      Azure Monitor
 ────────────────                       ──────────────
 configure_otel_providers()
     ├── TracerProvider ─── OTLP / AzMon ──→ Application Insights
@@ -810,7 +803,7 @@ When deployed to Foundry, `APPLICATIONINSIGHTS_CONNECTION_STRING` is set automat
 | `azure-identity` | All | Azure authentication (DefaultAzureCredential) |
 | `azure-storage-blob` | All | Read from staging, write to serving blob containers |
 | `azure-search-documents` | `fn_index` | Push chunks to AI Search index |
-| `azure-ai-inference` | `fn_index` | Call Azure Foundry embedding model |
+| `azure-ai-inference` | `fn_index` | Call Foundry embedding model |
 | `beautifulsoup4` | `fn_convert_cu`, `fn_convert_mistral` | HTML DOM parsing for image/link extraction |
 | `python-dotenv` | All | Environment configuration |
 | `playwright` | `fn_convert_mistral` | HTML → PDF rendering (headless Chromium) |

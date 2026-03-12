@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------------
 // Module: cosmos-db.bicep
-// Deploys Azure Cosmos DB (NoSQL API, serverless) for conversation history.
+// Deploys Azure Cosmos DB (NoSQL API, serverless) for agent session persistence.
 // ---------------------------------------------------------------------------
 
 @description('Azure region for resources')
@@ -64,16 +64,16 @@ resource database 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2024-05-15
 }
 
 // ---------------------------------------------------------------------------
-// Container: conversations (partition key: /userId)
+// Container: agent-sessions (partition key: /id)
 // ---------------------------------------------------------------------------
-resource conversationsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-05-15' = {
+resource agentSessionsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-05-15' = {
   parent: database
-  name: 'conversations'
+  name: 'agent-sessions'
   properties: {
     resource: {
-      id: 'conversations'
+      id: 'agent-sessions'
       partitionKey: {
-        paths: ['/userId']
+        paths: ['/id']
         kind: 'Hash'
       }
       indexingPolicy: {
@@ -82,11 +82,11 @@ resource conversationsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDataba
           { path: '/*' }
         ]
         excludedPaths: [
-          { path: '/messages/*' }
+          { path: '/state/*' }
           { path: '/"_etag"/?' }
         ]
       }
-      defaultTtl: -1 // No TTL — conversations persist indefinitely
+      defaultTtl: -1 // No TTL — sessions persist indefinitely
     }
   }
 }

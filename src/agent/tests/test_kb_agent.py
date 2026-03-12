@@ -16,6 +16,7 @@ from agent.kb_agent import (
     search_knowledge_base,
 )
 from agent.search_tool import SearchResult
+from agent_framework._sessions import InMemoryHistoryProvider
 
 
 # ---------------------------------------------------------------------------
@@ -158,7 +159,7 @@ class TestSearchKnowledgeBaseTool:
 class TestCreateAgent:
     """Test the create_agent factory function."""
 
-    @patch("agent.kb_agent.ChatAgent")
+    @patch("agent.kb_agent.Agent")
     @patch("agent.kb_agent.AzureOpenAIChatClient")
     @patch("agent.kb_agent.DefaultAzureCredential")
     def test_returns_chat_agent(
@@ -167,7 +168,7 @@ class TestCreateAgent:
         mock_client_cls: MagicMock,
         mock_agent_cls: MagicMock,
     ) -> None:
-        """create_agent() returns a ChatAgent instance."""
+        """create_agent() returns an Agent instance."""
         mock_agent_instance = MagicMock()
         mock_agent_cls.return_value = mock_agent_instance
 
@@ -178,7 +179,7 @@ class TestCreateAgent:
         mock_client_cls.assert_called_once()
         mock_agent_cls.assert_called_once()
 
-    @patch("agent.kb_agent.ChatAgent")
+    @patch("agent.kb_agent.Agent")
     @patch("agent.kb_agent.AzureOpenAIChatClient")
     @patch("agent.kb_agent.DefaultAzureCredential")
     def test_agent_has_search_tool(
@@ -193,7 +194,7 @@ class TestCreateAgent:
         call_kwargs = mock_agent_cls.call_args
         assert search_knowledge_base in call_kwargs.kwargs["tools"]
 
-    @patch("agent.kb_agent.ChatAgent")
+    @patch("agent.kb_agent.Agent")
     @patch("agent.kb_agent.AzureOpenAIChatClient")
     @patch("agent.kb_agent.DefaultAzureCredential")
     def test_agent_name(
@@ -208,7 +209,7 @@ class TestCreateAgent:
         call_kwargs = mock_agent_cls.call_args
         assert call_kwargs.kwargs["name"] == "KBSearchAgent"
 
-    @patch("agent.kb_agent.ChatAgent")
+    @patch("agent.kb_agent.Agent")
     @patch("agent.kb_agent.AzureOpenAIChatClient")
     @patch("agent.kb_agent.DefaultAzureCredential")
     def test_client_uses_vision_middleware(
@@ -226,7 +227,7 @@ class TestCreateAgent:
         from agent.vision_middleware import VisionImageMiddleware
         assert isinstance(middleware[0], VisionImageMiddleware)
 
-    @patch("agent.kb_agent.ChatAgent")
+    @patch("agent.kb_agent.Agent")
     @patch("agent.kb_agent.AzureOpenAIChatClient")
     @patch("agent.kb_agent.get_bearer_token_provider")
     @patch("agent.kb_agent.DefaultAzureCredential")
@@ -237,7 +238,7 @@ class TestCreateAgent:
         mock_client_cls: MagicMock,
         mock_agent_cls: MagicMock,
     ) -> None:
-        """create_agent() uses ad_token_provider with DefaultAzureCredential."""
+        """create_agent() uses credential with DefaultAzureCredential."""
         create_agent()
 
         mock_credential.assert_called_once()
@@ -246,10 +247,27 @@ class TestCreateAgent:
             "https://cognitiveservices.azure.com/.default",
         )
         client_kwargs = mock_client_cls.call_args.kwargs
-        assert client_kwargs["ad_token_provider"] is mock_token_provider.return_value
+        assert client_kwargs["credential"] is mock_token_provider.return_value
+
+    @patch("agent.kb_agent.Agent")
+    @patch("agent.kb_agent.AzureOpenAIChatClient")
+    @patch("agent.kb_agent.DefaultAzureCredential")
+    def test_agent_has_context_providers(
+        self,
+        mock_credential: MagicMock,
+        mock_client_cls: MagicMock,
+        mock_agent_cls: MagicMock,
+    ) -> None:
+        """create_agent() configures InMemoryHistoryProvider as context provider."""
+        create_agent()
+
+        call_kwargs = mock_agent_cls.call_args.kwargs
+        providers = call_kwargs["context_providers"]
+        assert len(providers) == 1
+        assert isinstance(providers[0], InMemoryHistoryProvider)
 
     @patch.dict(os.environ, {"AZURE_OPENAI_API_KEY": "test-key-123"})
-    @patch("agent.kb_agent.ChatAgent")
+    @patch("agent.kb_agent.Agent")
     @patch("agent.kb_agent.AzureOpenAIChatClient")
     def test_uses_api_key_when_provided(
         self,
@@ -262,3 +280,104 @@ class TestCreateAgent:
         client_kwargs = mock_client_cls.call_args.kwargs
         assert client_kwargs["api_key"] == "test-key-123"
         assert "credential" not in client_kwargs
+
+
+# ---------------------------------------------------------------------------
+# SDK rc3 upgrade validation — verifies new class/kwarg names
+# ---------------------------------------------------------------------------
+
+
+class TestSDKUpgradeValidation:
+    """Verify the SDK rc3 upgrade: Agent (not ChatAgent), client= (not chat_client=), etc."""
+
+    def test_imports_agent_not_chat_agent(self) -> None:
+        """Module imports Agent from agent_framework, not ChatAgent."""
+        from agent import kb_agent
+
+        assert hasattr(kb_agent, "Agent")
+        # Verify the imported Agent comes from agent_framework
+        from agent_framework import Agent
+
+        assert kb_agent.Agent is Agent
+
+    def test_imports_content_not_old_classes(self) -> None:
+        """Vision middleware imports Content (unified), not legacy content classes."""
+        from agent import vision_middleware
+
+        from agent_framework import Content
+
+        assert vision_middleware.Content is Content
+
+    def test_imports_message_not_chat_message(self) -> None:
+        """Vision middleware imports Message, not ChatMessage."""
+        from agent import vision_middleware
+
+        from agent_framework import Message
+
+        assert vision_middleware.Message is Message
+
+    @patch("agent.kb_agent.Agent")
+    @patch("agent.kb_agent.AzureOpenAIChatClient")
+    @patch("agent.kb_agent.DefaultAzureCredential")
+    def test_agent_instantiated_with_client_kwarg(
+        self,
+        mock_credential: MagicMock,
+        mock_client_cls: MagicMock,
+        mock_agent_cls: MagicMock,
+    ) -> None:
+        """create_agent() passes client= (not chat_client=) to Agent."""
+        create_agent()
+
+        agent_kwargs = mock_agent_cls.call_args.kwargs
+        assert "client" in agent_kwargs
+        assert "chat_client" not in agent_kwargs
+        assert agent_kwargs["client"] is mock_client_cls.return_value
+
+    @patch("agent.kb_agent.Agent")
+    @patch("agent.kb_agent.AzureOpenAIChatClient")
+    @patch("agent.kb_agent.get_bearer_token_provider")
+    @patch("agent.kb_agent.DefaultAzureCredential")
+    def test_credential_path_uses_credential_kwarg(
+        self,
+        mock_credential: MagicMock,
+        mock_token_provider: MagicMock,
+        mock_client_cls: MagicMock,
+        mock_agent_cls: MagicMock,
+    ) -> None:
+        """Credential path uses credential= (not ad_token_provider=) on the client."""
+        create_agent()
+
+        client_kwargs = mock_client_cls.call_args.kwargs
+        assert "credential" in client_kwargs
+        assert "ad_token_provider" not in client_kwargs
+
+    @patch.dict(os.environ, {"AZURE_OPENAI_API_KEY": "key-456"})
+    @patch("agent.kb_agent.Agent")
+    @patch("agent.kb_agent.AzureOpenAIChatClient")
+    def test_api_key_path_does_not_use_credential_kwarg(
+        self,
+        mock_client_cls: MagicMock,
+        mock_agent_cls: MagicMock,
+    ) -> None:
+        """API key path uses api_key=, not credential=."""
+        create_agent()
+
+        client_kwargs = mock_client_cls.call_args.kwargs
+        assert "api_key" in client_kwargs
+        assert client_kwargs["api_key"] == "key-456"
+
+    @patch("agent.kb_agent.Agent")
+    @patch("agent.kb_agent.AzureOpenAIChatClient")
+    @patch("agent.kb_agent.DefaultAzureCredential")
+    def test_agent_has_instructions(
+        self,
+        mock_credential: MagicMock,
+        mock_client_cls: MagicMock,
+        mock_agent_cls: MagicMock,
+    ) -> None:
+        """Agent receives instructions (system prompt)."""
+        create_agent()
+
+        agent_kwargs = mock_agent_cls.call_args.kwargs
+        assert "instructions" in agent_kwargs
+        assert agent_kwargs["instructions"] == _SYSTEM_PROMPT

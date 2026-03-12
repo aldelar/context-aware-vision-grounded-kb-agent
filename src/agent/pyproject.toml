@@ -4,18 +4,19 @@ version = "0.1.0"
 description = "KB Search Agent — hosted agent on Microsoft Foundry with vision-grounded search"
 requires-python = ">=3.11"
 dependencies = [
-    "agent-framework-core>=1.0.0b260107",
-    "agent-framework-azure-ai>=1.0.0b260107",
-    "azure-ai-agentserver-agentframework>=1.0.0b14",
+    "agent-framework-core>=1.0.0rc3",
+    "agent-framework-azure-ai>=1.0.0rc3",
+    "azure-ai-agentserver-agentframework>=1.0.0b16",
     "azure-identity>=1.19.0",
     "azure-search-documents>=11.6.0",
     "azure-ai-inference>=1.0.0b1",
+    "azure-cosmos>=4.9.0",
     "azure-storage-blob>=12.24.0",
     "azure-monitor-opentelemetry>=1.8.0",
     "opentelemetry-sdk>=1.20.0",
     "azure-core-tracing-opentelemetry>=1.0.0b12",
     "python-dotenv>=1.0.0",
-    "starlette<1.0",
+    "starlette>=1.0.0rc1,<2.0.0",
     "PyJWT[crypto]>=2.8.0",
 ]
 

@@ -2,10 +2,11 @@
 
 When the ``search_knowledge_base`` tool returns results that include image
 references, this :class:`ChatMiddleware` downloads the actual image bytes and
-appends them to the conversation as a user message with ``DataContent`` items.
+appends them to the conversation as a user message with ``Content.from_data()``
+items.
 
 The OpenAI chat client in the agent framework automatically converts
-``DataContent`` with image media types into the ``image_url`` content parts
+``Content`` items with image media types into the ``image_url`` content parts
 that GPT-4.1's vision endpoint expects, so the model can *see* diagrams,
 architecture charts, and other visuals — not just the text descriptions.
 """
@@ -16,9 +17,8 @@ import json
 import logging
 from urllib.parse import unquote
 
-from agent_framework import ChatMessage
+from agent_framework import Content, Message
 from agent_framework._middleware import ChatContext, ChatMiddleware
-from agent_framework._types import DataContent, FunctionResultContent, TextContent
 
 from agent.image_service import download_image
 
@@ -35,10 +35,10 @@ class VisionImageMiddleware(ChatMiddleware):
     This middleware intercepts the chat messages *after* the search tool has
     returned results and *before* the LLM generates its final answer.  It:
 
-    1. Scans messages for ``FunctionResultContent`` containing image URLs.
+    1. Scans messages for ``Content`` items where ``.type == "function_result"``.
     2. Downloads the referenced images from blob storage.
-    3. Appends a user message with the images as ``DataContent`` (base64 data
-       URIs) so the model receives them as vision inputs.
+    3. Appends a user message with the images as ``Content.from_data()`` items
+       (base64 data URIs) so the model receives them as vision inputs.
 
     Images are deduplicated by their blob path and capped at
     ``MAX_VISION_IMAGES`` to keep token usage reasonable.
@@ -46,12 +46,12 @@ class VisionImageMiddleware(ChatMiddleware):
 
     async def process(self, context: ChatContext, next) -> None:  # noqa: A002
         """Intercept and inject images before the LLM call."""
-        image_items: list[DataContent] = []
+        image_items: list[Content] = []
         seen_paths: set[str] = set()
 
         for msg in context.messages:
             for content in msg.contents:
-                if not isinstance(content, FunctionResultContent):
+                if content.type != "function_result":
                     continue
                 if content.result is None:
                     continue
@@ -105,7 +105,7 @@ class VisionImageMiddleware(ChatMiddleware):
                             continue
 
                         image_items.append(
-                            DataContent(data=blob.data, media_type=blob.content_type)
+                            Content.from_data(data=blob.data, media_type=blob.content_type)
                         )
                         logger.info(
                             "Vision: attached %s (%d bytes, %s)",
@@ -116,15 +116,13 @@ class VisionImageMiddleware(ChatMiddleware):
 
         if image_items:
             # Append a user message with the images so the LLM can see them
-            vision_msg = ChatMessage(
+            vision_msg = Message(
                 role="user",
                 contents=[
-                    TextContent(
-                        text=(
-                            "[System] The images referenced in the search results "
-                            "are attached below. Use them to provide more accurate "
-                            "and visually-informed answers when relevant."
-                        )
+                    Content.from_text(
+                        "[System] The images referenced in the search results "
+                        "are attached below. Use them to provide more accurate "
+                        "and visually-informed answers when relevant."
                     ),
                     *image_items,
                 ],
@@ -135,4 +133,4 @@ class VisionImageMiddleware(ChatMiddleware):
                 len(image_items),
             )
 
-        await next(context)
+        await next()

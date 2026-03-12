@@ -1,7 +1,7 @@
 """KB Agent — entry point for both local development and Foundry deployment.
 
 Uses the ``from_agent_framework`` adapter from the Azure AI Agent Server SDK
-to run the ChatAgent as an HTTP server on port 8088.  The adapter handles:
+to run the Agent as an HTTP server on port 8088.  The adapter handles:
 
 - The Responses protocol (``/responses`` endpoint)
 - SSE streaming (``agent.run_stream`` → Server-Sent Events)
@@ -68,11 +68,23 @@ def main() -> None:
     logger.info("[KB-AGENT] Starting agent server (port 8088)…")
 
     from agent.kb_agent import create_agent
+    from agent.session_repository import CosmosAgentSessionRepository
+    from agent.config import config
 
     agent = create_agent()
     logger.info("[KB-AGENT] Agent created, starting server…")
 
-    server = from_agent_framework(agent)
+    session_repo = None
+    if config.cosmos_endpoint:
+        session_repo = CosmosAgentSessionRepository(
+            endpoint=config.cosmos_endpoint,
+            database_name=config.cosmos_database_name,
+        )
+        logger.info("[KB-AGENT] Session persistence enabled (Cosmos DB)")
+    else:
+        logger.info("[KB-AGENT] Session persistence disabled (no COSMOS_ENDPOINT)")
+
+    server = from_agent_framework(agent, session_repository=session_repo)
     from middleware.jwt_auth import JWTAuthMiddleware
 
     server.app.add_middleware(JWTAuthMiddleware)

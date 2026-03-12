@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "633671766532000272"
+      "templateHash": "18121916158307261251"
     }
   },
   "parameters": {
@@ -102,6 +102,9 @@
           },
           "deployerPrincipalId": {
             "value": "[parameters('principalId')]"
+          },
+          "aiServicesPrincipalId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'ai-services'), '2025-04-01').outputs.aiServicesPrincipalId.value]"
           }
         },
         "template": {
@@ -111,7 +114,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "13418601866703008419"
+              "templateHash": "4564158901473868486"
             }
           },
           "parameters": {
@@ -139,6 +142,13 @@
               "defaultValue": "",
               "metadata": {
                 "description": "Principal ID of the deployer (human user) for Log Analytics Reader role on App Insights"
+              }
+            },
+            "aiServicesPrincipalId": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Principal ID of the AI Services managed identity — needs Log Analytics Reader so Foundry can query traces"
               }
             }
           },
@@ -188,6 +198,21 @@
               "dependsOn": [
                 "[resourceId('Microsoft.Insights/components', format('appi-{0}', parameters('baseName')))]"
               ]
+            },
+            {
+              "condition": "[not(empty(parameters('aiServicesPrincipalId')))]",
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.Insights/components', format('appi-{0}', parameters('baseName')))]",
+              "name": "[guid(resourceId('Microsoft.Insights/components', format('appi-{0}', parameters('baseName'))), parameters('aiServicesPrincipalId'), variables('logAnalyticsReaderRoleId'))]",
+              "properties": {
+                "principalId": "[parameters('aiServicesPrincipalId')]",
+                "principalType": "ServicePrincipal",
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('logAnalyticsReaderRoleId'))]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Insights/components', format('appi-{0}', parameters('baseName')))]"
+              ]
             }
           ],
           "outputs": {
@@ -213,7 +238,10 @@
             }
           }
         }
-      }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'ai-services')]"
+      ]
     },
     {
       "type": "Microsoft.Resources/deployments",
@@ -2691,7 +2719,7 @@
             "value": "[parameters('entraClientSecret')]"
           },
           "agentEndpoint": {
-            "value": "[format('http://agent-{0}.internal.{1}', variables('baseName'), reference(resourceId('Microsoft.Resources/deployments', 'container-apps-env'), '2025-04-01').outputs.containerAppsEnvDefaultDomain.value)]"
+            "value": "[format('{0}/kb-agent', reference(resourceId('Microsoft.Resources/deployments', 'apim'), '2025-04-01').outputs.apimGatewayUrl.value)]"
           },
           "cosmosEndpoint": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'cosmos-db'), '2025-04-01').outputs.cosmosEndpoint.value]"
@@ -2707,7 +2735,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "12935231955892527279"
+              "templateHash": "8732513707182585325"
             }
           },
           "parameters": {
@@ -2870,12 +2898,7 @@
                     "transport": "auto",
                     "allowInsecure": false
                   },
-                  "registries": [
-                    {
-                      "server": "[parameters('acrLoginServer')]",
-                      "identity": "system"
-                    }
-                  ]
+                  "registries": "[if(variables('useAcrImage'), createArray(createObject('server', parameters('acrLoginServer'), 'identity', 'system')), createArray())]"
                 },
                 "template": {
                   "containers": [
@@ -3023,6 +3046,7 @@
       },
       "dependsOn": [
         "[resourceId('Microsoft.Resources/deployments', 'ai-services')]",
+        "[resourceId('Microsoft.Resources/deployments', 'apim')]",
         "[resourceId('Microsoft.Resources/deployments', 'container-apps-env')]",
         "[resourceId('Microsoft.Resources/deployments', 'container-registry')]",
         "[resourceId('Microsoft.Resources/deployments', 'cosmos-db')]",
@@ -3072,7 +3096,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "5342550864311632818"
+              "templateHash": "12169589462026515630"
             }
           },
           "parameters": {
@@ -3226,7 +3250,7 @@
               "properties": {
                 "category": "ApiManagement",
                 "target": "[parameters('apimResourceId')]",
-                "authType": "None",
+                "authType": "AAD",
                 "isSharedToAll": true,
                 "metadata": {
                   "ApiType": "Azure",
@@ -3312,6 +3336,12 @@
           },
           "applicationInsightsConnectionString": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring'), '2025-04-01').outputs.appInsightsConnectionString.value]"
+          },
+          "cosmosEndpoint": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'cosmos-db'), '2025-04-01').outputs.cosmosEndpoint.value]"
+          },
+          "cosmosDatabaseName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'cosmos-db'), '2025-04-01').outputs.cosmosDatabaseName.value]"
           }
         },
         "template": {
@@ -3321,7 +3351,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "12789111319920632466"
+              "templateHash": "2036137561180722176"
             }
           },
           "parameters": {
@@ -3432,6 +3462,20 @@
               "metadata": {
                 "description": "Application Insights connection string"
               }
+            },
+            "cosmosEndpoint": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Cosmos DB endpoint"
+              }
+            },
+            "cosmosDatabaseName": {
+              "type": "string",
+              "defaultValue": "kb-agent",
+              "metadata": {
+                "description": "Cosmos DB database name"
+              }
             }
           },
           "variables": {
@@ -3460,12 +3504,7 @@
                     "transport": "auto",
                     "allowInsecure": false
                   },
-                  "registries": [
-                    {
-                      "server": "[parameters('acrLoginServer')]",
-                      "identity": "system"
-                    }
-                  ]
+                  "registries": "[if(variables('useAcrImage'), createArray(createObject('server', parameters('acrLoginServer'), 'identity', 'system')), createArray())]"
                 },
                 "template": {
                   "containers": [
@@ -3512,6 +3551,14 @@
                         {
                           "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
                           "value": "[parameters('applicationInsightsConnectionString')]"
+                        },
+                        {
+                          "name": "COSMOS_ENDPOINT",
+                          "value": "[parameters('cosmosEndpoint')]"
+                        },
+                        {
+                          "name": "COSMOS_DATABASE_NAME",
+                          "value": "[parameters('cosmosDatabaseName')]"
                         },
                         {
                           "name": "OTEL_SERVICE_NAME",
@@ -3570,6 +3617,7 @@
         "[resourceId('Microsoft.Resources/deployments', 'ai-services')]",
         "[resourceId('Microsoft.Resources/deployments', 'container-apps-env')]",
         "[resourceId('Microsoft.Resources/deployments', 'container-registry')]",
+        "[resourceId('Microsoft.Resources/deployments', 'cosmos-db')]",
         "[resourceId('Microsoft.Resources/deployments', 'foundry-project')]",
         "[resourceId('Microsoft.Resources/deployments', 'monitoring')]",
         "[resourceId('Microsoft.Resources/deployments', 'search')]",
@@ -3841,7 +3889,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "4087374710471150103"
+              "templateHash": "3170857097577514367"
             }
           },
           "parameters": {
@@ -3899,7 +3947,12 @@
                 ],
                 "disableLocalAuth": true,
                 "minimalTlsVersion": "Tls12",
-                "publicNetworkAccess": "Enabled"
+                "publicNetworkAccess": "Enabled",
+                "ipRules": [
+                  {
+                    "ipAddressOrRange": "0.0.0.0"
+                  }
+                ]
               }
             },
             {
@@ -3918,13 +3971,13 @@
             {
               "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers",
               "apiVersion": "2024-05-15",
-              "name": "[format('{0}/{1}/{2}', format('cosmos-{0}', parameters('baseName')), parameters('databaseName'), 'conversations')]",
+              "name": "[format('{0}/{1}/{2}', format('cosmos-{0}', parameters('baseName')), parameters('databaseName'), 'agent-sessions')]",
               "properties": {
                 "resource": {
-                  "id": "conversations",
+                  "id": "agent-sessions",
                   "partitionKey": {
                     "paths": [
-                      "/userId"
+                      "/id"
                     ],
                     "kind": "Hash"
                   },
@@ -3937,7 +3990,7 @@
                     ],
                     "excludedPaths": [
                       {
-                        "path": "/messages/*"
+                        "path": "/state/*"
                       },
                       {
                         "path": "/\"_etag\"/?"
@@ -6789,6 +6842,68 @@
       },
       "dependsOn": [
         "[resourceId('Microsoft.Resources/deployments', 'container-app')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "cosmos-db-agent-role",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "baseName": {
+            "value": "[variables('baseName')]"
+          },
+          "principalId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'agent-container-app'), '2025-04-01').outputs.agentPrincipalId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "6710830485684391552"
+            }
+          },
+          "parameters": {
+            "baseName": {
+              "type": "string",
+              "metadata": {
+                "description": "Base name used for resource naming"
+              }
+            },
+            "principalId": {
+              "type": "string",
+              "metadata": {
+                "description": "Principal ID to grant Cosmos DB Built-in Data Contributor role"
+              }
+            }
+          },
+          "variables": {
+            "cosmosDataContributorRoleId": "00000000-0000-0000-0000-000000000002"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments",
+              "apiVersion": "2024-05-15",
+              "name": "[format('{0}/{1}', format('cosmos-{0}', parameters('baseName')), guid(resourceId('Microsoft.DocumentDB/databaseAccounts', format('cosmos-{0}', parameters('baseName'))), parameters('principalId'), variables('cosmosDataContributorRoleId')))]",
+              "properties": {
+                "principalId": "[parameters('principalId')]",
+                "roleDefinitionId": "[format('{0}/sqlRoleDefinitions/{1}', resourceId('Microsoft.DocumentDB/databaseAccounts', format('cosmos-{0}', parameters('baseName'))), variables('cosmosDataContributorRoleId'))]",
+                "scope": "[resourceId('Microsoft.DocumentDB/databaseAccounts', format('cosmos-{0}', parameters('baseName')))]"
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'agent-container-app')]"
       ]
     },
     {

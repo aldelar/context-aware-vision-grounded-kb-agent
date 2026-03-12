@@ -1,6 +1,6 @@
 """KB Search Agent — conversational agent using Microsoft Agent Framework.
 
-Uses gpt-4.1 via ``AzureOpenAIChatClient`` and ``ChatAgent`` with a single
+Uses gpt-4.1 via ``AzureOpenAIChatClient`` and ``Agent`` with a single
 ``search_knowledge_base`` function tool to answer knowledge-base questions
 grounded in Azure AI Search results.
 
@@ -16,7 +16,8 @@ from dataclasses import dataclass, field
 from typing import Annotated
 
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
-from agent_framework import ChatAgent
+from agent_framework import Agent
+from agent_framework._sessions import InMemoryHistoryProvider
 from agent_framework.azure import AzureOpenAIChatClient
 
 from agent.search_tool import SearchResult, search_kb
@@ -130,14 +131,14 @@ def search_knowledge_base(
 # Agent factory — used by the hosting adapter
 # ---------------------------------------------------------------------------
 
-def create_agent() -> ChatAgent:
-    """Create and return a configured ChatAgent instance.
+def create_agent() -> Agent:
+    """Create and return a configured Agent instance.
 
     This factory is the entry point for the hosting adapter (``main.py``).
     It creates the ``AzureOpenAIChatClient`` with ``DefaultAzureCredential``
     (which includes WorkloadIdentityCredential for Foundry hosted agents,
     ManagedIdentityCredential, AzureCliCredential for local dev, etc.)
-    and returns a ``ChatAgent`` configured with the search tool and
+    and returns an ``Agent`` configured with the search tool and
     vision middleware.
     """
     # Use API key if provided (local dev), otherwise credential chain
@@ -160,19 +161,20 @@ def create_agent() -> ChatAgent:
             credential, "https://cognitiveservices.azure.com/.default"
         )
         client = AzureOpenAIChatClient(
-            ad_token_provider=token_provider,
+            credential=token_provider,
             endpoint=config.ai_services_endpoint,
             deployment_name=config.agent_model_deployment_name,
             api_version="2025-03-01-preview",
             middleware=[VisionImageMiddleware()],
         )
 
-    agent = ChatAgent(
-        chat_client=client,
+    agent = Agent(
+        client=client,
         id=os.environ.get("OTEL_SERVICE_NAME", "kb-agent"),
         name="KBSearchAgent",
         instructions=_SYSTEM_PROMPT,
         tools=[search_knowledge_base],
+        context_providers=[InMemoryHistoryProvider()],
     )
     logger.info(
         "Created KBSearchAgent (model=%s, endpoint=%s)",

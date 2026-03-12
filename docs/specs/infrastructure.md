@@ -1,6 +1,6 @@
 # Infrastructure
 
-> **Status:** Updated — July 14, 2026
+> **Status:** Updated — March 12, 2026
 
 ## Overview
 
@@ -45,7 +45,7 @@ All resources follow the pattern `{prefix}-{projectName}-{env}` (e.g., `func-{pr
 | API Management (AI Gateway) | `apim.bicep` | `apim-{project}-{env}` | BasicV2 |
 | Cosmos DB (NoSQL) | `cosmos-db.bicep` | `cosmos-{project}-{env}` | Serverless |
 | → Database | `cosmos-db.bicep` | `kb-agent` | — |
-| → Container | `cosmos-db.bicep` | `conversations` | Partition key `/userId` |
+| → Container | `cosmos-db.bicep` | `agent-sessions` | Partition key `/id` |
 | Entra App Registration | Pre-provision hook | `webapp-{project}-{env}` | — |
 
 > `{project}` is the `PROJECT_NAME` (default `{project}`). `{env}` is the `AZURE_ENV_NAME` (e.g., `dev`, `staging`, `prod`).
@@ -64,7 +64,7 @@ infra/
     ├── ai-services.bicep           # AI Services account + model deployments + RBAC
     ├── search.bicep                # AI Search service + RBAC
     ├── foundry-project.bicep       # Foundry project (tracing + registration only — no ACR connection or capability host)
-    ├── cosmos-db.bicep             # Cosmos DB NoSQL (serverless) — database + conversations container
+    ├── cosmos-db.bicep             # Cosmos DB NoSQL (serverless) — database + agent-sessions container
     ├── cosmos-db-role.bicep        # Cosmos DB Built-in Data Contributor role assignment
     ├── function-app.bicep          # Reusable Functions Container App module (called 4×, one per function)
     ├── container-registry.bicep    # Azure Container Registry (Basic) + AcrPull RBAC
@@ -249,7 +249,7 @@ The project also has an APIM connection resource (`apim-connection`) linking it 
 
 ### Cosmos DB (`cosmos-db.bicep`)
 
-Serverless NoSQL database for conversation persistence. The web app stores all conversation history here (threads, messages, user metadata).
+Serverless NoSQL database for agent session persistence. The agent writes session state (conversation history); the web app reads sessions for the sidebar and writes steps/elements for UI fidelity. See [Agent Memory](agent-memory.md) for the full schema.
 
 | Setting | Value |
 |---------|-------|
@@ -257,10 +257,10 @@ Serverless NoSQL database for conversation persistence. The web app stores all c
 | Capability | `EnableServerless` |
 | Consistency | Session |
 | Database | `kb-agent` |
-| Container | `conversations` (partition key: `/userId`) |
+| Container | `agent-sessions` (partition key: `/id`) |
 | Public Network | Enabled |
 
-The `cosmos-db-role.bicep` module assigns the **Cosmos DB Built-in Data Contributor** role (role ID `00000000-0000-0000-0000-000000000002`) to a specified principal (the web app Container App identity).
+The `cosmos-db-role.bicep` module assigns the **Cosmos DB Built-in Data Contributor** role (role ID `00000000-0000-0000-0000-000000000002`) to a specified principal. Called twice: once for the web app Container App identity and once for the agent Container App identity.
 
 ### Container Apps Environment (`container-apps-env.bicep`)
 
@@ -290,7 +290,7 @@ Hosts the web app as a containerized Chainlit application with Entra ID Easy Aut
 | Setting | Source | Purpose |
 |---------|--------|---------|
 | `AGENT_ENDPOINT` | Agent Container App internal FQDN | Agent Responses API base URL |
-| `AI_SERVICES_ENDPOINT` | AI Services endpoint | Azure AI Foundry (token auth) |
+| `AI_SERVICES_ENDPOINT` | AI Services endpoint | Microsoft Foundry (token auth) |
 | `SERVING_BLOB_ENDPOINT` | Serving storage blob endpoint | Article images for proxy |
 | `SERVING_CONTAINER_NAME` | `serving` | Blob container name |
 | `COSMOS_ENDPOINT` | Cosmos DB endpoint | Conversation persistence |

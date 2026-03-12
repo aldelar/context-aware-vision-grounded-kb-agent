@@ -68,11 +68,12 @@ Teams and organizations that:
 │   └── serving_mistral-doc-ai/          Convert output from Mistral Document AI pipeline
 ├── scripts/
 │   ├── dev-setup.sh     Dev environment setup
-│   ├── publish-agent.sh Publish Foundry agent + assign RBAC
+│   ├── register-agent.sh       Register agent in Foundry portal (via APIM gateway)
+│   ├── configure-app-agent-endpoint.sh  Set web app agent endpoint after registration
 │   └── functions/       Shell scripts to run fn-convert / fn-index locally
 ├── src/
-│   ├── agent/           KB Agent — standalone Foundry hosted agent (FastAPI + uvicorn)
-│   │   ├── main.py      FastAPI server exposing Responses API (port 8088)
+│   ├── agent/           KB Agent — standalone Container App (Starlette + uvicorn)
+│   │   ├── main.py      Agent server exposing Responses API (port 8088)
 │   │   ├── agent/       Agent modules (kb_agent, search_tool, vision_middleware, image_service)
 │   │   └── tests/       pytest test suite
 │   ├── functions/       Azure Functions — 4 independent Container Apps (one per function)
@@ -95,7 +96,7 @@ Teams and organizations that:
 
 ## Architecture
 
-The solution has two layers: a **two-stage ingestion pipeline** (4 independent function Container Apps) that builds an image-aware search index, and a **conversational agent** deployed as a **Foundry hosted agent** that can see and reason about the actual images. A **Chainlit thin client** calls the agent via the Responses API and stores conversation history in **Cosmos DB**.
+The solution has two layers: a **two-stage ingestion pipeline** (4 independent function Container Apps) that builds an image-aware search index, and a **conversational agent** deployed as an **Azure Container App** (with Foundry integration for tracing and registration) that can see and reason about the actual images. A **Chainlit thin client** calls the agent via the Responses API through an APIM AI Gateway, and conversation history is persisted in **Cosmos DB** (agent-owned via the Agent Framework's session persistence).
 
 ```mermaid
 flowchart LR
@@ -103,11 +104,7 @@ flowchart LR
         direction TB
         subgraph Pipeline["Ingestion Pipeline"]
             direction TB
-            subgraph Converters["Converters — 3 Container Apps"]
-                CVT_CU["fn_convert_cu<br/>CU → MD"]
-                CVT_MIS["fn_convert_mistral<br/>Mistral → MD"]
-                CVT_MIT["fn_convert_markitdown<br/>MarkItDown → MD"]
-            end
+            CVT["fn_convert ✱<br/>HTML → MD"]
             IDX["fn_index<br/>MD → index"]
         end
         subgraph Sources["Storage"]
@@ -121,15 +118,16 @@ flowchart LR
         direction TB
         subgraph Center["AI Services"]
             direction TB
-            AF["AI Foundry<br/>GPT-4.1 + Embeddings"]
+            AF["Foundry<br/>GPT-4.1 + Embeddings"]
             AIS["AI Search<br/>kb-articles index"]
-            COSMOS["Cosmos DB<br/>Conversation history"]
+            COSMOS["Cosmos DB<br/>Agent sessions"]
         end
-        subgraph AgentSvc["KB Agent — Foundry Hosted Agent"]
+        subgraph AgentSvc["KB Agent — Container App"]
             direction TB
             AGENT["<b>ChatAgent</b><br/>search tool + reasoning"]
             VIS["<b>Vision Middleware</b><br/>Image injection"]
         end
+        APIM["APIM<br/>AI Gateway"]
         subgraph WebApp["Web App — Container Apps"]
             direction TB
             PROXY["<b>Image Proxy</b><br/>/api/images/*"]
@@ -137,12 +135,8 @@ flowchart LR
         end
     end
 
-    CVT_CU -->|read| SA1
-    CVT_CU -->|write| SA2
-    CVT_MIS -->|read| SA1
-    CVT_MIS -->|write| SA2
-    CVT_MIT -->|read| SA1
-    CVT_MIT -->|write| SA2
+    CVT -->|read| SA1
+    CVT -->|write| SA2
     IDX -->|read| SA2
 
     IDX -->|embed| AF
@@ -150,19 +144,19 @@ flowchart LR
 
     AGENT -->|reason| AF
     AGENT -->|query| AIS
+    AGENT -->|read/write sessions| COSMOS
     VIS -->|fetch images| SA2
 
-    CHAT -->|Responses API| AGENT
-    CHAT -->|read/write| COSMOS
+    CHAT -->|Responses API| APIM
+    APIM -->|proxy| AGENT
+    CHAT -->|read sessions| COSMOS
     PROXY -->|serve images| SA2
 
     classDef invisible fill:none,stroke:none;
     class left,right invisible;
 ```
 
-For full pipeline details, index schema, and stage-level design, see [Architecture](docs/specs/architecture.md).
-
-For details about the Azure services supporting this architecture, their configuration, security, RBAC roles, and deployment details, see [Infrastructure](docs/specs/infrastructure.md).
+**✱ fn_convert** — three interchangeable converter backends, selected at runtime via `analyzer=`: Content Understanding (`fn_convert_cu`), Mistral Document AI (`fn_convert_mistral`), or MarkItDown (`fn_convert_markitdown`). Each runs as its own Container App. See [Architecture](docs/specs/architecture.md) for pipeline details and [Infrastructure](docs/specs/infrastructure.md) for Azure resource configuration, RBAC, and deployment.
 
 ### Search Index Structure
 
@@ -208,7 +202,7 @@ The Context Aware & Vision Grounded KB Agent demonstrates the full value of imag
 
 1. **Search** — The agent's `search_knowledge_base` tool performs hybrid search and returns chunks. Each chunk includes its `image_urls` array (e.g., `["images/architecture.png"]`). The tool converts these to proxy URLs (`/api/images/article-id/images/architecture.png`) in the JSON returned to the LLM.
 
-2. **Vision injection** — A `VisionImageMiddleware` intercepts the tool result, downloads the referenced images from blob storage, and injects them into the LLM conversation as base64 `DataContent`. GPT-4.1's vision capabilities let it **see** the actual diagrams and screenshots — not just the text descriptions from the index.
+2. **Vision injection** — A `VisionImageMiddleware` intercepts the tool result, downloads the referenced images from blob storage, and injects them into the LLM conversation as base64 `Content.from_data()`. GPT-4.1's vision capabilities let it **see** the actual diagrams and screenshots — not just the text descriptions from the index.
 
 3. **Visual reasoning** — The LLM reasons over both the text chunks and the actual images. When an image adds value to the answer (e.g., an architecture diagram for "how does agentic retrieval work?"), the LLM embeds it inline using `![description](/api/images/...)` markdown.
 
@@ -242,13 +236,14 @@ Run `make help` to see all targets. Here is the full list:
 | `make agent-test` | Run agent unit tests |
 | `make app` | Run Chainlit web app locally (http://localhost:8080) |
 | `make app-test` | Run web app unit tests |
+| `make test-ui` | Interactive UI testing with Playwright CLI (needs running agent + app) |
 | **Azure Operations** | |
 | `make azure-provision` | Provision all Azure resources (azd provision) |
 | `make azure-deploy` | Deploy functions, search index, and CU analyzer (azd deploy) |
-| `make azure-agent-deploy` | Deploy KB Agent to Foundry (dev mode) |
-| `make azure-agent-publish` | Publish agent (dedicated identity + stable endpoint) |
-| `make azure-agent` | Deploy + publish agent in one step |
-| `make azure-agent-logs` | Stream agent logs from Foundry |
+| `make azure-agent` | Deploy agent Container App (`azd deploy --service agent`) |
+| `make azure-register-agent` | Register agent in Foundry portal via APIM gateway |
+| `make azure-configure-app` | Set web app agent endpoint after registration |
+| `make azure-agent-logs` | Stream agent logs from Container Apps |
 | `make azure-deploy-app` | Build & deploy the web app to Azure Container Apps |
 | `make azure-app-url` | Print the deployed web app URL |
 | `make azure-app-logs` | Stream live logs from the deployed web app |
@@ -259,6 +254,19 @@ Run `make help` to see all targets. Here is the full list:
 | `make azure-clean-storage` | Empty staging and serving blob containers in Azure |
 | `make azure-clean-index` | Delete the AI Search index |
 | `make azure-clean` | Clean all Azure data (storage + index + analyzer) |
+
+### Interactive UI Testing
+
+The `make test-ui` target opens [Playwright CLI](https://github.com/anthropics/playwright-cli) for interactive browser-based testing of the web app.
+
+**Prerequisites:** Node.js and Playwright CLI (`npm install -g @anthropic-ai/playwright-cli`)
+
+**Workflow:**
+1. Start the agent: `make agent` (terminal 1)
+2. Start the web app: `make app` (terminal 2)
+3. Run: `make test-ui` (terminal 3)
+
+Playwright CLI opens a Chromium browser at http://localhost:8080 and provides a REPL for commands like `snapshot` (page accessibility tree), `click <element>`, `type <element> <text>`, and `screenshot`.
 
 ---
 
@@ -386,7 +394,7 @@ make azure-clean-index    # Delete the AI Search index
 
 ## 4. Run Context Aware & Vision Grounded KB Agent
 
-The agent is a standalone FastAPI service (port 8088) that exposes an OpenAI-compatible Responses API. The Chainlit web app is a thin client that calls the agent, handles streaming, renders citations/images, and stores conversation history in Cosmos DB.
+The agent is a standalone Starlette ASGI service (port 8088) built with `from_agent_framework` that exposes an OpenAI-compatible Responses API. The Chainlit web app is a thin client that calls the agent via APIM, handles streaming, renders citations/images, and reads conversation sessions from Cosmos DB.
 
 ### Prerequisites
 
@@ -415,29 +423,35 @@ The web app auto-detects the agent URL scheme: `http://` → no auth (local), `h
 ### Run Tests
 
 ```bash
-make agent-test   # Agent tests (22 tests)
-make app-test     # Web app tests (48 tests)
+make agent-test   # Agent tests (111 tests)
+make app-test     # Web app tests (123 tests)
 ```
 
 ---
 
 ## 5. Deploy to Azure
 
-The KB Agent can be deployed to Foundry as a hosted agent, and the Chainlit web app to Azure Container Apps with Entra ID authentication (Easy Auth).
+The KB Agent is deployed as an **Azure Container App** (with Foundry integration for tracing and registration), and the Chainlit web app to a separate Container App with Entra ID authentication (Easy Auth). An **APIM AI Gateway** proxies all agent traffic.
 
 ### Prerequisites
 
-- Azure infrastructure is provisioned (`make azure-provision` — this also creates the Foundry project, Cosmos DB, and Entra App Registration)
+- Azure infrastructure is provisioned (`make azure-provision` — this also creates the Foundry project, APIM gateway, Cosmos DB, and Entra App Registration)
 - The ingestion pipeline has been run at least once (articles indexed in AI Search)
 
 ### Deploy Agent + Web App
 
 ```bash
-# Deploy the agent to Foundry + publish with dedicated identity + assign RBAC
-make azure-agent
+# Full deploy: provision + deploy all services + register agent + configure endpoints + auth
+make azure-up
 
-# Deploy the web app container to Azure Container Apps
-make azure-deploy-app
+# Or deploy individual components:
+make azure-deploy       # Deploy all services (azd deploy)
+make azure-deploy-app   # Deploy web app only
+make azure-agent        # Deploy agent Container App only
+
+# Post-deploy registration (included in azure-up):
+make azure-register-agent   # Register agent in Foundry via APIM gateway
+make azure-configure-app    # Set web app agent endpoint to APIM proxy URL
 
 # Get the deployed URL
 make azure-app-url
@@ -447,9 +461,9 @@ make azure-app-logs
 make azure-agent-logs
 ```
 
-The deployed web app is protected by Entra ID — users must sign in with their organizational account. The agent runs as a Foundry hosted agent with a dedicated identity that has least-privilege RBAC access to AI Services, AI Search, and blob storage. Conversation history is persisted in Cosmos DB.
+The deployed web app is protected by Entra ID — users must sign in with their organizational account. The agent runs as a Container App with a system-assigned managed identity that has least-privilege RBAC access to AI Services, AI Search, Serving Storage, and Cosmos DB. The agent owns conversation history — it persists and loads session state via Cosmos DB using the Agent Framework's session persistence model.
 
-The Docker image is built and pushed to Azure Container Registry automatically during `make azure-deploy-app` — no local Docker build step is needed.
+Docker images are built and pushed to Azure Container Registry automatically during `azd deploy` — no local Docker build step is needed.
 
 ---
 

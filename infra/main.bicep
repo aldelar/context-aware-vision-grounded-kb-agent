@@ -344,6 +344,8 @@ module agentContainerApp 'modules/agent-container-app.bicep' = {
     agentModelDeploymentName: aiServices.outputs.agentDeploymentName
     embeddingDeploymentName: aiServices.outputs.embeddingDeploymentName
     applicationInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
+    cosmosEndpoint: cosmosDb.outputs.cosmosEndpoint
+    cosmosDatabaseName: cosmosDb.outputs.cosmosDatabaseName
   }
 }
 
@@ -565,6 +567,15 @@ module cosmosDbWebAppRole 'modules/cosmos-db-role.bicep' = {
   params: {
     baseName: baseName
     principalId: containerApp.outputs.containerAppPrincipalId
+  }
+}
+
+// Cosmos DB: Data Contributor (Agent CA MI — read/write sessions)
+module cosmosDbAgentRole 'modules/cosmos-db-role.bicep' = {
+  name: 'cosmos-db-agent-role'
+  params: {
+    baseName: baseName
+    principalId: agentContainerApp.outputs.agentPrincipalId
   }
 }
 

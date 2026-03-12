@@ -56,6 +56,12 @@ param embeddingDeploymentName string = 'text-embedding-3-small'
 @description('Application Insights connection string')
 param applicationInsightsConnectionString string
 
+@description('Cosmos DB endpoint')
+param cosmosEndpoint string = ''
+
+@description('Cosmos DB database name')
+param cosmosDatabaseName string = 'kb-agent'
+
 // Use a public placeholder image on first deploy (before AZD pushes the real image)
 var useAcrImage = !empty(imageName)
 var containerImage = useAcrImage ? '${acrLoginServer}/${imageName}' : 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
@@ -113,6 +119,8 @@ resource agentApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'AGENT_MODEL_DEPLOYMENT_NAME', value: agentModelDeploymentName }
             { name: 'EMBEDDING_DEPLOYMENT_NAME', value: embeddingDeploymentName }
             { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: applicationInsightsConnectionString }
+            { name: 'COSMOS_ENDPOINT', value: cosmosEndpoint }
+            { name: 'COSMOS_DATABASE_NAME', value: cosmosDatabaseName }
             { name: 'OTEL_SERVICE_NAME', value: 'kb-agent' }
             { name: 'REQUIRE_AUTH', value: 'true' }
           ]

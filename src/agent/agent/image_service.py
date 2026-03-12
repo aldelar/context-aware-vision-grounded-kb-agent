@@ -2,7 +2,7 @@
 
 The agent downloads images from the serving storage account so the
 vision middleware can inject them into the LLM conversation as
-``DataContent`` (base64 data URIs).
+``Content.from_data()`` items (base64 data URIs).
 
 Unlike the web-app version, there are no proxy URL helpers here — the
 agent outputs ``/api/images/...`` URLs that the web app proxy will serve.

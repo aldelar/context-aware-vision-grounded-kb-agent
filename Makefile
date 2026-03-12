@@ -196,6 +196,9 @@ dev-setup-env: ## Populate .env files from AZD environment
 	@echo "Done. $$(wc -l < src/web-app/.env) variables written."
 	@echo "Writing AZD environment values to src/agent/.env..."
 	@azd env get-values > src/agent/.env
+	@if ! grep -q '^REQUIRE_AUTH=' src/agent/.env 2>/dev/null; then \
+		echo 'REQUIRE_AUTH=false' >> src/agent/.env; \
+	fi
 	@echo "Done. $$(wc -l < src/agent/.env) variables written."
 
 validate-infra: ## Validate Azure infra is ready for local dev
@@ -276,7 +279,7 @@ upload-serving: _check-env ## Upload kb/serving/ images to Azure serving blob
 	@echo "Done."
 
 # --- Test ---
-.PHONY: test-agent test-app test-functions test-agent-integration
+.PHONY: test-agent test-app test-functions test-agent-integration test-ui test-ui-auto
 
 test-agent: ## Run agent unit + endpoint tests
 	@cd src/agent && uv run pytest tests/ -v -m "not integration" || test $$? -eq 5
@@ -290,6 +293,15 @@ test-functions: ## Run functions unit tests
 test-agent-integration: ## Run agent integration tests (needs running local agent)
 	@cd src/agent && AGENT_ENDPOINT=http://localhost:8088 uv run pytest tests/ -v -m integration || test $$? -eq 5
 
+test-ui: _check-env ## Interactive UI testing with Playwright CLI (needs running agent + app)
+	@echo "Opening Playwright CLI browser at http://localhost:8080..."
+	@echo "  (Start 'make agent' + 'make app' in separate terminals first)"
+	@echo ""
+	@playwright-cli open http://localhost:8080
+
+test-ui-auto: _check-env ## Run automated Playwright UI tests (needs running agent + app)
+	@cd src/web-app && uv run pytest tests/test_ui.py -v -m uitest
+
 ## UTIL-LOCAL-END
 
 # ==============================================================================
@@ -298,9 +310,12 @@ test-agent-integration: ## Run agent integration tests (needs running local agen
 ## UTIL-AZURE-START
 
 # --- Provision ---
-.PHONY: azure-provision
+.PHONY: azure-provision azure-provision-clean
 
 azure-provision: _check-project-name ## Provision all Azure resources (azd provision)
+	azd provision
+
+azure-provision-clean: _check-project-name ## Provision from scratch, ignoring prior state (use after major infra changes)
 	azd provision --no-state
 
 # --- Deploy ---

@@ -1,7 +1,7 @@
 # ARD-010 — Agent External Auth & AI Gateway
 
 > **Status:** Accepted
-> **Date:** July 14, 2026
+> **Date:** March 10, 2026
 > **Deciders:** aldelar
 > **Epic:** [009-agent-container-apps](../epics/009-agent-container-apps.md)
 

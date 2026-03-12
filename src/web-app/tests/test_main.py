@@ -12,7 +12,6 @@ from app.main import (
     _build_filename_lookup,
     _build_ref_map,
     _create_agent_client,
-    _estimate_tokens,
     _expand_ref_markers,
     _get_user_id,
     _is_oauth_configured,
@@ -20,64 +19,7 @@ from app.main import (
     _remap_ref_numbers,
     _rewrite_image_refs,
     _strip_md_images,
-    _trim_context,
 )
-
-
-# ---------------------------------------------------------------------------
-# Token estimation
-# ---------------------------------------------------------------------------
-
-class TestEstimateTokens:
-    """Test _estimate_tokens heuristic."""
-
-    def test_empty_string(self) -> None:
-        assert _estimate_tokens("") == 0
-
-    def test_short_string(self) -> None:
-        # 12 chars → 3 tokens
-        assert _estimate_tokens("Hello world!") == 3
-
-    def test_longer_string(self) -> None:
-        text = "a" * 400
-        assert _estimate_tokens(text) == 100
-
-
-# ---------------------------------------------------------------------------
-# Context trimming
-# ---------------------------------------------------------------------------
-
-class TestTrimContext:
-    """Test _trim_context window management."""
-
-    def test_no_trimming_when_under_limit(self) -> None:
-        messages = [
-            {"role": "user", "content": "Hello"},
-            {"role": "assistant", "content": "Hi there!"},
-        ]
-        result = _trim_context(messages, max_tokens=1000)
-        assert len(result) == 2
-
-    def test_trimming_when_over_limit(self) -> None:
-        # Each message is 400 chars → 100 tokens.  Limit = 150 tokens.
-        messages = [
-            {"role": "user", "content": "a" * 400},
-            {"role": "assistant", "content": "b" * 400},
-            {"role": "user", "content": "c" * 400},
-        ]
-        result = _trim_context(messages, max_tokens=150)
-        # Should drop oldest until under limit — keeps last 1 message
-        assert len(result) < 3
-
-    def test_never_trims_to_empty(self) -> None:
-        messages = [{"role": "user", "content": "a" * 10000}]
-        result = _trim_context(messages, max_tokens=1)
-        assert len(result) == 1
-
-    def test_returns_new_list(self) -> None:
-        messages = [{"role": "user", "content": "test"}]
-        result = _trim_context(messages, max_tokens=1000)
-        assert result is messages  # No copy when no trimming needed
 
 
 # ---------------------------------------------------------------------------

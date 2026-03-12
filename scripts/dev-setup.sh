@@ -46,5 +46,13 @@ else
     npm install -g azure-functions-core-tools@4 --unsafe-perm true
 fi
 
+# ---------------------------------------------------------------------------
+# Playwright browser (chromium for UI tests)
+# ---------------------------------------------------------------------------
+echo ""
+echo "Installing Playwright chromium browser for UI tests..."
+cd src/web-app && uv run playwright install chromium
+cd - > /dev/null
+
 echo ""
 echo "Done. Run 'make dev-doctor' to verify."

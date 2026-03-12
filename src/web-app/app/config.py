@@ -40,6 +40,7 @@ class Config:
     # Cosmos DB — conversation history
     cosmos_endpoint: str
     cosmos_database_name: str
+    cosmos_sessions_container: str
 
 
 def _load_config() -> Config:
@@ -68,6 +69,7 @@ def _load_config() -> Config:
         serving_container_name=os.environ.get("SERVING_CONTAINER_NAME", "serving"),
         cosmos_endpoint=os.environ.get("COSMOS_ENDPOINT", ""),
         cosmos_database_name=os.environ.get("COSMOS_DATABASE_NAME", "kb-agent"),
+        cosmos_sessions_container=os.environ.get("COSMOS_SESSIONS_CONTAINER", "agent-sessions"),
     )
 
 
