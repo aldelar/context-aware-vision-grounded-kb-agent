@@ -41,7 +41,7 @@ flowchart LR
     end
 
     subgraph Embed["Microsoft<br/>Foundry"]
-        EMB["text-embedding-3-small"]
+        EMB["GPT-4.1 + text-embedding-3-small"]
     end
 
     subgraph Search["Azure AI Search"]
@@ -56,6 +56,11 @@ flowchart LR
     OUT --> I1 --> I2 --> I3
     I3 -.-> EMB
     I3 -.-> IDX
+
+    style Staging fill:#90a4ae,stroke:#b0bec5,color:#1a237e
+    style Serving fill:#1565c0,stroke:#1976d2,color:#ffffff
+    style Search fill:#0d47a1,stroke:#1565c0,color:#ffffff
+    style Embed fill:#4a148c,stroke:#6a1b9a,color:#ffffff
 ```
 
 **✱ Analyzer** — three interchangeable backends, selected at runtime via `analyzer=`:
@@ -69,60 +74,37 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    subgraph left[" "]
-        direction TB
-        subgraph Pipeline["Ingestion Pipeline"]
-            direction TB
-            CVT["fn_convert ✱<br/>HTML → MD"]
-            IDX["fn_index<br/>MD → index"]
-        end
-        subgraph Sources["Storage"]
-            direction TB
-            SA1["Staging Storage<br/>Source articles"]
-            SA2["Serving Storage<br/>Processed articles"]
-        end
+    subgraph Pipeline["Ingestion Pipeline"]
+        SA1["Source<br/>Documents"] --> CVT["fn_convert ✱<br/>HTML → MD"] --> SA2["Markdown<br/>Documents"] --> IDX["fn_index<br/>MD → index"]
+        CVT --> IMG["Images"]
     end
 
-    subgraph right[" "]
-        direction TB
-        subgraph Center["AI Services"]
-            direction TB
-            AF["Foundry<br/>GPT-4.1 + Embeddings"]
-            AIS["AI Search<br/>kb-articles index"]
-            COSMOS["Cosmos DB<br/>Agent sessions"]
-        end
-        subgraph AgentSvc["KB Agent — Container App"]
-            direction TB
-            AGENT["<b>ChatAgent</b><br/>search tool + reasoning"]
-            VIS["<b>Vision Middleware</b><br/>Image injection"]
-        end
-        APIM["APIM<br/>AI Gateway"]
-        subgraph WebApp["Web App — Container Apps"]
-            direction TB
-            PROXY["<b>Image Proxy</b><br/>/api/images/*"]
-            CHAT["<b>Chainlit UI</b><br/>Streaming chat"]
-        end
+    IDX --> AIS["AI Search<br/>kb-articles index"]
+
+    subgraph AgentSvc["KB Agent"]
+        AGENT["<b>ChatAgent</b>"]
+        VIS["<b>Vision Middleware</b>"]
     end
 
-    CVT -->|read| SA1
-    CVT -->|write| SA2
-    IDX -->|read| SA2
-
-    IDX -->|embed| AF
-    IDX -->|index| AIS
-
-    AGENT -->|reason| AF
     AGENT -->|query| AIS
-    VIS -->|fetch images| SA2
+    AGENT -->|reason| AF["Foundry<br/>GPT-4.1 + Embeddings"]
+    VIS -->|fetch| IMG
+    VIS -->|inject| AGENT
+    AGENT -->|memory| COSMOS["Cosmos DB"]
 
-    CHAT -->|Responses API| APIM
-    APIM -->|proxy| AGENT
-    AGENT -->|read/write sessions| COSMOS
-    CHAT -->|read sessions| COSMOS
-    PROXY -->|serve images| SA2
+    CHAT["Chainlit UI"] --> APIM["APIM"] --> AGENT
 
-    classDef invisible fill:none,stroke:none;
-    class left,right invisible;
+    style AgentSvc fill:#3949ab,stroke:#5c6bc0,color:#ffffff
+    style Pipeline fill:#455a64,stroke:#546e7a,color:#ffffff
+    style APIM fill:#6d8f6d,stroke:#8aac8a,color:#ffffff
+    style COSMOS fill:#616161,stroke:#757575,color:#ffffff
+    style SA2 fill:#1565c0,stroke:#1976d2,color:#ffffff
+    style SA1 fill:#90a4ae,stroke:#b0bec5,color:#1a237e
+    style AIS fill:#0d47a1,stroke:#1565c0,color:#ffffff
+    style VIS fill:#8b7535,stroke:#a6893f,color:#ffffff
+    style IMG fill:#8b7535,stroke:#a6893f,color:#ffffff
+    style AF fill:#4a148c,stroke:#6a1b9a,color:#ffffff
+    style CHAT fill:#455a64,stroke:#546e7a,color:#ffffff
 ```
 
 **✱ fn_convert** — three interchangeable converter backends, selected at runtime via `analyzer=`: Content Understanding (`fn_convert_cu`), Mistral Document AI (`fn_convert_mistral`), or MarkItDown (`fn_convert_markitdown`). Each runs as its own Container App. See [Pipeline Flow](#pipeline-flow) for details.
@@ -186,7 +168,9 @@ sequenceDiagram
     participant WebApp as Web App (Chainlit)
     participant Agent as Agent (Starlette)
     participant Search as AI Search
-    participant VisionMW as Vision Middleware
+    box rgba(249, 168, 37, 0.25)
+        participant VisionMW as Vision Middleware
+    end
     participant Blob as Serving Blob Storage
     participant Proxy as Image Proxy (Web App)
 

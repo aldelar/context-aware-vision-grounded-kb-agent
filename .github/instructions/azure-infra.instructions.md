@@ -44,15 +44,20 @@ The canonical resource inventory is in `docs/specs/infrastructure.md`. Always ke
 
 ## Deployment Services
 
-Three services defined in `azure.yaml`:
-- `agent` — Foundry hosted agent (`host: azure.ai.agent`, Docker)
-- `functions` — Azure Functions on Container Apps (`host: containerapp`, Docker)
+Six services defined in `azure.yaml` — see `docs/setup-and-makefile.md` for the full Makefile reference:
+- `agent` — KB Agent Container App (`host: containerapp`, Docker, port 8088)
+- `func-convert-cu` — CU converter Container App (`host: containerapp`, Docker)
+- `func-convert-mistral` — Mistral converter Container App (`host: containerapp`, Docker)
+- `func-convert-markitdown` — MarkItDown converter Container App (`host: containerapp`, Docker)
+- `func-index` — Index builder Container App (`host: containerapp`, Docker)
 - `web-app` — Chainlit web app on Container Apps (`host: containerapp`, Docker)
 
 ## Makefile Targets
 
-- `make azure-up` — full Azure deploy (provision + deploy + auth)
-- `make azure-deploy` — deploy all services + CU analyzer + publish agent
+See `docs/setup-and-makefile.md` for the full Makefile reference. Key deployment targets:
+
+- `make azure-up` — full Azure deploy (provision + deploy + register + configure + auth)
+- `make azure-deploy` — deploy all services + CU analyzer
 - `make azure-kb` — full Azure KB pipeline (upload + convert + index)
 - `make azure-test` — run integration tests against deployed services
 - `make validate-infra` — validate Azure infra is ready for local dev

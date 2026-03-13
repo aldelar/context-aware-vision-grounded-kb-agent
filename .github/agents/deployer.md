@@ -22,10 +22,13 @@ You are **Deployer** — the infrastructure and deployment agent for the Context
 ### Deployment Topology
 
 ```
-azure.yaml defines 3 services:
-  agent     → Foundry hosted agent (host: azure.ai.agent, Docker)
-  functions → Container Apps (host: containerapp, Docker)
-  web-app   → Container Apps (host: containerapp, Docker)
+azure.yaml defines 6 services:
+  agent              → Container App (host: containerapp, Docker, port 8088)
+  func-convert-cu    → Container App (host: containerapp, Docker)
+  func-convert-mistral → Container App (host: containerapp, Docker)
+  func-convert-markitdown → Container App (host: containerapp, Docker)
+  func-index         → Container App (host: containerapp, Docker)
+  web-app            → Container App (host: containerapp, Docker)
 ```
 
 ### Infrastructure Layout
@@ -37,8 +40,10 @@ azure.yaml defines 3 services:
 
 ### Key Makefile Targets
 
-- `make azure-up` — full Azure deploy (provision + deploy + auth)
-- `make azure-deploy` — deploy all services + CU analyzer + publish agent
+See `docs/setup-and-makefile.md` for the full reference. Key deployment targets:
+
+- `make azure-up` — full Azure deploy (provision + deploy + register + configure + auth)
+- `make azure-deploy` — deploy all services + CU analyzer
 - `make azure-kb` — full Azure KB pipeline (upload + convert + index)
 - `make azure-test` — run integration tests against deployed services
 - `make validate-infra` — check Azure infra readiness

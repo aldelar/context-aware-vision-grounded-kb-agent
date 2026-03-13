@@ -7,7 +7,7 @@
 - **Stack:** Python 3.11+, Azure (Bicep + AZD), pytest, uv
 - **Architecture:** See `docs/specs/architecture.md`
 - **Infrastructure:** See `docs/specs/infrastructure.md`
-- **Automation:** Run `make help` for all available targets
+- **Setup & Automation:** See `docs/setup-and-makefile.md` or run `make help`
 
 ## Solution Structure
 
