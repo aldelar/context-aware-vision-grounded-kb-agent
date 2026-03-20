@@ -27,9 +27,11 @@ Test MarkItDown PDF conversion with a representative sample document. Evaluate i
 | Text extraction | ✅ Good | All paragraph text, sub-headings, and content preserved |
 | Heading formatting | ⚠️ Partial | Headings present as text but no `#` Markdown markers |
 | Table extraction | ⚠️ Partial | Second table (API Endpoints) perfect; first table partially broken |
+| Long table (30 rows) | ✅ Preserved | Cross-page table preserved as single Markdown table (31 rows) |
 | Bullet points | ⚠️ Artifacts | Rendered as `(cid:127)` — PDF character ID, not `•` or `-` |
 | Image references | ❌ None | MarkItDown does not generate `![](...)` for embedded PDF images |
 | PyMuPDF images | ✅ Excellent | Extracts all 3 embedded images at original resolution — architecture diagram (600×400), bar chart (500×350), photo-like (500×350) |
+| Hyperlinks | ❌ Lost | All hyperlinks completely lost during PDF conversion |
 
 ### Story 2 — PPTX Conversion & Speaker Notes ✅
 
@@ -46,12 +48,14 @@ Test MarkItDown PPTX conversion. Verify speaker notes inclusion and image extrac
 | Aspect | Result | Notes |
 |--------|--------|-------|
 | Slide content | ✅ Excellent | All slide titles, bullet points, and text preserved |
-| Speaker notes | ✅ Included | MarkItDown outputs `### Notes:` section per slide — all 5/5 notes present |
+| Speaker notes | ✅ Included | MarkItDown outputs `### Notes:` section per slide — all 8/8 notes present |
 | Table extraction | ✅ Good | PPTX table rendered as pipe-delimited Markdown |
-| Image references | ✅ Present | `![name](PictureN.jpg)` references in output (generic filenames) |
+| Long table (30 rows) | ✅ Preserved | Long table preserved as single Markdown table (38 rows) |
+| Image references | ✅ Present | `![name](PictureN.jpg)` — all 3 image types referenced |
 | Slide markers | ✅ Present | `<!-- Slide number: N -->` comments for structure |
-| python-pptx images | ✅ Works | 2 images extracted at original resolution via python-pptx |
-| DOCX spot check | ✅ Good | Headings, lists, tables, numbered items all preserved |
+| python-pptx images | ✅ Works | 3 images extracted at original resolution via python-pptx |
+| Hyperlinks | ❌ Lost | External hyperlinks lost — link text preserved but URLs stripped |
+| DOCX spot check | ✅ Excellent | Headings, lists, tables (incl. long), images (all 3 types), **and hyperlinks** all preserved |
 
 ### Story 3 — Spike Documentation & Recommendation ✅
 

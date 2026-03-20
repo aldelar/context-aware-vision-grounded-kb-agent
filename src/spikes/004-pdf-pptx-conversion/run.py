@@ -38,6 +38,20 @@ def count_links(md: str) -> int:
     return len(re.findall(r"\[([^\]]+)\]\(([^)]+)\)", md))
 
 
+def extract_links(md: str) -> list[tuple[str, str]]:
+    """Extract Markdown hyperlinks as (text, url) tuples.
+
+    Excludes image references (![alt](src)) — only counts [text](url).
+    """
+    # Match [text](url) but NOT ![alt](url)
+    return re.findall(r"(?<!!)\[([^\]]+)\]\((https?://[^)]+)\)", md)
+
+
+def extract_urls(md: str) -> list[str]:
+    """Extract all bare URLs (http/https) from markdown text."""
+    return re.findall(r"https?://[^\s\)>\"]+", md)
+
+
 def count_tables(md: str) -> int:
     return len(re.findall(r"^\|.+\|$", md, re.MULTILINE))
 
@@ -87,6 +101,31 @@ def test_pdf_markitdown(pdf_path: Path) -> str:
     for label, passed in checks.items():
         status = "✅" if passed else "❌"
         print(f"  {status} {label}")
+
+    # Hyperlink check
+    md_links = extract_links(text)
+    bare_urls = extract_urls(text)
+    print(f"\n  Hyperlinks (Markdown [text](url)): {len(md_links)}")
+    for link_text, link_url in md_links[:5]:
+        print(f"    [{link_text}]({link_url})")
+    print(f"  Bare URLs found: {len(bare_urls)}")
+    for url in bare_urls[:5]:
+        print(f"    {url}")
+    total_urls = len(md_links) + len(bare_urls)
+    if total_urls > 0:
+        print(f"  ✅ Hyperlinks detected ({total_urls} total)")
+    else:
+        print(f"  ⚠️  No hyperlinks detected in PDF conversion output")
+
+    # Long table check
+    table_rows = count_tables(text)
+    print(f"\n  Table rows in output: {table_rows}")
+    if table_rows >= 30:
+        print(f"  ✅ Long table (30+ rows) appears in output")
+    elif table_rows >= 20:
+        print(f"  ⚠️  Long table partially extracted ({table_rows} rows)")
+    else:
+        print(f"  ⚠️  Long table may be split or truncated (only {table_rows} rows)")
 
     return text
 
@@ -203,6 +242,29 @@ def test_pptx_markitdown(pptx_path: Path) -> str:
         print(f"  ❌ Speaker notes NOT detected in MarkItDown output")
         print(f"    None of these keywords found: {speaker_notes_keywords}")
 
+    # Hyperlink check
+    md_links = extract_links(text)
+    bare_urls = extract_urls(text)
+    print(f"\n  Hyperlinks (Markdown [text](url)): {len(md_links)}")
+    for link_text, link_url in md_links[:5]:
+        print(f"    [{link_text}]({link_url})")
+    print(f"  Bare URLs found: {len(bare_urls)}")
+    for url in bare_urls[:5]:
+        print(f"    {url}")
+    total_urls = len(md_links) + len(bare_urls)
+    if total_urls > 0:
+        print(f"  ✅ Hyperlinks detected ({total_urls} total)")
+    else:
+        print(f"  ⚠️  No hyperlinks detected in PPTX conversion output")
+
+    # Long table check
+    table_rows = count_tables(text)
+    print(f"\n  Table rows in output: {table_rows}")
+    if table_rows >= 30:
+        print(f"  ✅ Long table (30+ rows) preserved as single table")
+    elif table_rows >= 20:
+        print(f"  ⚠️  Long table partially extracted ({table_rows} rows)")
+
     return text
 
 
@@ -307,6 +369,39 @@ def test_docx_markitdown(docx_path: Path) -> str:
     for label, passed in checks.items():
         status = "✅" if passed else "❌"
         print(f"  {status} {label}")
+
+    # Hyperlink check
+    md_links = extract_links(text)
+    bare_urls = extract_urls(text)
+    print(f"\n  Hyperlinks (Markdown [text](url)): {len(md_links)}")
+    for link_text, link_url in md_links[:5]:
+        print(f"    [{link_text}]({link_url})")
+    print(f"  Bare URLs found: {len(bare_urls)}")
+    for url in bare_urls[:5]:
+        print(f"    {url}")
+    total_urls = len(md_links) + len(bare_urls)
+    if total_urls > 0:
+        print(f"  ✅ Hyperlinks detected ({total_urls} total)")
+    else:
+        print(f"  ⚠️  No hyperlinks detected in DOCX conversion output")
+
+    # Long table check
+    table_rows = count_tables(text)
+    print(f"\n  Table rows in output: {table_rows}")
+    if table_rows >= 30:
+        print(f"  ✅ Long table (30+ rows) preserved as single table")
+    elif table_rows >= 20:
+        print(f"  ⚠️  Long table partially extracted ({table_rows} rows)")
+
+    # Image check — all 3 types expected
+    images = count_images_md(text)
+    print(f"\n  Image refs in output: {images}")
+    if images >= 3:
+        print(f"  ✅ All 3 image types present in DOCX output")
+    elif images > 0:
+        print(f"  ⚠️  Only {images} image ref(s) — expected 3")
+    else:
+        print(f"  ❌ No image refs in DOCX output")
 
     return text
 
@@ -476,6 +571,34 @@ def main() -> None:
     else:
         findings.append(("DOCX conversion", "⚠️", "Some content not preserved"))
 
+    # Cross-format: hyperlink extraction
+    for fmt, md_text in [("PDF", pdf_md), ("PPTX", pptx_md), ("DOCX", docx_md)]:
+        md_links = extract_links(md_text)
+        bare_urls = extract_urls(md_text)
+        total = len(md_links) + len(bare_urls)
+        if len(md_links) > 0:
+            findings.append((f"{fmt} hyperlinks", "✅",
+                            f"{len(md_links)} Markdown links extracted — no post-processing needed"))
+        elif len(bare_urls) > 0:
+            findings.append((f"{fmt} hyperlinks", "⚠️",
+                            f"{len(bare_urls)} bare URLs found but not as [text](url) — needs post-processing"))
+        else:
+            findings.append((f"{fmt} hyperlinks", "❌",
+                            "No hyperlinks detected — links lost during conversion"))
+
+    # Cross-format: long table handling
+    for fmt, md_text in [("PDF", pdf_md), ("PPTX", pptx_md), ("DOCX", docx_md)]:
+        rows = count_tables(md_text)
+        if rows >= 30:
+            findings.append((f"{fmt} long table", "✅",
+                            f"Long table preserved as single table ({rows} rows)"))
+        elif rows >= 20:
+            findings.append((f"{fmt} long table", "⚠️",
+                            f"Long table partially extracted ({rows} rows — may be split)"))
+        else:
+            findings.append((f"{fmt} long table", "⚠️",
+                            f"Long table may be split across pages ({rows} table rows total)"))
+
     for label, status, detail in findings:
         print(f"  {status} {label}: {detail}")
 
@@ -502,6 +625,14 @@ def main() -> None:
         print("    - Use python-pptx to extract speaker notes and append to MarkItDown output")
     if md_image_count == 0 and pymupdf_image_count > 0:
         print("    - Use PyMuPDF (fitz) for PDF image extraction instead of MarkItDown")
+    # Hyperlink mitigation
+    for fmt, md_text in [("PDF", pdf_md), ("PPTX", pptx_md), ("DOCX", docx_md)]:
+        md_links = extract_links(md_text)
+        bare_urls = extract_urls(md_text)
+        if len(md_links) == 0 and len(bare_urls) > 0:
+            print(f"    - {fmt}: Bare URLs present but not Markdown-formatted — needs post-processing to wrap in [text](url)")
+        elif len(md_links) == 0 and len(bare_urls) == 0:
+            print(f"    - {fmt}: Hyperlinks lost — extract from source format before/after conversion")
     print("    - DOCX: MarkItDown's built-in support is sufficient (no supplementation needed)")
 
     print()

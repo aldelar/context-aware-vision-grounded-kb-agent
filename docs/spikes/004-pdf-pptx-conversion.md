@@ -39,9 +39,11 @@ The generated sample documents (PDF, PPTX, DOCX) are committed under `src/spikes
 
 | Format | Chars | Lines | Headings | Links | Table Rows | Image Refs |
 |--------|------:|------:|---------:|------:|-----------:|-----------:|
-| PDF    | 2,299 |    43 |        0 |     0 |         12 |          0 |
-| PPTX   | 2,135 |    47 |       10 |     2 |          6 |          2 |
-| DOCX   |   894 |    32 |        4 |     0 |          7 |          1 |
+| PDF    | 5,624 |    93 |        0 |     0 |         31 |          0 |
+| PPTX   | 5,602 |   106 |       16 |     0 |         38 |          3 |
+| DOCX   | 4,487 |    90 |        8 |     6 |         40 |          3 |
+
+All three documents contain: 3 distinct image types (architecture diagram, bar chart, photo-like landscape), hyperlinks to external content, a short table, and a long table (30 data rows).
 
 ### PDF Conversion Findings
 
@@ -52,8 +54,10 @@ The generated sample documents (PDF, PPTX, DOCX) are committed under `src/spikes
 | Heading markers | ⚠️ | No `#` Markdown formatting — headings are plain text, not styled |
 | Table (simple) | ✅ | API Endpoints table rendered correctly with pipes and alignment |
 | Table (styled) | ⚠️ | Component Overview table partially broken — some rows lose pipe delimiters |
+| Long table (30 rows) | ✅ | 31 table rows in output — long table preserved as a single table across pages |
 | Bullet points | ⚠️ | Rendered as `(cid:127)` — PDF character ID artifact instead of `•` or `-` |
 | Image references | ❌ | MarkItDown produces **no** `![](...)` for embedded PDF images |
+| Hyperlinks | ❌ | **All hyperlinks lost** — both inline and reference-style links stripped during conversion |
 | Overall text fidelity | ✅ | All content words present and readable |
 
 **PDF Image Extraction Comparison:**
@@ -71,13 +75,15 @@ PyMuPDF extracts all three image types — architecture diagram (11 KB), bar cha
 
 | Aspect | Status | Details |
 |--------|--------|---------|
-| Slide titles | ✅ | All 5 slide titles extracted as `# Title` headings |
+| Slide titles | ✅ | All 8 slide titles extracted as `# Title` headings |
 | Slide body text | ✅ | Bullet points and content preserved accurately |
-| Speaker notes | ✅ | **All 5/5 speaker notes included** under `### Notes:` sections |
-| Tables | ✅ | PPTX table rendered as pipe-delimited Markdown with headers |
-| Image references | ✅ | `![name](PictureN.jpg)` — images referenced (generic filenames) |
+| Speaker notes | ✅ | **All 8/8 speaker notes included** under `### Notes:` sections |
+| Tables (short) | ✅ | PPTX table rendered as pipe-delimited Markdown with headers |
+| Long table (30 rows) | ✅ | 38 table rows in output — long table preserved as a single table |
+| Image references | ✅ | `![name](PictureN.jpg)` — 3 images referenced (all types present) |
 | Slide structure | ✅ | `<!-- Slide number: N -->` comments mark slide boundaries |
 | Formatting | ✅ | Text hierarchy (title → body → notes) preserved |
+| Hyperlinks | ❌ | **External hyperlinks lost** — link text preserved but URLs stripped |
 
 **Speaker Notes Verification:**
 
@@ -88,29 +94,43 @@ All 5 speaker notes keywords were found in MarkItDown output:
 - ✅ "data flow"
 - ✅ "cost-effective"
 
-**python-pptx cross-validation:** 5/5 slides have notes (1,139 total chars). MarkItDown output matches.
+**python-pptx cross-validation:** 8/8 slides have notes (1,671 total chars). MarkItDown output matches.
 
 **PPTX Image Extraction:**
 
 | Approach | Images Found | Details |
 |----------|:----------:|---------|
-| MarkItDown (in Markdown) | 2 | Referenced as `![name](PictureN.jpg)` — generic names |
-| python-pptx | 2 | Full blob access at original resolution |
+| MarkItDown (in Markdown) | 3 | Referenced as `![name](PictureN.jpg)` — all 3 image types present |
+| python-pptx | 3 | Full blob access at original resolution |
 
-**Verdict:** MarkItDown PPTX conversion is **excellent**. Speaker notes are included natively — no python-pptx supplementation needed. Images are referenced in the Markdown output.
+**PPTX Hyperlink Finding:**
+External hyperlinks added to slides (e.g., links to Azure docs) are **not preserved** in the MarkItDown output. The link text appears (e.g., "Azure AI Search docs") but the URL (`https://learn.microsoft.com/azure/search/`) is stripped. This is similar to the PDF behavior. For PPTX, `python-pptx` can extract hyperlinks from shape runs as a supplementary step.
+
+**Verdict:** MarkItDown PPTX conversion is **excellent** for content extraction. Speaker notes are included natively. **Hyperlinks require supplementation** — python-pptx can extract them.
 
 ### DOCX Conversion Findings (Spot Check)
 
 | Aspect | Status | Details |
 |--------|--------|---------|
-| Headings | ✅ | 4 headings with `#` Markdown markers |
+| Headings | ✅ | 8 headings with `#` Markdown markers |
 | Bullet lists | ✅ | Preserved with `*` markers |
 | Numbered lists | ✅ | Preserved with `1.` numbering |
-| Tables | ✅ | 7 table rows with pipe delimiters |
-| Embedded image | ✅ | Included as inline base64 data URI |
+| Tables (short) | ✅ | 5-row env variables table with pipe delimiters |
+| Long table (30 rows) | ✅ | 40 table rows in output — long table preserved as a single table |
+| Embedded images | ✅ | All 3 image types included as inline base64 data URIs |
+| Hyperlinks | ✅ | **6 hyperlinks preserved** as `[text](url)` — no post-processing needed |
 | Text content | ✅ | All paragraphs preserved |
 
-**Verdict:** DOCX conversion is **production-ready** — consistent with MarkItDown's mature DOCX support (via `mammoth` library internally). Low risk.
+**DOCX Hyperlink Finding:**
+Hyperlinks are **fully preserved** in the MarkItDown DOCX output:
+```
+[Azure AI Search documentation](https://learn.microsoft.com/azure/search/)
+[Azure OpenAI Service](https://learn.microsoft.com/azure/ai-services/openai/)
+[MarkItDown on GitHub](https://github.com/microsoft/markitdown)
+```
+This is because MarkItDown uses `mammoth` internally for DOCX, which handles hyperlinks natively.
+
+**Verdict:** DOCX conversion is **production-ready** — headings, tables (including long tables), lists, images, and hyperlinks all preserved. No supplementation needed.
 
 ## Key Findings
 
@@ -133,7 +153,7 @@ MarkItDown does **not** extract or reference embedded PDF images in its Markdown
 
 This matches the pattern already used for HTML → Markdown conversion.
 
-### 3. PPTX Conversion — Excellent, No Supplementation Needed
+### 3. PPTX Conversion — Excellent, No Supplementation Needed for Content
 
 MarkItDown 0.1.5 includes **full speaker notes support** — each slide's notes appear under a `### Notes:` section. This was the primary concern for PPTX, and it's resolved without any additional tooling.
 
@@ -141,7 +161,34 @@ Image references are present in the output, though with generic filenames (`Pict
 
 ### 4. DOCX Conversion — Low Risk, Production-Ready
 
-DOCX conversion is mature and reliable. All document elements (headings, lists, tables, images) are preserved. No supplementation needed.
+DOCX conversion is mature and reliable. All document elements (headings, lists, tables, images, **and hyperlinks**) are preserved. No supplementation needed.
+
+### 5. Hyperlink Extraction — Critical Gap for PDF and PPTX ⚠️
+
+| Format | Hyperlinks in Source | Hyperlinks in Output | Status |
+|--------|:-------------------:|:--------------------:|--------|
+| **PDF** | 8 (inline + reference list) | 0 | ❌ Completely lost |
+| **PPTX** | 6 (slide text + references slide) | 0 | ❌ Completely lost (text preserved, URLs stripped) |
+| **DOCX** | 6 (inline + reference list) | 6 | ✅ Fully preserved as `[text](url)` |
+
+**Impact:** Hyperlinks in PDF and PPTX are completely lost during MarkItDown conversion. This is significant for KB articles that reference external documentation or Azure service pages.
+
+**Mitigations:**
+- **PDF:** Use PyMuPDF to extract link annotations (`page.get_links()`) — returns URL + bounding box. Post-process to match link text to URLs.
+- **PPTX:** Use python-pptx to extract hyperlinks from shape runs (`run.hyperlink.address`) — straightforward supplementation.
+- **DOCX:** No action needed — links are preserved natively.
+
+This follows the same pre/post-processing pattern already used for HTML converters.
+
+### 6. Long Table Handling — All Formats Pass ✅
+
+| Format | Table Rows in Source | Table Rows in Output | Status |
+|--------|:-------------------:|:--------------------:|--------|
+| **PDF** | 31 (header + 30 data) | 31 | ✅ Single table preserved |
+| **PPTX** | 31 (header + 30 data) | 38 | ✅ Single table preserved |
+| **DOCX** | 31 (header + 30 data) | 40 | ✅ Single table preserved |
+
+All three converters handle the 30-row table as a single Markdown table — no splitting or truncation at page/slide boundaries. The PDF table uses `repeatRows=1` to repeat the header row on each page, and MarkItDown correctly merges these into one table.
 
 ## Limitations & Mitigations
 
@@ -150,7 +197,9 @@ DOCX conversion is mature and reliable. All document elements (headings, lists, 
 | PDF headings lack `#` markers | Medium | Post-process with heuristics: detect bold/large text lines and add heading markers |
 | PDF bullet `(cid:N)` artifacts | Low | Regex replace `(cid:\d+)` → `•` in post-processing |
 | PDF embedded images not referenced | High | Use PyMuPDF (`fitz`) for image extraction — 2-step pipeline |
+| PDF hyperlinks completely lost | **High** | Use PyMuPDF `page.get_links()` to extract URLs + bounding boxes, then match to text |
 | PDF styled tables partially break | Medium | Accept for Phase 1; consider pdfplumber table extraction for complex tables |
+| PPTX hyperlinks lost (URLs stripped) | **High** | Use python-pptx `run.hyperlink.address` to extract URLs from slide shapes |
 | PPTX image filenames generic | Low | Use python-pptx for precise image-to-slide mapping if needed |
 
 ## Recommendation
@@ -159,37 +208,50 @@ DOCX conversion is mature and reliable. All document elements (headings, lists, 
 
 MarkItDown is viable for PDF, PPTX, and DOCX conversion with the following architecture:
 
-| Format | Text Extraction | Image Extraction | Notes Extraction |
-|--------|----------------|-----------------|-----------------|
-| **PDF** | MarkItDown + post-processing | PyMuPDF (`fitz`) | N/A |
-| **PPTX** | MarkItDown (native) | MarkItDown refs + python-pptx blobs | MarkItDown (native) |
-| **DOCX** | MarkItDown (native) | MarkItDown (base64 inline) | N/A |
+| Format | Text Extraction | Image Extraction | Hyperlink Extraction | Notes Extraction |
+|--------|----------------|-----------------|---------------------|-----------------|
+| **PDF** | MarkItDown + post-processing | PyMuPDF (`fitz`) | PyMuPDF (`page.get_links()`) | N/A |
+| **PPTX** | MarkItDown (native) | MarkItDown refs + python-pptx blobs | python-pptx (`run.hyperlink.address`) | MarkItDown (native) |
+| **DOCX** | MarkItDown (native) | MarkItDown (base64 inline) | MarkItDown (native — `[text](url)`) | N/A |
 
 **Key dependencies for Epic 014:**
 - `markitdown[pdf,pptx,docx]>=0.1.5` — core conversion library with format-specific extras
-- `pymupdf>=1.27.0` — PDF image extraction only
-- `python-pptx>=1.0.0` — optional, for precise PPTX image extraction
+- `pymupdf>=1.27.0` — PDF image extraction + hyperlink extraction
+- `python-pptx>=1.0.0` — PPTX hyperlink extraction + precise image extraction
 
-**No blockers identified.** The identified gaps (PDF headings, bullet artifacts, image extraction) all have straightforward mitigations that fit within the existing pipeline architecture.
+**New finding: hyperlink extraction gap.** PDF and PPTX hyperlinks are completely lost during conversion. This follows the same pre/post-processing pattern already used for HTML converters — the mitigation is straightforward using PyMuPDF and python-pptx respectively. DOCX hyperlinks are preserved natively.
+
+**No blockers identified.** The identified gaps (PDF headings, bullet artifacts, image extraction, and hyperlink extraction for PDF/PPTX) all have straightforward mitigations that fit within the existing pipeline architecture.
 
 ---
 
 ## Appendix: Sample Output Excerpts
 
-### PDF Markdown (first 500 chars)
+### PDF Markdown (excerpt showing hyperlinks lost)
 
 ```
 Azure Knowledge Base Architecture Guide
 Introduction
 This document describes the architecture of the Azure Knowledge Base system. The system uses
 Azure AI Search for retrieval-augmented generation (RAG) and Azure OpenAI Service for natural
-language understanding.
-System Architecture
-The following diagram shows the high-level architecture of the system:
-Component Overview
-| Component | Service | Purpose | SKU |
-| --------- | ------- | ------- | --- |
+language understanding. For more details, see the MarkItDown GitHub repository.
 ```
+
+Note: The original PDF contained hyperlinks (e.g., `Azure AI Search` linked to `https://learn.microsoft.com/azure/search/`) — all links are stripped from the text output.
+
+### PDF Markdown (long table excerpt)
+
+```
+Azure Resource Inventory
+| # | Resource Name | Type | Region | Status | Monthly Cost |
+| - | ------------- | ---- | ------ | ------ | ------------ |
+| 1 | kb-agent-container-app-01 | Container App | East US 2 | Running | $45.00 |
+| 2 | kb-agent-cosmos-db-02 | Cosmos DB | West US 3 | Provisioned | $120.50 |
+...
+| 30 | kb-agent-virtual-network-30 | Virtual Network | North Europe | Scaling | $0.00 |
+```
+
+All 30 data rows preserved as a single Markdown table.
 
 ### PPTX Markdown (Slide 2 with speaker notes)
 
@@ -202,14 +264,16 @@ Azure OpenAI — GPT-4.1 for generation and vision
 Azure Blob Storage — KB article staging and serving
 Azure Container Apps — serverless hosting
 Azure Cosmos DB — conversation memory
+Documentation: Azure AI Search docs
 
 ### Notes:
 Emphasize that all services communicate via managed identity. No connection strings
-or API keys are stored in application code. The Container Apps use
-DefaultAzureCredential for authentication.
+or API keys are stored in application code.
 ```
 
-### DOCX Markdown (excerpt)
+Note: "Azure AI Search docs" was a hyperlink to `https://learn.microsoft.com/azure/search/` in the original PPTX — the URL is stripped.
+
+### DOCX Markdown (excerpt showing hyperlinks preserved)
 
 ```markdown
 # Prerequisites
@@ -219,9 +283,11 @@ DefaultAzureCredential for authentication.
 * Azure Developer CLI (azd)
 * Docker Desktop
 
-# Environment Variables
+# References
 
-| Variable | Required | Description |
-| --- | --- | --- |
-| AI_SERVICES_ENDPOINT | Yes | Azure AI Services endpoint URL |
+* [Azure AI Search documentation](https://learn.microsoft.com/azure/search/)
+* [Azure OpenAI Service](https://learn.microsoft.com/azure/ai-services/openai/)
+* [MarkItDown on GitHub](https://github.com/microsoft/markitdown)
 ```
+
+DOCX hyperlinks are fully preserved as `[text](url)` — no post-processing needed.

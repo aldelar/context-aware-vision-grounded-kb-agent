@@ -245,13 +245,44 @@ def _create_photo_like(filename: str, width: int = 500, height: int = 350) -> Pa
     return path
 
 
+def _long_table_data() -> list[list[str]]:
+    """Generate a long table (30 rows) designed to span 2+ pages.
+
+    Tests whether converters merge or split cross-page tables correctly.
+    """
+    header = ["#", "Resource Name", "Type", "Region", "Status", "Monthly Cost"]
+    rows = [header]
+    resource_types = [
+        "Container App", "Cosmos DB", "AI Search", "OpenAI", "Blob Storage",
+        "Key Vault", "App Insights", "Log Analytics", "Container Registry",
+        "Virtual Network",
+    ]
+    regions = ["East US 2", "West US 3", "Central US", "North Europe", "West Europe"]
+    statuses = ["Running", "Provisioned", "Scaling", "Updating", "Healthy"]
+    costs = ["$45.00", "$120.50", "$89.99", "$210.00", "$15.75", "$32.40",
+             "$8.50", "$55.20", "$178.00", "$0.00"]
+    for i in range(1, 31):
+        rows.append([
+            str(i),
+            f"kb-agent-{resource_types[(i - 1) % len(resource_types)].lower().replace(' ', '-')}-{i:02d}",
+            resource_types[(i - 1) % len(resource_types)],
+            regions[(i - 1) % len(regions)],
+            statuses[(i - 1) % len(statuses)],
+            costs[(i - 1) % len(costs)],
+        ])
+    return rows
+
+
 def create_sample_pdf() -> Path:
-    """Create a sample PDF with headings, tables, images, and links.
+    """Create a sample PDF with headings, tables, images, links, and a long table.
 
     Uses three distinct image types to stress-test extraction:
       1. Architecture diagram (boxes + arrows + labels)
       2. Bar chart (axes + data bars + legend)
       3. Photo-like (gradient + noise + organic shapes)
+
+    Includes hyperlinks to external content and a 30-row table that spans
+    2 pages to test cross-page table handling.
     """
     SAMPLES_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -269,17 +300,21 @@ def create_sample_pdf() -> Path:
     story.append(Paragraph("Azure Knowledge Base Architecture Guide", styles["Title"]))
     story.append(Spacer(1, 0.25 * inch))
 
-    # Introduction paragraph
+    # Introduction paragraph with hyperlinks
     story.append(Paragraph("Introduction", styles["Heading1"]))
     story.append(Paragraph(
-        "This document describes the architecture of the Azure Knowledge Base system. "
-        "The system uses Azure AI Search for retrieval-augmented generation (RAG) and "
-        "Azure OpenAI Service for natural language understanding.",
+        'This document describes the architecture of the Azure Knowledge Base system. '
+        'The system uses <a href="https://learn.microsoft.com/azure/search/">Azure AI Search</a> '
+        'for retrieval-augmented generation (RAG) and '
+        '<a href="https://learn.microsoft.com/azure/ai-services/openai/">Azure OpenAI Service</a> '
+        'for natural language understanding. '
+        'For more details, see the '
+        '<a href="https://github.com/microsoft/markitdown">MarkItDown GitHub repository</a>.',
         styles["Normal"],
     ))
     story.append(Spacer(1, 0.15 * inch))
 
-    # Embedded image 1
+    # Embedded image 1: architecture diagram
     story.append(Paragraph("System Architecture", styles["Heading2"]))
     story.append(Paragraph(
         "The following diagram shows the high-level architecture of the system:",
@@ -289,7 +324,7 @@ def create_sample_pdf() -> Path:
     story.append(RLImage(str(img_arch), width=5 * inch, height=3.3 * inch))
     story.append(Spacer(1, 0.15 * inch))
 
-    # Table
+    # Short table
     story.append(Paragraph("Component Overview", styles["Heading2"]))
     table_data = [
         ["Component", "Service", "Purpose", "SKU"],
@@ -310,13 +345,15 @@ def create_sample_pdf() -> Path:
     story.append(table)
     story.append(Spacer(1, 0.15 * inch))
 
-    # More content with sub-headings
+    # Paragraph with inline hyperlink
     story.append(Paragraph("Deployment Options", styles["Heading2"]))
     story.append(Paragraph("Container Apps Hosting", styles["Heading3"]))
     story.append(Paragraph(
-        "The agent is deployed as an Azure Container App with managed identity enabled. "
-        "Environment variables are configured via Bicep templates, and secrets are stored "
-        "in Azure Key Vault.",
+        'The agent is deployed as an '
+        '<a href="https://learn.microsoft.com/azure/container-apps/">Azure Container App</a> '
+        'with managed identity enabled. '
+        'Environment variables are configured via Bicep templates, and secrets are stored '
+        'in Azure Key Vault.',
         styles["Normal"],
     ))
 
@@ -327,7 +364,7 @@ def create_sample_pdf() -> Path:
         styles["Normal"],
     ))
 
-    # Second image
+    # Second image: bar chart
     story.append(Spacer(1, 0.15 * inch))
     story.append(Paragraph("Performance Metrics", styles["Heading2"]))
     story.append(Paragraph(
@@ -349,7 +386,7 @@ def create_sample_pdf() -> Path:
     for bullet in bullets:
         story.append(Paragraph(f"• {bullet}", styles["Normal"]))
 
-    # Third image: photo-like (gradient + noise — simulates a photograph)
+    # Third image: photo-like
     story.append(Spacer(1, 0.15 * inch))
     story.append(Paragraph("Sample Photo", styles["Heading2"]))
     story.append(Paragraph(
@@ -359,7 +396,7 @@ def create_sample_pdf() -> Path:
     ))
     story.append(RLImage(str(img_photo), width=4.5 * inch, height=3.15 * inch))
 
-    # Second table
+    # API endpoints table
     story.append(Spacer(1, 0.15 * inch))
     story.append(Paragraph("API Endpoints", styles["Heading2"]))
     api_table_data = [
@@ -378,6 +415,44 @@ def create_sample_pdf() -> Path:
     ]))
     story.append(api_table)
 
+    # Long table (30 rows — spans 2 pages)
+    story.append(Spacer(1, 0.25 * inch))
+    story.append(Paragraph("Azure Resource Inventory", styles["Heading2"]))
+    story.append(Paragraph(
+        "The following table lists all Azure resources deployed for the KB Agent system. "
+        "This table is intentionally long (30 rows) to test cross-page table handling.",
+        styles["Normal"],
+    ))
+    story.append(Spacer(1, 0.1 * inch))
+    long_data = _long_table_data()
+    long_table = Table(
+        long_data,
+        colWidths=[0.4 * inch, 2.2 * inch, 1.3 * inch, 1.0 * inch, 0.8 * inch, 0.9 * inch],
+        repeatRows=1,
+    )
+    long_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#4472C4")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F2F2F2")]),
+    ]))
+    story.append(long_table)
+
+    # References section with hyperlinks
+    story.append(Spacer(1, 0.15 * inch))
+    story.append(Paragraph("References", styles["Heading2"]))
+    refs = [
+        ("Azure AI Search documentation", "https://learn.microsoft.com/azure/search/"),
+        ("Azure OpenAI Service", "https://learn.microsoft.com/azure/ai-services/openai/"),
+        ("MarkItDown on GitHub", "https://github.com/microsoft/markitdown"),
+        ("Azure Container Apps", "https://learn.microsoft.com/azure/container-apps/"),
+        ("Bicep documentation", "https://learn.microsoft.com/azure/azure-resource-manager/bicep/"),
+    ]
+    for label, url in refs:
+        story.append(Paragraph(f'• <a href="{url}">{label}</a>', styles["Normal"]))
+
     # Build PDF
     doc.build(story)
     print(f"  Created PDF: {pdf_path} ({pdf_path.stat().st_size:,} bytes)")
@@ -385,19 +460,32 @@ def create_sample_pdf() -> Path:
 
 
 def create_sample_pptx() -> Path:
-    """Create a sample PPTX with slides, speaker notes, images, and tables."""
+    """Create a sample PPTX with slides, speaker notes, all 3 image types,
+    a long table, and hyperlinks.
+    """
     from pptx import Presentation
+    from pptx.oxml.ns import qn
     from pptx.util import Inches, Pt
 
     SAMPLES_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Create diverse test images
+    # Create all three image types
     img_arch = _create_architecture_diagram("slide-diagram.png", 600, 400)
     img_chart = _create_bar_chart("slide-chart.png", 500, 350)
+    img_photo = _create_photo_like("slide-photo.png", 500, 350)
 
     prs = Presentation()
     prs.slide_width = Inches(13.333)
     prs.slide_height = Inches(7.5)
+
+    def _add_hyperlink(paragraph, text: str, url: str) -> None:
+        """Add a hyperlink run to a paragraph."""
+        run = paragraph.add_run()
+        run.text = text
+        rPr = run._r.get_or_add_rPr()
+        hlinkClick = rPr.makeelement(qn("a:hlinkClick"), {})
+        hlinkClick.set(qn("r:id"), paragraph.part.relate_to(url, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", is_external=True))
+        rPr.append(hlinkClick)
 
     # Slide 1: Title slide
     slide1 = prs.slides.add_slide(prs.slide_layouts[0])
@@ -411,7 +499,7 @@ def create_sample_pptx() -> Path:
         "IMPORTANT: Mention that we use managed identity everywhere — no secrets in code."
     )
 
-    # Slide 2: Content with bullet points
+    # Slide 2: Content with bullet points and hyperlinks
     slide2 = prs.slides.add_slide(prs.slide_layouts[1])
     slide2.shapes.title.text = "System Components"
     body2 = slide2.placeholders[1]
@@ -427,6 +515,14 @@ def create_sample_pptx() -> Path:
         p = tf2.add_paragraph()
         p.text = item
         p.level = 1
+    # Add hyperlink paragraph
+    p_link = tf2.add_paragraph()
+    p_link.text = ""
+    p_link.level = 0
+    run_prefix = p_link.add_run()
+    run_prefix.text = "Documentation: "
+    _add_hyperlink(p_link, "Azure AI Search docs", "https://learn.microsoft.com/azure/search/")
+
     notes2 = slide2.notes_slide
     notes2.notes_text_frame.text = (
         "Emphasize that all services communicate via managed identity. "
@@ -435,7 +531,7 @@ def create_sample_pptx() -> Path:
         "Cosmos DB uses native RBAC with Built-in Data Contributor role."
     )
 
-    # Slide 3: Image slide
+    # Slide 3: Architecture diagram image
     slide3 = prs.slides.add_slide(prs.slide_layouts[5])  # Blank layout
     slide3.shapes.title.text = "Architecture Diagram"
     slide3.shapes.add_picture(str(img_arch), Inches(2), Inches(2), Inches(9), Inches(4.5))
@@ -447,7 +543,7 @@ def create_sample_pptx() -> Path:
         "Content Understanding, Mistral Document AI, and MarkItDown."
     )
 
-    # Slide 4: Table slide
+    # Slide 4: Short table
     slide4 = prs.slides.add_slide(prs.slide_layouts[5])
     slide4.shapes.title.text = "Conversion Backend Comparison"
     rows, cols = 5, 4
@@ -472,7 +568,7 @@ def create_sample_pptx() -> Path:
         "MarkItDown can handle PDF input directly with acceptable quality."
     )
 
-    # Slide 5: Second image + conclusion
+    # Slide 5: Bar chart image
     slide5 = prs.slides.add_slide(prs.slide_layouts[5])
     slide5.shapes.title.text = "Performance Results"
     slide5.shapes.add_picture(str(img_chart), Inches(3), Inches(2), Inches(7), Inches(4))
@@ -483,6 +579,65 @@ def create_sample_pptx() -> Path:
         "across all backends since they all use GPT-4.1 vision."
     )
 
+    # Slide 6: Photo-like image (all 3 image types now present)
+    slide6 = prs.slides.add_slide(prs.slide_layouts[5])
+    slide6.shapes.title.text = "Photo Extraction Test"
+    slide6.shapes.add_picture(str(img_photo), Inches(3), Inches(1.5), Inches(7), Inches(5))
+    notes6 = slide6.notes_slide
+    notes6.notes_text_frame.text = (
+        "This slide tests extraction of a photo-like image with complex color "
+        "gradients and organic shapes. The image simulates a landscape photograph "
+        "to verify that color fidelity and detail are preserved during extraction."
+    )
+
+    # Slide 7: Long table (30 rows — tests cross-page/overflow handling)
+    slide7 = prs.slides.add_slide(prs.slide_layouts[5])
+    slide7.shapes.title.text = "Azure Resource Inventory (Long Table)"
+    long_data = _long_table_data()
+    lt_rows, lt_cols = len(long_data), len(long_data[0])
+    lt_shape = slide7.shapes.add_table(
+        lt_rows, lt_cols, Inches(0.3), Inches(1.2), Inches(12.7), Inches(5.8),
+    )
+    lt_tbl = lt_shape.table
+    for ri, row in enumerate(long_data):
+        for ci, val in enumerate(row):
+            lt_tbl.cell(ri, ci).text = val
+    # Reduce font size so it fits
+    for ri in range(lt_rows):
+        for ci in range(lt_cols):
+            for para in lt_tbl.cell(ri, ci).text_frame.paragraphs:
+                for run in para.runs:
+                    run.font.size = Pt(7)
+    notes7 = slide7.notes_slide
+    notes7.notes_text_frame.text = (
+        "This table has 30 data rows plus a header to test whether the converter "
+        "handles large tables that might overflow a single slide. "
+        "In a real presentation this table would typically be split across slides."
+    )
+
+    # Slide 8: References slide with hyperlinks
+    slide8 = prs.slides.add_slide(prs.slide_layouts[1])
+    slide8.shapes.title.text = "References & Links"
+    body8 = slide8.placeholders[1]
+    tf8 = body8.text_frame
+    tf8.text = "Key Resources"
+    refs = [
+        ("Azure AI Search documentation", "https://learn.microsoft.com/azure/search/"),
+        ("Azure OpenAI Service", "https://learn.microsoft.com/azure/ai-services/openai/"),
+        ("MarkItDown on GitHub", "https://github.com/microsoft/markitdown"),
+        ("Azure Container Apps", "https://learn.microsoft.com/azure/container-apps/"),
+        ("Bicep documentation", "https://learn.microsoft.com/azure/azure-resource-manager/bicep/"),
+    ]
+    for label, url in refs:
+        p = tf8.add_paragraph()
+        p.level = 1
+        _add_hyperlink(p, label, url)
+    notes8 = slide8.notes_slide
+    notes8.notes_text_frame.text = (
+        "Share these links with the team for further reading. "
+        "The MarkItDown repository is the most relevant for this spike."
+    )
+
     pptx_path = SAMPLES_DIR / "sample-presentation.pptx"
     prs.save(str(pptx_path))
     print(f"  Created PPTX: {pptx_path} ({pptx_path.stat().st_size:,} bytes)")
@@ -490,19 +645,54 @@ def create_sample_pptx() -> Path:
 
 
 def create_sample_docx() -> Path:
-    """Create a sample DOCX with headings, tables, and an image."""
+    """Create a sample DOCX with headings, all 3 image types, tables,
+    a long table, and hyperlinks.
+    """
     from docx import Document
-    from docx.shared import Inches
+    from docx.oxml.ns import qn
+    from docx.shared import Inches, Pt, RGBColor
 
     SAMPLES_DIR.mkdir(parents=True, exist_ok=True)
-    img_path = _create_architecture_diagram("docx-diagram.png", 600, 400)
+
+    # Create all three image types
+    img_arch = _create_architecture_diagram("docx-diagram.png", 600, 400)
+    img_chart = _create_bar_chart("docx-chart.png", 500, 350)
+    img_photo = _create_photo_like("docx-photo.png", 500, 350)
+
+    def _add_hyperlink(paragraph, text: str, url: str) -> None:
+        """Add a hyperlink to a paragraph in a Word document."""
+        part = paragraph.part
+        r_id = part.relate_to(
+            url,
+            "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink",
+            is_external=True,
+        )
+        hyperlink = paragraph._element.makeelement(qn("w:hyperlink"), {qn("r:id"): r_id})
+        new_run = paragraph._element.makeelement(qn("w:r"), {})
+        rPr = new_run.makeelement(qn("w:rPr"), {})
+        rStyle = rPr.makeelement(qn("w:rStyle"), {qn("w:val"): "Hyperlink"})
+        rPr.append(rStyle)
+        color = rPr.makeelement(qn("w:color"), {qn("w:val"): "0563C1"})
+        rPr.append(color)
+        u = rPr.makeelement(qn("w:u"), {qn("w:val"): "single"})
+        rPr.append(u)
+        new_run.append(rPr)
+        t = new_run.makeelement(qn("w:t"), {})
+        t.text = text
+        new_run.append(t)
+        hyperlink.append(new_run)
+        paragraph._element.append(hyperlink)
 
     doc = Document()
     doc.add_heading("Azure KB Agent Setup Guide", level=0)
-    doc.add_paragraph(
+
+    # Introduction with hyperlink
+    p_intro = doc.add_paragraph(
         "This guide covers the setup and configuration of the Azure Knowledge Base Agent "
-        "for local development and Azure deployment."
+        "for local development and Azure deployment. For more information, see "
     )
+    _add_hyperlink(p_intro, "Azure AI Search documentation", "https://learn.microsoft.com/azure/search/")
+    p_intro.add_run(".")
 
     doc.add_heading("Prerequisites", level=1)
     doc.add_paragraph("Python 3.11+", style="List Bullet")
@@ -510,10 +700,25 @@ def create_sample_docx() -> Path:
     doc.add_paragraph("Azure Developer CLI (azd)", style="List Bullet")
     doc.add_paragraph("Docker Desktop", style="List Bullet")
 
+    # Architecture diagram
     doc.add_heading("Architecture Overview", level=1)
     doc.add_paragraph("The following diagram shows the deployment architecture:")
-    doc.add_picture(str(img_path), width=Inches(4.5))
+    doc.add_picture(str(img_arch), width=Inches(5.5))
 
+    # Bar chart
+    doc.add_heading("Performance Comparison", level=1)
+    doc.add_paragraph("The chart below compares conversion latency across different backends:")
+    doc.add_picture(str(img_chart), width=Inches(5.0))
+
+    # Photo-like image
+    doc.add_heading("Photo Extraction Test", level=1)
+    doc.add_paragraph(
+        "Photo-like images with complex gradients and organic shapes test "
+        "whether extraction preserves color fidelity and detail:"
+    )
+    doc.add_picture(str(img_photo), width=Inches(5.0))
+
+    # Short table
     doc.add_heading("Environment Variables", level=1)
     table = doc.add_table(rows=5, cols=3, style="Table Grid")
     headers = ["Variable", "Required", "Description"]
@@ -534,6 +739,35 @@ def create_sample_docx() -> Path:
     doc.add_paragraph("Run azd up to provision and deploy all resources.", style="List Number")
     doc.add_paragraph("Configure environment with azd env get-values.", style="List Number")
     doc.add_paragraph("Run make test to verify the deployment.", style="List Number")
+
+    # Long table (30 rows — spans 2 pages)
+    doc.add_heading("Azure Resource Inventory (Long Table)", level=1)
+    doc.add_paragraph(
+        "The following table lists all Azure resources deployed for the KB Agent system. "
+        "This table is intentionally long (30 rows) to test cross-page table handling."
+    )
+    long_data = _long_table_data()
+    long_table = doc.add_table(rows=len(long_data), cols=len(long_data[0]), style="Table Grid")
+    for ri, row in enumerate(long_data):
+        for ci, val in enumerate(row):
+            long_table.cell(ri, ci).text = val
+    # Bold header row
+    for ci in range(len(long_data[0])):
+        for run in long_table.cell(0, ci).paragraphs[0].runs:
+            run.bold = True
+
+    # References section with hyperlinks
+    doc.add_heading("References", level=1)
+    refs = [
+        ("Azure AI Search documentation", "https://learn.microsoft.com/azure/search/"),
+        ("Azure OpenAI Service", "https://learn.microsoft.com/azure/ai-services/openai/"),
+        ("MarkItDown on GitHub", "https://github.com/microsoft/markitdown"),
+        ("Azure Container Apps", "https://learn.microsoft.com/azure/container-apps/"),
+        ("Bicep documentation", "https://learn.microsoft.com/azure/azure-resource-manager/bicep/"),
+    ]
+    for label, url in refs:
+        p = doc.add_paragraph(style="List Bullet")
+        _add_hyperlink(p, label, url)
 
     docx_path = SAMPLES_DIR / "sample-document.docx"
     doc.save(str(docx_path))
