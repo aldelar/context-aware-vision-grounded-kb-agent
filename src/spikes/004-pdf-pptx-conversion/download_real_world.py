@@ -88,7 +88,9 @@ def download_all() -> None:
         print(f"  Downloading: {description}")
         print(f"    URL: {url}")
         try:
-            urllib.request.urlretrieve(url, str(path))
+            req = urllib.request.Request(url, headers={"User-Agent": "Spike004/1.0"})
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                path.write_bytes(resp.read())
             print(f"    ✅ Saved: {filename} ({path.stat().st_size:,} bytes)")
         except Exception as e:
             print(f"    ❌ Failed: {e}")

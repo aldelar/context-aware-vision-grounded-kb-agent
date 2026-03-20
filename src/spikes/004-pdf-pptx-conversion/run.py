@@ -43,7 +43,7 @@ def extract_links(md: str) -> list[tuple[str, str]]:
 
     Excludes image references (![alt](src)) — only counts [text](url).
     """
-    # Match [text](url) but NOT ![alt](url)
+    # (?<!!) = negative lookbehind to exclude ![alt](url) image references
     return re.findall(r"(?<!!)\[([^\]]+)\]\((https?://[^)]+)\)", md)
 
 
