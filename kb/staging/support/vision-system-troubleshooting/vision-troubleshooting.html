@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoBot Vision System Troubleshooting</title>
+</head>
+<body>
+
+<h1>CoBot Vision System Troubleshooting</h1>
+
+<p>This document provides troubleshooting procedures for the CoBot Vision Module VM-200 when integrated with the CoBot Pro 500 or CoBot Pro 700. It covers camera feed issues, calibration drift, object detection failures, lighting problems, and network latency diagnostics. For the underlying vision algorithm architecture, refer to the <strong>Perception Pipeline Design</strong> in the Engineering documentation.</p>
+
+<h2>1. Diagnostic Overview</h2>
+
+<p>The CoBot Vision Runtime v2.1 reports issues through three channels:</p>
+
+<ul>
+    <li><strong>Teach pendant alerts:</strong> Real-time pop-ups for critical vision faults (V-001 through V-020)</li>
+    <li><strong>CoBot Studio IDE Vision Log:</strong> Detailed timestamped log under <em>Vision → Diagnostics → Log Viewer</em></li>
+    <li><strong>System journal:</strong> Low-level kernel and driver messages accessible via SSH (<code>journalctl -u cobot-vision</code>)</li>
+</ul>
+
+<img src="images/vision-pipeline-debug-flow.png" alt="Vision pipeline debug flowchart showing the diagnostic decision tree from symptom identification through image acquisition, processing, and output validation stages." />
+
+<h2>2. Camera Feed Issues</h2>
+
+<h3>No Image Displayed</h3>
+<ol>
+    <li>Check the VM-200 power LED. If off or red, verify the M12 hybrid cable connection and 24 V power supply.</li>
+    <li>Run <em>Vision → Diagnostics → Connectivity Test</em>. If the ping fails, check that the VISION port IP is on the 192.168.2.x subnet (default: 192.168.2.10 for the VM-200, 192.168.2.1 for the control cabinet).</li>
+    <li>Verify the GigE Vision driver is running: on the teach pendant, navigate to <em>System → Services</em> and confirm <code>cobot-vision-gige</code> shows "Active."</li>
+    <li>If using a network switch between the VM-200 and control cabinet, ensure jumbo frames (MTU 9000) are enabled on the switch port.</li>
+</ol>
+
+<h3>Image Is Dark or Overexposed</h3>
+<ol>
+    <li>Check exposure settings in <em>Vision → Pipeline Editor → Image Acquisition</em>. Switch between auto and manual exposure to isolate the issue.</li>
+    <li>Verify the LED ring light intensity. A value of 0% produces a dark image; ambient light alone may be insufficient.</li>
+    <li>Inspect the camera lens for contamination (dust, oil, fingerprints). Clean with the included microfiber cloth and lens cleaning solution.</li>
+    <li>If using HDR mode, verify that at least 3 exposure brackets are configured (recommended: 2 ms, 8 ms, 32 ms).</li>
+</ol>
+
+<h3>Image Is Blurry</h3>
+<ol>
+    <li>The VM-200 uses fixed-focus lenses. Verify the working distance is within the specified range (150–1200 mm).</li>
+    <li>Check for vibration during image capture. If the robot is moving when images are taken, enable hardware-triggered capture synchronized to the robot's stationary dwell time.</li>
+    <li>Inspect the camera mounting for looseness. Retighten the M6 mounting bolts to 8 Nm.</li>
+</ol>
+
+<h2>3. Calibration Drift</h2>
+
+<p>Calibration drift manifests as increasing position error over time, even though the robot and camera hardware have not been physically modified.</p>
+
+<img src="images/camera-alignment-guide.png" alt="Camera alignment verification guide showing the test pattern placement positions and expected measurement results for validating VM-200 calibration accuracy." />
+
+<h3>Detection and Measurement</h3>
+<ol>
+    <li>Place a calibration reference object (the included precision sphere, 25.00 mm diameter) at a known position in the workspace.</li>
+    <li>Command the robot to pick the sphere using the vision system. Measure the actual vs. commanded position with a dial indicator.</li>
+    <li>If the error exceeds 1.5 mm (wrist-mounted) or 3 mm (fixed-mount), recalibration is required.</li>
+</ol>
+
+<h3>Common Causes</h3>
+<ul>
+    <li><strong>Thermal expansion:</strong> Large temperature swings (>15°C) between calibration and operation cause camera housing and mounting bracket expansion.</li>
+    <li><strong>Mechanical creep:</strong> The camera mounting may shift over weeks of vibration. Check torque on all mounting bolts.</li>
+    <li><strong>Robot calibration drift:</strong> If the robot's own joint calibration has drifted, the hand-eye calibration is invalidated. Run the joint calibration check first.</li>
+</ul>
+
+<h3>Recalibration Procedure</h3>
+<p>Follow the calibration wizard steps in the <strong>CoBot Vision Module VM-200 Setup Guide</strong> in the Support documentation. After recalibration, re-run the accuracy test to confirm the error is within specification.</p>
+
+<h2>4. Object Detection Failures</h2>
+
+<h3>False Negatives (Object Not Detected)</h3>
+<ol>
+    <li>Verify the detection model matches the object. Check <em>Vision → Pipeline Editor → Object Detection → Model</em>.</li>
+    <li>Lower the confidence threshold from the default 0.85 to 0.70 and retest. If objects are now detected, the issue is marginal image quality.</li>
+    <li>Check for occlusion: objects partially hidden by other parts, fixtures, or shadows may not be detected.</li>
+    <li>If using a custom ONNX model, verify the input image resolution matches the training resolution.</li>
+</ol>
+
+<h3>False Positives (Phantom Detections)</h3>
+<ol>
+    <li>Increase the confidence threshold to 0.90 or higher.</li>
+    <li>Add a Region of Interest (ROI) mask to exclude areas outside the workspace (e.g., conveyor edges, background fixtures).</li>
+    <li>Verify the structured light projector is not creating false patterns on reflective surfaces.</li>
+</ol>
+
+<h2>5. Lighting Problems</h2>
+
+<p>The VM-200's detection accuracy is highly dependent on consistent lighting. Follow these guidelines:</p>
+
+<ul>
+    <li><strong>Avoid direct sunlight:</strong> Sunlight at 850 nm wavelength interferes with the structured light projector. Use blinds or a light shield.</li>
+    <li><strong>Minimize flickering:</strong> Fluorescent lights flicker at 100/120 Hz. Set the camera exposure to a multiple of the flicker period (10 ms or 8.33 ms) or use the anti-flicker mode.</li>
+    <li><strong>Consistent intensity:</strong> If ambient light varies by more than ±30%, enable the auto-exposure mode with a 50 ms adaptation time constant.</li>
+    <li><strong>LED ring light optimization:</strong> For matte objects, 40–60% intensity is usually optimal. For glossy or metallic objects, use diffuse external lighting and reduce the ring light to 10–20% to avoid specular reflections.</li>
+</ul>
+
+<h2>6. Network Latency and Bandwidth</h2>
+
+<p>Vision data requires sustained bandwidth. If you experience dropped frames or delayed detections:</p>
+
+<ol>
+    <li>Run <em>Vision → Diagnostics → Network Performance</em>. Required: latency &lt;1 ms, bandwidth &gt;900 Mbps, packet loss &lt;0.01%.</li>
+    <li>Ensure the GigE Vision link between the VM-200 and control cabinet is a direct point-to-point connection or through a managed switch with QoS configured for the VISION VLAN.</li>
+    <li>Disable any firewall or packet inspection between the VM-200 and the control cabinet that may add latency.</li>
+    <li>If streaming full-resolution images to a remote CoBot Studio IDE session, reduce the preview resolution to 648×486 to avoid saturating the facility LAN.</li>
+</ol>
+
+<h2>7. Vision Error Code Reference</h2>
+
+<table>
+    <thead>
+        <tr>
+            <th>Code</th>
+            <th>Description</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>V-001</td>
+            <td>Camera not detected on GigE bus</td>
+            <td>Check cable, power, and IP configuration</td>
+        </tr>
+        <tr>
+            <td>V-005</td>
+            <td>Calibration data expired (&gt;90 days since last calibration)</td>
+            <td>Recalibrate using the Setup Guide</td>
+        </tr>
+        <tr>
+            <td>V-008</td>
+            <td>Structured light projector failure</td>
+            <td>Restart VM-200; if persistent, replace projector module</td>
+        </tr>
+        <tr>
+            <td>V-012</td>
+            <td>Detection model inference timeout (&gt;500 ms)</td>
+            <td>Reduce image resolution or simplify the detection model</td>
+        </tr>
+        <tr>
+            <td>V-015</td>
+            <td>Edge compute unit thermal throttling</td>
+            <td>Improve airflow around the VM-200; reduce inference frequency</td>
+        </tr>
+    </tbody>
+</table>
+
+<p>For initial setup and recalibration procedures, refer to the <strong>CoBot Vision Module VM-200 Setup Guide</strong> in the Support documentation. For the full perception pipeline architecture and custom model training workflow, see the <strong>Perception Pipeline Design</strong> in the Engineering documentation.</p>
+
+<p><em>Document version 2.1.0 | Last updated: 2025-01-15 | Contoso Robotics Technical Support</em></p>
+
+</body>
+</html>

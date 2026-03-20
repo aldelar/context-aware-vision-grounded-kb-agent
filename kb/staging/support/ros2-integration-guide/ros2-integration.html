@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoBot Pro ROS 2 Integration Guide</title>
+</head>
+<body>
+
+<h1>CoBot Pro ROS 2 Integration Guide</h1>
+
+<p>The CoBot ROS 2 Bridge enables seamless integration of the CoBot Pro 500 and CoBot Pro 700 with the Robot Operating System 2 (ROS 2) ecosystem. This guide covers bridge setup, topic publishing, service calls, action servers, MoveIt 2 integration, and TF2 frame configuration. For the full ROS 2 node API reference, including all message types and parameter descriptions, refer to the <strong>ROS 2 Node Reference</strong> in the Engineering documentation.</p>
+
+<h2>1. Prerequisites</h2>
+
+<ul>
+    <li>CoBot Pro running CoBot OS v4.2 or later</li>
+    <li>External PC or edge device running Ubuntu 22.04 with ROS 2 Humble Hawksbill</li>
+    <li>Network connectivity between the CoBot Pro control cabinet (LAN port) and the ROS 2 host (same subnet or routed network)</li>
+    <li>CoBot ROS 2 Bridge package installed on the ROS 2 host: <code>sudo apt install ros-humble-cobot-pro-bridge</code></li>
+    <li>MoveIt 2 (optional, for motion planning): <code>sudo apt install ros-humble-moveit</code></li>
+</ul>
+
+<h2>2. CoBot ROS 2 Bridge Architecture</h2>
+
+<img src="images/ros2-node-architecture.png" alt="CoBot ROS 2 Bridge node architecture diagram showing the bridge node connecting to the CoBot Pro control cabinet via OPC-UA, translating to ROS 2 topics, services, and actions." />
+
+<p>The CoBot ROS 2 Bridge is a single ROS 2 node (<code>cobot_bridge_node</code>) that communicates with the CoBot Pro via OPC-UA (port 4840) and exposes the robot's state and control interfaces as standard ROS 2 primitives:</p>
+
+<ul>
+    <li><strong>Topics (publishers):</strong> Joint states, TCP pose, force-torque data, safety status</li>
+    <li><strong>Topics (subscribers):</strong> Joint velocity commands, TCP velocity commands</li>
+    <li><strong>Services:</strong> Set payload, enable/disable freedrive, get I/O state, set I/O state</li>
+    <li><strong>Actions:</strong> Move to joint position, move to TCP pose, execute trajectory</li>
+</ul>
+
+<h2>3. Launching the Bridge</h2>
+
+<p>The bridge is launched using a ROS 2 launch file that configures the connection parameters:</p>
+
+<pre>
+ros2 launch cobot_pro_bridge cobot_bridge.launch.py \
+    robot_ip:=192.168.1.100 \
+    robot_model:=cobot_pro_500 \
+    publish_rate:=125.0 \
+    use_sim_time:=false
+</pre>
+
+<img src="images/ros2-launch-sequence.png" alt="ROS 2 launch sequence diagram showing the startup order: parameter loading, OPC-UA connection, joint state synchronization, and topic advertisement." />
+
+<p>Launch parameters:</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>Parameter</th>
+            <th>Default</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><code>robot_ip</code></td>
+            <td>192.168.1.100</td>
+            <td>IP address of the CoBot Pro control cabinet LAN port</td>
+        </tr>
+        <tr>
+            <td><code>robot_model</code></td>
+            <td>cobot_pro_500</td>
+            <td>Robot model: <code>cobot_pro_500</code> or <code>cobot_pro_700</code></td>
+        </tr>
+        <tr>
+            <td><code>publish_rate</code></td>
+            <td>125.0</td>
+            <td>Joint state publish rate in Hz (max 500 Hz)</td>
+        </tr>
+        <tr>
+            <td><code>use_sim_time</code></td>
+            <td>false</td>
+            <td>Set to true for Gazebo simulation</td>
+        </tr>
+        <tr>
+            <td><code>safety_check</code></td>
+            <td>true</td>
+            <td>Enable SC-100 safety status monitoring via the bridge</td>
+        </tr>
+    </tbody>
+</table>
+
+<h2>4. Published Topics</h2>
+
+<img src="images/ros2-topic-map.png" alt="ROS 2 topic map showing all published and subscribed topics with their message types, organized by functional area: joint state, TCP, force-torque, safety, and I/O." />
+
+<table>
+    <thead>
+        <tr>
+            <th>Topic</th>
+            <th>Message Type</th>
+            <th>Rate</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><code>/cobot/joint_states</code></td>
+            <td><code>sensor_msgs/JointState</code></td>
+            <td>125 Hz</td>
+            <td>Joint positions (rad), velocities (rad/s), efforts (Nm)</td>
+        </tr>
+        <tr>
+            <td><code>/cobot/tcp_pose</code></td>
+            <td><code>geometry_msgs/PoseStamped</code></td>
+            <td>125 Hz</td>
+            <td>Tool center point pose in the base frame</td>
+        </tr>
+        <tr>
+            <td><code>/cobot/ft_sensor</code></td>
+            <td><code>geometry_msgs/WrenchStamped</code></td>
+            <td>500 Hz</td>
+            <td>Force (N) and torque (Nm) at the tool flange</td>
+        </tr>
+        <tr>
+            <td><code>/cobot/safety_status</code></td>
+            <td><code>cobot_msgs/SafetyStatus</code></td>
+            <td>10 Hz</td>
+            <td>SC-100 mode, active zone, speed/force limits</td>
+        </tr>
+        <tr>
+            <td><code>/cobot/io_state</code></td>
+            <td><code>cobot_msgs/IOState</code></td>
+            <td>50 Hz</td>
+            <td>Digital and analog I/O values</td>
+        </tr>
+    </tbody>
+</table>
+
+<h2>5. Service Calls</h2>
+
+<pre>
+# Set payload (mass in kg, center of gravity in meters)
+ros2 service call /cobot/set_payload cobot_msgs/srv/SetPayload \
+    "{mass: 2.5, cog: {x: 0.0, y: 0.0, z: 0.05}}"
+
+# Enable freedrive mode
+ros2 service call /cobot/set_freedrive std_srvs/srv/SetBool "{data: true}"
+
+# Set digital output DO1 to HIGH
+ros2 service call /cobot/set_digital_output cobot_msgs/srv/SetDigitalOutput \
+    "{pin: 1, value: true}"
+</pre>
+
+<h2>6. Action Servers</h2>
+
+<p>The bridge provides action servers for long-running motion commands with feedback and cancellation support:</p>
+
+<pre>
+# Move to a joint position (radians)
+ros2 action send_goal /cobot/move_joints cobot_msgs/action/MoveJoints \
+    "{target: [0.0, -1.57, 1.57, 0.0, 1.57, 0.0], velocity: 0.5, acceleration: 0.3}"
+
+# Move TCP to a Cartesian pose
+ros2 action send_goal /cobot/move_tcp cobot_msgs/action/MoveTCP \
+    "{target: {position: {x: 0.4, y: 0.0, z: 0.3}, orientation: {x: 0.0, y: 1.0, z: 0.0, w: 0.0}}, velocity: 0.1}"
+</pre>
+
+<p>Action feedback includes the current joint positions and percentage complete. Cancel a running action with <code>ros2 action cancel_goal</code>.</p>
+
+<h2>7. MoveIt 2 Integration</h2>
+
+<p>The CoBot ROS 2 Bridge includes a MoveIt 2 configuration package for motion planning:</p>
+
+<ol>
+    <li>Launch the MoveIt 2 pipeline: <code>ros2 launch cobot_pro_moveit_config moveit.launch.py robot_model:=cobot_pro_500</code></li>
+    <li>The configuration includes URDF/SRDF models, joint limits, collision meshes, and kinematics (KDL solver).</li>
+    <li>Use RViz 2 to interactively plan and execute motions. The robot follows the planned trajectory via the <code>/cobot/execute_trajectory</code> action server.</li>
+    <li>For obstacle avoidance, publish collision objects to <code>/planning_scene</code> using <code>moveit_msgs/CollisionObject</code>.</li>
+</ol>
+
+<h2>8. TF2 Frame Configuration</h2>
+
+<p>The bridge publishes the following TF2 frames at 125 Hz:</p>
+
+<ul>
+    <li><code>cobot_base_link</code> → <code>cobot_link_1</code> → ... → <code>cobot_link_6</code> → <code>cobot_tool0</code></li>
+    <li><code>cobot_base_link</code> → <code>cobot_tcp</code> (includes the configured tool offset)</li>
+    <li><code>cobot_base_link</code> → <code>cobot_vm200</code> (if the Vision Module VM-200 is calibrated)</li>
+</ul>
+
+<p>To add a custom frame (e.g., a fixture or conveyor reference), use the <code>/cobot/set_user_frame</code> service or define it in the launch file YAML configuration.</p>
+
+<h2>9. Real-Time Communication Considerations</h2>
+
+<p>The CoBot ROS 2 Bridge operates over OPC-UA, which is a non-real-time protocol. For applications requiring deterministic communication (cycle time &lt;1 ms), interface directly with the CoBot Pro's EtherCAT bus. Refer to the <strong>EtherCAT Communication Stack</strong> in the Engineering documentation for details on the real-time communication architecture and direct servo access via EtherCAT.</p>
+
+<p>OPC-UA bridge latency characteristics:</p>
+<ul>
+    <li>Typical round-trip latency: 2–5 ms on a dedicated Gigabit Ethernet link</li>
+    <li>Maximum supported publish rate: 500 Hz (joint states)</li>
+    <li>Command execution jitter: ±1 ms</li>
+    <li>Suitable for: pick-and-place, inspection, palletizing, machine tending</li>
+    <li>Not suitable for: force-controlled grinding, high-speed assembly requiring &lt;1 ms control loops</li>
+</ul>
+
+<p><em>Document version 4.2.0 | Last updated: 2025-01-15 | Contoso Robotics Technical Support</em></p>
+
+</body>
+</html>

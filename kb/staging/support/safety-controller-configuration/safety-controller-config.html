@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Safety Controller SC-100 Configuration Guide</title>
+</head>
+<body>
+
+<h1>Safety Controller SC-100 Configuration Guide</h1>
+
+<p>The Safety Controller SC-100 is the certified safety system integrated into every CoBot Pro 500 and CoBot Pro 700 control cabinet. It monitors and enforces safety parameters in real time, independent of the main CoBot OS v4.2 processor. This guide covers safety zone setup, speed and force limit configuration, emergency stop wiring, and safety I/O mapping. For low-level firmware details and update procedures, refer to the <strong>Safety Controller Firmware</strong> document in the Engineering documentation.</p>
+
+<h2>1. SC-100 Architecture Overview</h2>
+
+<p>The SC-100 uses a dual-channel redundant architecture certified to SIL 3 (IEC 61508) and PL e, Category 4 (ISO 13849-1):</p>
+
+<ul>
+    <li><strong>Processor A (monitoring):</strong> ARM Cortex-R5, 400 MHz, dedicated to safety function execution</li>
+    <li><strong>Processor B (checking):</strong> Independent ARM Cortex-R5, cross-checks Processor A outputs every 1 ms</li>
+    <li><strong>Safe I/O:</strong> 4 safe digital inputs (SI1–SI4), 2 safe digital outputs (SO1–SO2), all redundant and monitored</li>
+    <li><strong>Communication:</strong> Safety-over-EtherCAT (FSoE) to the main controller, CIP Safety optional module available</li>
+    <li><strong>Reaction time:</strong> 8 ms worst-case from hazard detection to Safe Torque Off (STO)</li>
+</ul>
+
+<img src="images/sc100-wiring-diagram.png" alt="SC-100 wiring diagram showing the dual-channel safety input connections, E-Stop circuit, safety relay outputs, and EtherCAT communication link." />
+
+<h2>2. Safety Zone Configuration</h2>
+
+<p>The SC-100 supports up to 8 configurable safety zones that restrict the robot's workspace:</p>
+
+<img src="images/safety-zone-configuration.png" alt="Safety zone configuration screen showing a top-down view of the workspace with colored zones: green (full speed), yellow (reduced speed), and red (prohibited)." />
+
+<ol>
+    <li>Open CoBot Studio IDE and navigate to <em>Safety → Zone Configuration</em>.</li>
+    <li>Enter the safety configuration password (default: set during commissioning; cannot be recovered—store securely).</li>
+    <li>Define zones using one of the following shapes:
+        <ul>
+            <li><strong>Cylindrical:</strong> Center point (X, Y), radius, height range (Z_min, Z_max)</li>
+            <li><strong>Rectangular prism:</strong> Min/max corners in (X, Y, Z)</li>
+            <li><strong>Convex polygon:</strong> Up to 12 vertices in the XY plane, with Z range</li>
+        </ul>
+    </li>
+    <li>Assign a safety response to each zone:
+        <ul>
+            <li><strong>Zone Type 0 (Normal):</strong> Full speed and force limits apply</li>
+            <li><strong>Zone Type 1 (Reduced):</strong> TCP speed limited to 250 mm/s, force limited to 150 N</li>
+            <li><strong>Zone Type 2 (Restricted):</strong> Robot stops if TCP enters this zone (configurable reaction: STO or Safe Stop 1)</li>
+        </ul>
+    </li>
+    <li>Validate the configuration by running the <em>Zone Boundary Test</em>: the robot traces the zone perimeter at 10% speed while the SC-100 verifies detection at all boundary points.</li>
+    <li>Lock the configuration. Changes require re-entering the safety password and performing a validation restart.</li>
+</ol>
+
+<h2>3. Speed and Force Limits</h2>
+
+<p>Configure speed and force thresholds to comply with ISO/TS 15066 power and force limiting (PFL) requirements:</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>Parameter</th>
+            <th>Default Value</th>
+            <th>Configurable Range</th>
+            <th>ISO/TS 15066 Reference</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>TCP speed (collaborative mode)</td>
+            <td>250 mm/s</td>
+            <td>1–1500 mm/s</td>
+            <td>Table A.2 (transient contact)</td>
+        </tr>
+        <tr>
+            <td>TCP force limit</td>
+            <td>150 N</td>
+            <td>10–500 N</td>
+            <td>Table A.2 (body region dependent)</td>
+        </tr>
+        <tr>
+            <td>Joint torque limit (per joint)</td>
+            <td>See joint specs</td>
+            <td>10–100% of rated torque</td>
+            <td>—</td>
+        </tr>
+        <tr>
+            <td>Momentum limit</td>
+            <td>Auto-calculated</td>
+            <td>Based on payload + speed</td>
+            <td>Clause 5.5.4</td>
+        </tr>
+        <tr>
+            <td>Power limit</td>
+            <td>80 W</td>
+            <td>10–300 W</td>
+            <td>Table A.2</td>
+        </tr>
+    </tbody>
+</table>
+
+<p>To configure, navigate to <em>Safety → Force/Speed Limits</em> in CoBot Studio IDE. After modifying any value, the SC-100 requires a safety validation restart (the robot performs a controlled stop, verifies the new parameters, and restarts the safety monitoring loop).</p>
+
+<h2>4. Emergency Stop Configuration</h2>
+
+<p>The SC-100 supports a daisy-chained emergency stop circuit with up to 10 devices:</p>
+
+<img src="images/emergency-stop-circuit.png" alt="Emergency stop circuit diagram showing the daisy-chain wiring for multiple E-Stop buttons, the SC-100 safety relay, and the Safe Torque Off contactor." />
+
+<ol>
+    <li>Wire each E-Stop device in series using the dual-channel (NC+NC) configuration. Use shielded cable, 0.75 mm² minimum.</li>
+    <li>Connect the chain to SC-100 terminals SI1A/SI1B (channel A) and SI2A/SI2B (channel B).</li>
+    <li>The SC-100 monitors both channels simultaneously. A discrepancy between channels triggers a fault (error code S-003: E-Stop Channel Mismatch).</li>
+    <li>Test each E-Stop device individually: press the button and verify STO activation within 150 ms (displayed on the teach pendant under <em>Safety → Diagnostics</em>).</li>
+    <li>After releasing an E-Stop, a manual reset is required: press the <em>Safety Reset</em> button on the teach pendant or control cabinet.</li>
+</ol>
+
+<h2>5. Safety I/O Mapping</h2>
+
+<p>The remaining safe I/O can be mapped to external safety devices:</p>
+
+<ul>
+    <li><strong>SI3:</strong> Safety light curtain input (e.g., Contoso SafeGuard LC-400). When interrupted, reduces robot to Zone Type 1 speed.</li>
+    <li><strong>SI4:</strong> Safety interlock switch for enclosure door. When open, activates STO.</li>
+    <li><strong>SO1:</strong> Safe speed indicator output. Goes HIGH when the robot is operating below the collaborative speed threshold.</li>
+    <li><strong>SO2:</strong> Robot-in-motion indicator. Goes HIGH whenever any joint is moving.</li>
+</ul>
+
+<p>Configure I/O mapping in <em>Safety → I/O Configuration</em>. Each input/output has configurable debounce time (1–100 ms), polarity (normally open/normally closed), and response action.</p>
+
+<h2>6. Configuration Backup and Audit Trail</h2>
+
+<p>The SC-100 maintains a tamper-evident audit log of all safety configuration changes. To export:</p>
+
+<ol>
+    <li>Navigate to <em>Safety → Audit Log → Export</em>.</li>
+    <li>Save the cryptographically signed log file (.slog) to a USB drive.</li>
+    <li>The log includes timestamps, user identifiers, parameter changes, and validation results.</li>
+    <li>This log is required for ISO 10218 compliance audits and should be archived per your facility's records retention policy.</li>
+</ol>
+
+<p>For a comprehensive overview of the safety standards and compliance certifications applicable to the CoBot Pro, refer to the <strong>Safety Standards &amp; Compliance Overview</strong> in the Support documentation.</p>
+
+<p><em>Document version 4.2.0 | Last updated: 2025-01-15 | Contoso Robotics Technical Support</em></p>
+
+</body>
+</html>

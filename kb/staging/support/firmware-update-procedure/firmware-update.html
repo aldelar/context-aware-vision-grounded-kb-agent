@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoBot Pro Firmware Update Procedure</title>
+</head>
+<body>
+
+<h1>CoBot Pro Firmware Update Procedure</h1>
+
+<p>This document describes the procedure for updating firmware on the CoBot Pro 500 and CoBot Pro 700 platforms, including the main CoBot OS, joint servo drives, and Safety Controller SC-100. Firmware updates deliver bug fixes, performance improvements, and new features. For a detailed changelog of the latest release, refer to the <strong>Firmware Release Notes v4.2.0</strong> in the Engineering documentation.</p>
+
+<h2>1. Pre-Update Checklist</h2>
+
+<p>Complete every item before starting the update process. Skipping these steps may result in data loss or an unrecoverable system state.</p>
+
+<ul>
+    <li>☐ Back up the current robot configuration: <em>Settings → Backup → Full System Backup</em> (saves to USB drive or network share)</li>
+    <li>☐ Back up all user programs: <em>File → Export All Programs</em> (creates a .cbp archive file)</li>
+    <li>☐ Export the safety configuration: <em>Safety → Export Configuration</em> (requires safety password)</li>
+    <li>☐ Record the current firmware versions:
+        <ul>
+            <li>CoBot OS: <em>Settings → About → System Version</em></li>
+            <li>Joint servo firmware: <em>Diagnostics → EtherCAT → Servo Firmware Versions</em></li>
+            <li>SC-100 firmware: <em>Safety → About → Controller Firmware</em></li>
+        </ul>
+    </li>
+    <li>☐ Verify battery levels on all joint absolute encoders are &gt;2.9 V (<em>Diagnostics → Encoder → Battery Status</em>)</li>
+    <li>☐ Ensure the robot is in its home position with no payload attached</li>
+    <li>☐ Connect the control cabinet to a UPS or ensure stable power for the duration of the update (approximately 30 minutes)</li>
+    <li>☐ Notify all operators that the robot will be offline during the update</li>
+</ul>
+
+<img src="images/firmware-update-flowchart.png" alt="Firmware update process flowchart showing the complete sequence from pre-update checks through download, installation, validation, and rollback decision points." />
+
+<h2>2. Downloading Firmware</h2>
+
+<p>Firmware packages are available through two channels:</p>
+
+<ol>
+    <li><strong>Online update (recommended):</strong> If the control cabinet has internet access, navigate to <em>Settings → System Update → Check for Updates</em>. CoBot OS will download the latest firmware bundle directly from the Contoso Robotics update server (updates.contoso-robotics.com, port 443).</li>
+    <li><strong>Offline update:</strong> Download the firmware bundle (.cbfw file) from the Contoso Robotics Partner Portal. Copy it to a USB drive (FAT32 formatted, minimum 4 GB). Insert the USB drive into the front panel USB-A port on the control cabinet.</li>
+</ol>
+
+<p>The firmware bundle contains three components:</p>
+<ul>
+    <li><strong>CoBot OS image:</strong> The main operating system and application software (~1.2 GB)</li>
+    <li><strong>Servo firmware package:</strong> Individual firmware images for each joint's servo drive (~50 MB total)</li>
+    <li><strong>SC-100 safety firmware:</strong> The Safety Controller firmware with dual-image redundancy (~15 MB)</li>
+</ul>
+
+<h2>3. CoBot Studio Update Wizard</h2>
+
+<p>The update wizard guides you through the installation process:</p>
+
+<img src="images/cobot-studio-update-screen.png" alt="CoBot Studio firmware update wizard screen showing the current and target firmware versions, component selection checkboxes, and progress bars for each update stage." />
+
+<ol>
+    <li>Open CoBot Studio IDE on the teach pendant or desktop PC (connected to the robot).</li>
+    <li>Navigate to <em>Tools → Firmware Update Wizard</em>.</li>
+    <li>The wizard displays the current and target versions for each component. Review the release notes summary.</li>
+    <li>Select which components to update. You can update individual components or all three simultaneously.</li>
+    <li>Click <em>Start Update</em>. The wizard performs the following sequence:
+        <ol>
+            <li><strong>Validation:</strong> Verifies the firmware bundle integrity (SHA-256 checksum) and compatibility with the robot model.</li>
+            <li><strong>CoBot OS update:</strong> Installs the new OS image to the inactive partition (A/B partition scheme). Duration: ~10 minutes.</li>
+            <li><strong>Servo firmware update:</strong> Flashes each joint servo drive sequentially via EtherCAT. Duration: ~2 minutes per joint (12 minutes for a 6-axis robot).</li>
+            <li><strong>SC-100 firmware update:</strong> Flashes the safety controller using the secure boot protocol with cryptographic signature verification. Duration: ~5 minutes.</li>
+            <li><strong>System restart:</strong> The robot reboots into the new firmware. Boot time: ~60 seconds.</li>
+        </ol>
+    </li>
+    <li>After the restart, the wizard runs the <em>Post-Update Validation</em> automatically (see Section 5).</li>
+</ol>
+
+<p><strong>Warning:</strong> Do not power off the robot or disconnect cables during the update process. An interrupted servo firmware flash may require a factory recovery procedure.</p>
+
+<h2>4. Rollback Procedure</h2>
+
+<p>If the update causes issues, you can roll back to the previous firmware:</p>
+
+<ol>
+    <li><strong>CoBot OS rollback:</strong> Navigate to <em>Settings → System Update → Rollback</em>. The system reboots from the previous partition (A/B scheme). This is available for 30 days after an update.</li>
+    <li><strong>Servo firmware rollback:</strong> Use the Firmware Update Wizard and select the previous version from the USB drive. Alternatively, the previous servo firmware is cached in <code>/opt/cobot/firmware/servo-backup/</code> for 90 days.</li>
+    <li><strong>SC-100 rollback:</strong> Navigate to <em>Safety → Firmware → Rollback</em>. The SC-100 maintains two firmware images (active and backup). Enter the safety password to authorize the rollback.</li>
+</ol>
+
+<p>After any rollback, restore the configuration backup taken in Section 1 and recalibrate if prompted.</p>
+
+<h2>5. Post-Update Validation</h2>
+
+<p>The post-update validation suite runs automatically but can also be triggered manually from <em>Diagnostics → Post-Update Check</em>:</p>
+
+<ol>
+    <li><strong>Version verification:</strong> Confirms all components are running the expected firmware versions.</li>
+    <li><strong>Joint communication test:</strong> Verifies EtherCAT communication with all servo drives (error-free for 10 seconds).</li>
+    <li><strong>Safety function test:</strong> The SC-100 performs a self-test of all safety functions (E-Stop, STO, SLS, SLP).</li>
+    <li><strong>Calibration check:</strong> Compares current joint positions against stored calibration data. If deviation exceeds 0.1°, recalibration is recommended.</li>
+    <li><strong>Program compatibility check:</strong> Scans all user programs for API changes that may require migration. Incompatibilities are listed in the validation report.</li>
+</ol>
+
+<p>The validation report is saved to <code>/var/log/cobot/update-validation-[timestamp].json</code> and can be exported from CoBot Studio IDE.</p>
+
+<h2>6. SC-100 Safety Controller Update Notes</h2>
+
+<p>The SC-100 firmware update has additional requirements due to its safety certification:</p>
+
+<ul>
+    <li>The safety firmware is cryptographically signed by Contoso Robotics. Unsigned or modified images are rejected.</li>
+    <li>After updating the SC-100, the safety configuration must be re-validated. The system will prompt for a safety validation restart.</li>
+    <li>The SC-100 audit log records the firmware update event, including the old and new versions, timestamp, and user ID.</li>
+    <li>If the SC-100 firmware version is incompatible with the CoBot OS version, the system will refuse to operate and display error S-010 (Safety Firmware Version Mismatch).</li>
+</ul>
+
+<p>For detailed information about the SC-100 safety firmware architecture and cryptographic verification process, refer to the <strong>Safety Controller Firmware</strong> in the Engineering documentation.</p>
+
+<p><em>Document version 4.2.0 | Last updated: 2025-01-15 | Contoso Robotics Technical Support</em></p>
+
+</body>
+</html>

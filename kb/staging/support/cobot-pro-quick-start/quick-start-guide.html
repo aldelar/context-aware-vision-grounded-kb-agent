@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoBot Pro Quick Start Guide</title>
+</head>
+<body>
+
+<h1>CoBot Pro Quick Start Guide</h1>
+
+<p>Welcome to the Contoso Robotics CoBot Pro Quick Start Guide. This document walks you through unboxing your CoBot Pro 500 or CoBot Pro 700, powering it on for the first time, running basic safety checks, and executing your first collaborative program. For full product specifications and feature details, refer to the <strong>Product Overview</strong> available from Contoso Robotics Marketing.</p>
+
+<img src="images/cobot-pro-overview-diagram.png" alt="CoBot Pro system overview showing the robotic arm, teach pendant, control cabinet, and Safety Controller SC-100." />
+
+<h2>1. Package Contents</h2>
+
+<p>Before beginning setup, verify that your shipment includes the following items:</p>
+
+<ul>
+    <li>CoBot Pro robotic arm (500 or 700 model)</li>
+    <li>Control cabinet with integrated Safety Controller SC-100</li>
+    <li>Teach pendant with USB-C cable</li>
+    <li>Mounting bracket kit (M10 bolts, alignment pins, torque specifications sheet)</li>
+    <li>Power cable (IEC 60320 C19, 3 m)</li>
+    <li>EtherCAT patch cable (CAT6a shielded, 5 m)</li>
+    <li>CoBot OS v4.2 USB recovery drive</li>
+    <li>Quick Start Card and Safety Information booklet</li>
+</ul>
+
+<p>If any item is missing or damaged, contact Contoso Robotics Support at <strong>support@contoso-robotics.com</strong> within 48 hours of delivery.</p>
+
+<h2>2. Site Preparation</h2>
+
+<p>Choose a mounting surface that meets the following requirements:</p>
+
+<ul>
+    <li><strong>Surface flatness:</strong> ±0.5 mm across the 200 mm mounting footprint</li>
+    <li><strong>Load capacity:</strong> CoBot Pro 500 weighs 28 kg; CoBot Pro 700 weighs 35 kg. The surface must support at least 3× the robot weight to account for dynamic forces.</li>
+    <li><strong>Clearance:</strong> Maintain a minimum 750 mm clearance radius around the base for the full reach envelope (500 mm for the Pro 500, 700 mm for the Pro 700).</li>
+    <li><strong>Ambient temperature:</strong> 5°C to 45°C operating range.</li>
+</ul>
+
+<img src="images/cobot-pro-workspace-setup.png" alt="Recommended workspace layout showing the CoBot Pro mounted on a workbench with safety perimeter markings and the operator workstation position." />
+
+<h2>3. Mounting the Robot</h2>
+
+<ol>
+    <li>Position the mounting bracket on the work surface using the alignment pins.</li>
+    <li>Secure the bracket with four M10 bolts torqued to 40 Nm (±2 Nm).</li>
+    <li>Lift the CoBot Pro arm onto the bracket—use two people or a hoist for models over 30 kg.</li>
+    <li>Engage the three-point locking mechanism and tighten the locking ring to 25 Nm.</li>
+    <li>Verify the arm is level using the integrated spirit-level indicator on the base.</li>
+</ol>
+
+<h2>4. Cable Connections</h2>
+
+<p>Route cables through the designated channels on the mounting bracket to prevent pinching. Connect the following:</p>
+
+<ol>
+    <li><strong>Power:</strong> Connect the IEC C19 power cable from the control cabinet to a dedicated 200–240 V AC, 16 A circuit.</li>
+    <li><strong>EtherCAT:</strong> Connect the CAT6a cable between the robot arm base connector (Port A) and the control cabinet (EtherCAT IN).</li>
+    <li><strong>Teach pendant:</strong> Plug the USB-C cable into the front panel of the control cabinet.</li>
+    <li><strong>Emergency stop:</strong> Connect the external E-Stop daisy chain to the E-STOP IN terminal on the SC-100 safety controller.</li>
+</ol>
+
+<h2>5. First Power-On</h2>
+
+<ol>
+    <li>Turn the main breaker on the control cabinet to the ON position.</li>
+    <li>The SC-100 Safety Controller performs a self-test (green LED blinks for 5 seconds, then solid green).</li>
+    <li>The teach pendant displays the CoBot OS v4.2 boot screen. Boot takes approximately 45 seconds.</li>
+    <li>When prompted, select your language, time zone, and network configuration (DHCP or static IP).</li>
+    <li>Accept the End User License Agreement and register the robot serial number.</li>
+</ol>
+
+<img src="images/cobot-pro-control-panel.png" alt="Close-up of the CoBot Pro control panel showing the power switch, status LEDs, EtherCAT port, USB-C teach pendant port, and emergency stop connector." />
+
+<h2>6. Initial Safety Checks</h2>
+
+<p>Before operating the robot, complete these mandatory safety validations:</p>
+
+<ol>
+    <li><strong>Emergency stop test:</strong> Press the E-Stop button on the teach pendant. Verify the robot loses power to all joints within 150 ms and the SC-100 reports STO (Safe Torque Off) status.</li>
+    <li><strong>Safety zone verification:</strong> Navigate to <em>Settings → Safety → Zone Configuration</em> and confirm the default restricted zone matches your workspace layout.</li>
+    <li><strong>Force limit test:</strong> Run the built-in collision detection test from <em>Diagnostics → Force Limits</em>. The default limit for human contact is 150 N (ISO/TS 15066 compliant).</li>
+    <li><strong>Speed limit test:</strong> Manually jog the robot and verify the TCP speed does not exceed 250 mm/s in collaborative mode.</li>
+</ol>
+
+<p>For a comprehensive safety configuration guide, refer to the <strong>Safety Controller SC-100 Configuration Guide</strong> in the Support documentation.</p>
+
+<h2>7. Your First Program</h2>
+
+<p>Use the teach pendant to create a simple pick-and-place program:</p>
+
+<ol>
+    <li>Open CoBot Studio IDE on the teach pendant (tap the <em>Studio</em> icon).</li>
+    <li>Create a new project: <em>File → New → Pick &amp; Place Template</em>.</li>
+    <li>Teach the "Home" waypoint by manually guiding the arm to the start position and pressing <em>Record Waypoint</em>.</li>
+    <li>Teach the "Pick" waypoint above the part bin.</li>
+    <li>Add a gripper close command: <em>Insert → I/O → Digital Output → DO1 HIGH</em>.</li>
+    <li>Teach the "Place" waypoint above the drop location.</li>
+    <li>Add a gripper open command: <em>Insert → I/O → Digital Output → DO1 LOW</em>.</li>
+    <li>Set the loop count to 10 and press <em>Run</em>.</li>
+</ol>
+
+<p>The robot will execute the program at reduced speed (25% default) for the first run. After verifying the path, increase speed in 25% increments up to the rated production speed.</p>
+
+<h2>8. Connecting to the Network</h2>
+
+<p>The CoBot Pro supports Ethernet, Wi-Fi (optional adapter), and EtherCAT communication. To enable remote monitoring via CoBot Studio IDE on a desktop PC:</p>
+
+<ol>
+    <li>Connect the control cabinet's LAN port to your facility network.</li>
+    <li>Open CoBot Studio IDE on your PC and navigate to <em>Connect → Discover Robots</em>.</li>
+    <li>Select your CoBot Pro from the device list (identified by serial number).</li>
+    <li>Authenticate with the default credentials (change these immediately after first login).</li>
+</ol>
+
+<p>For detailed system architecture information, including the EtherCAT communication bus and real-time control loop, see the <strong>System Architecture Overview</strong> in the Engineering documentation.</p>
+
+<h2>9. Getting Help</h2>
+
+<p>If you encounter issues during setup:</p>
+
+<ul>
+    <li>Check the <strong>Joint Error Troubleshooting Guide</strong> for error codes displayed on the teach pendant.</li>
+    <li>Visit the Contoso Robotics Knowledge Base at <strong>kb.contoso-robotics.com</strong>.</li>
+    <li>Contact Support: <strong>+1-800-CONTOSO</strong> (Mon–Fri, 8 AM–8 PM EST).</li>
+    <li>For warranty and return information, refer to the <strong>Product Overview</strong> from Contoso Robotics Marketing.</li>
+</ul>
+
+<p><em>Document version 4.2.0 | Last updated: 2025-01-15 | Contoso Robotics Technical Support</em></p>
+
+</body>
+</html>

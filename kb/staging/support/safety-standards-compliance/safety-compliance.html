@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoBot Pro Safety Standards &amp; Compliance Overview</title>
+</head>
+<body>
+
+<h1>CoBot Pro Safety Standards &amp; Compliance Overview</h1>
+
+<p>The Contoso Robotics CoBot Pro 500 and CoBot Pro 700 are designed, tested, and certified to meet the most stringent international safety and cybersecurity standards for collaborative robots. This document provides an overview of the applicable standards, certification details, and the risk assessment methodology used during the design process. For a condensed marketing summary and certification badge artwork, refer to the <strong>Safety Certification Factsheet</strong> available from Contoso Robotics Marketing.</p>
+
+<h2>1. Applicable Standards Overview</h2>
+
+<img src="images/iso-compliance-matrix.png" alt="ISO compliance matrix showing the CoBot Pro's certification status for ISO 10218-1, ISO 10218-2, ISO/TS 15066, IEC 62443, and IEC 61508 with test laboratory and certificate numbers." />
+
+<table>
+    <thead>
+        <tr>
+            <th>Standard</th>
+            <th>Scope</th>
+            <th>CoBot Pro Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>ISO 10218-1:2011</td>
+            <td>Safety requirements for industrial robots — Robot</td>
+            <td>Certified (TÜV SÜD, Cert. #RS-2024-00142)</td>
+        </tr>
+        <tr>
+            <td>ISO 10218-2:2011</td>
+            <td>Safety requirements for industrial robots — Robot system and integration</td>
+            <td>Integration guidelines provided</td>
+        </tr>
+        <tr>
+            <td>ISO/TS 15066:2016</td>
+            <td>Collaborative robot safety — Power and force limiting</td>
+            <td>Certified (TÜV SÜD, Cert. #TS-2024-00089)</td>
+        </tr>
+        <tr>
+            <td>IEC 61508:2010</td>
+            <td>Functional safety — Safety Controller SC-100</td>
+            <td>SIL 3 certified (TÜV Rheinland, Cert. #FS-2024-01255)</td>
+        </tr>
+        <tr>
+            <td>ISO 13849-1:2023</td>
+            <td>Safety-related parts of control systems</td>
+            <td>PL e, Category 4</td>
+        </tr>
+        <tr>
+            <td>IEC 62443-4-2:2019</td>
+            <td>Industrial automation cybersecurity — Component requirements</td>
+            <td>SL 2 certified (ISASecure, Cert. #CS-2024-00312)</td>
+        </tr>
+        <tr>
+            <td>CE Marking (EU)</td>
+            <td>Machinery Directive 2006/42/EC</td>
+            <td>Compliant (DoC available on request)</td>
+        </tr>
+    </tbody>
+</table>
+
+<h2>2. ISO 10218: Robot Safety Requirements</h2>
+
+<p>ISO 10218-1 defines safety requirements for the robot itself, while ISO 10218-2 covers the robot system and its integration into a workcell. The CoBot Pro satisfies ISO 10218-1 through:</p>
+
+<ul>
+    <li><strong>Emergency stop (Category 0 and 1):</strong> The SC-100 implements both STO (Safe Torque Off, Category 0) and SS1 (Safe Stop 1, controlled deceleration followed by STO). Reaction time from E-Stop activation to STO: &lt;150 ms.</li>
+    <li><strong>Protective stop:</strong> Triggered by safety zone violations or excessive force, the robot performs a controlled stop and holds position. Motion resumes only after the operator acknowledges the stop.</li>
+    <li><strong>Speed and separation monitoring:</strong> The SC-100 monitors the TCP speed and the distance to safety zone boundaries in real time at 1 kHz.</li>
+    <li><strong>Hand guiding:</strong> The teach pendant's freedrive button enables compliant hand guiding with configurable force and speed limits.</li>
+</ul>
+
+<p>For ISO 10218-2 compliance, integrators must perform a risk assessment for the complete workcell. Contoso Robotics provides an integration checklist and risk assessment template (available on the Partner Portal).</p>
+
+<h2>3. ISO/TS 15066: Collaborative Operation</h2>
+
+<p>ISO/TS 15066 specifies the safety requirements for collaborative robot systems where the robot and human share the workspace simultaneously. The CoBot Pro supports all four collaborative operation modes defined in ISO/TS 15066:</p>
+
+<img src="images/safety-category-diagram.png" alt="Safety category diagram illustrating the four collaborative operation modes: safety-rated monitored stop, hand guiding, speed and separation monitoring, and power and force limiting with applicable CoBot Pro parameters." />
+
+<ol>
+    <li><strong>Safety-rated monitored stop:</strong> The robot stops before the human enters the collaborative workspace. Motion resumes automatically when the human exits (requires safety-rated presence detection on SI3).</li>
+    <li><strong>Hand guiding:</strong> The operator physically guides the robot while holding the enabling device. Speed limited to 250 mm/s; force limited to 150 N.</li>
+    <li><strong>Speed and separation monitoring (SSM):</strong> The robot's speed is dynamically reduced based on the distance to the nearest human. Requires external sensing (e.g., safety laser scanner on SI3/SI4).</li>
+    <li><strong>Power and force limiting (PFL):</strong> The robot's design limits the force and pressure applied to a human in the event of a collision. This is the primary collaborative mode for the CoBot Pro.</li>
+</ol>
+
+<h3>PFL Biomechanical Limits</h3>
+
+<p>The SC-100 enforces the biomechanical force and pressure limits from ISO/TS 15066 Table A.2. Default values are configured for the most conservative body region (skull/forehead). Integrators may adjust limits per the specific body regions at risk in their application:</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>Body Region</th>
+            <th>Max. Transient Force (N)</th>
+            <th>Max. Quasi-Static Force (N)</th>
+            <th>Max. Pressure (N/cm²)</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Skull / Forehead</td>
+            <td>130</td>
+            <td>65</td>
+            <td>30</td>
+        </tr>
+        <tr>
+            <td>Chest</td>
+            <td>140</td>
+            <td>70</td>
+            <td>25</td>
+        </tr>
+        <tr>
+            <td>Hand / Finger</td>
+            <td>140</td>
+            <td>70</td>
+            <td>30</td>
+        </tr>
+        <tr>
+            <td>Upper arm</td>
+            <td>150</td>
+            <td>75</td>
+            <td>28</td>
+        </tr>
+        <tr>
+            <td>Lower legs</td>
+            <td>210</td>
+            <td>105</td>
+            <td>40</td>
+        </tr>
+    </tbody>
+</table>
+
+<h2>4. IEC 62443: Industrial Cybersecurity</h2>
+
+<p>The CoBot Pro is certified to IEC 62443-4-2 Security Level 2 (SL 2), which provides protection against intentional violation using simple means with low resources. Key security features:</p>
+
+<ul>
+    <li><strong>Secure boot:</strong> The CoBot OS v4.2 and SC-100 firmware use cryptographic signature verification to prevent unauthorized code execution.</li>
+    <li><strong>Encrypted communication:</strong> OPC-UA connections use TLS 1.3 with mutual certificate authentication. The default self-signed certificates should be replaced with organization-issued certificates.</li>
+    <li><strong>Role-based access control:</strong> Four user roles (Operator, Programmer, Administrator, Safety Engineer) with configurable permissions for all system functions.</li>
+    <li><strong>Audit logging:</strong> All configuration changes, login attempts, and firmware updates are logged with tamper-evident checksums.</li>
+    <li><strong>Network segmentation:</strong> The EtherCAT real-time bus is physically separated from the LAN. The safety network (FSoE) is isolated from the application network.</li>
+    <li><strong>Vulnerability management:</strong> Contoso Robotics publishes security advisories and patches quarterly on the Partner Portal.</li>
+</ul>
+
+<h2>5. CE Marking and European Compliance</h2>
+
+<p>The CoBot Pro carries the CE mark in compliance with:</p>
+
+<ul>
+    <li>Machinery Directive 2006/42/EC</li>
+    <li>Low Voltage Directive 2014/35/EU</li>
+    <li>EMC Directive 2014/30/EU</li>
+    <li>RoHS Directive 2011/65/EU</li>
+</ul>
+
+<p>The Declaration of Conformity (DoC) is available upon request from Contoso Robotics Sales or can be downloaded from the Partner Portal. Note that CE marking applies to the robot as a partly completed machine. The integrator is responsible for the CE marking of the complete machine installation per the Machinery Directive.</p>
+
+<h2>6. Risk Assessment Methodology</h2>
+
+<p>Contoso Robotics follows the risk assessment methodology defined in ISO 12100:2010:</p>
+
+<ol>
+    <li><strong>Hazard identification:</strong> All foreseeable hazards during normal operation, setup, maintenance, and fault conditions are identified and documented.</li>
+    <li><strong>Risk estimation:</strong> Each hazard is assessed for severity of harm (S1–S4), probability of occurrence (P1–P2), and frequency of exposure (F1–F2).</li>
+    <li><strong>Risk evaluation:</strong> Risks are ranked using a risk graph method. Intolerable risks require design changes; tolerable risks require documented protective measures.</li>
+    <li><strong>Risk reduction:</strong> Applied in priority order: inherently safe design → safeguarding and protective devices → information for use (warnings, instructions).</li>
+</ol>
+
+<p>Integrators must perform their own risk assessment for the complete robot system, including the end effector, workpieces, and workcell layout. Contoso Robotics provides a risk assessment template on the Partner Portal.</p>
+
+<p>For the technical implementation of safety functions in the SC-100, refer to the <strong>Safety Controller Firmware</strong> in the Engineering documentation. For printable certification badges and compliance summary suitable for customer-facing materials, refer to the <strong>Safety Certification Factsheet</strong> available from Contoso Robotics Marketing.</p>
+
+<p><em>Document version 4.2.0 | Last updated: 2025-01-15 | Contoso Robotics Technical Support</em></p>
+
+</body>
+</html>

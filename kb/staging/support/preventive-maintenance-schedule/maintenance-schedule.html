@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoBot Pro Preventive Maintenance Schedule</title>
+</head>
+<body>
+
+<h1>CoBot Pro Preventive Maintenance Schedule</h1>
+
+<p>Regular preventive maintenance ensures the CoBot Pro 500 and CoBot Pro 700 continue to operate safely, reliably, and within specification. This guide provides daily, weekly, monthly, quarterly, and annual maintenance procedures. Following this schedule maximizes the robot's lifespan (rated at 35,000 operating hours) and maintains warranty coverage. For real-world maintenance best practices from production deployments, refer to the <strong>Customer Success Story</strong> available from Contoso Robotics Marketing.</p>
+
+<h2>1. Maintenance Schedule Overview</h2>
+
+<img src="images/maintenance-schedule-chart.png" alt="Preventive maintenance schedule chart showing a timeline view of daily, weekly, monthly, quarterly, and annual tasks with estimated duration for each." />
+
+<table>
+    <thead>
+        <tr>
+            <th>Frequency</th>
+            <th>Task Category</th>
+            <th>Estimated Time</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Daily</td>
+            <td>Visual inspection, basic diagnostics</td>
+            <td>5–10 minutes</td>
+        </tr>
+        <tr>
+            <td>Weekly</td>
+            <td>Cable inspection, cleaning, log review</td>
+            <td>15–20 minutes</td>
+        </tr>
+        <tr>
+            <td>Monthly</td>
+            <td>Calibration verification, backup, safety tests</td>
+            <td>30–45 minutes</td>
+        </tr>
+        <tr>
+            <td>Quarterly</td>
+            <td>Lubrication, thorough mechanical inspection</td>
+            <td>1–2 hours</td>
+        </tr>
+        <tr>
+            <td>Annual</td>
+            <td>Full calibration, component replacement, certification review</td>
+            <td>4–8 hours</td>
+        </tr>
+    </tbody>
+</table>
+
+<h2>2. Daily Checks (Every Shift Start)</h2>
+
+<ol>
+    <li><strong>Visual inspection:</strong> Walk around the robot and inspect for visible damage, loose cables, leaks, or debris in the workspace.</li>
+    <li><strong>E-Stop test:</strong> Press and release the teach pendant E-Stop. Verify the robot enters STO and recovers after reset.</li>
+    <li><strong>Status LEDs:</strong> Confirm the control cabinet main LED is solid green and the SC-100 safety LED is solid green.</li>
+    <li><strong>Quick accuracy check:</strong> Jog the robot to a known reference point and visually confirm it reaches the expected position. For critical applications, measure with a ruler or dial indicator.</li>
+    <li><strong>Error log review:</strong> On the teach pendant, check <em>Diagnostics → Event Log</em> for any warnings or errors logged since the last shift.</li>
+</ol>
+
+<h2>3. Weekly Checks</h2>
+
+<ol>
+    <li><strong>Cable inspection:</strong> Examine all external cables (power, EtherCAT, safety, I/O) for abrasion, kinking, or connector damage. Pay special attention to cables near joint pivot points where flex fatigue occurs.</li>
+    <li><strong>Tool and end-effector:</strong> Inspect the tool mounting bolts (ISO 9409-1 flange) for tightness. Check gripper wear pads, suction cups, or tool-specific consumables.</li>
+    <li><strong>Clean the robot:</strong> Wipe down the arm with a damp (not wet) lint-free cloth. Do not use solvents on the joint seals. Clean the VM-200 camera lens if a vision module is installed.</li>
+    <li><strong>Air quality:</strong> In dusty or oily environments, check the control cabinet air filter (if equipped with the optional filter kit CB-AF-200). Replace the filter if visibly dirty.</li>
+    <li><strong>Backup user programs:</strong> Export all programs to a USB drive or network share as a weekly backup.</li>
+</ol>
+
+<h2>4. Monthly Checks</h2>
+
+<ol>
+    <li><strong>Calibration verification:</strong> Navigate to <em>Settings → Calibration → Verification</em>. The robot moves to three reference positions and compares the measured joint angles against the stored calibration. A deviation &gt;0.05° on any joint should prompt recalibration.</li>
+    <li><strong>Safety zone test:</strong> Run the zone boundary test from <em>Safety → Zone Configuration → Test</em>. Verify the SC-100 triggers the correct response at each zone boundary.</li>
+    <li><strong>Force limit test:</strong> Run the collision detection test from <em>Diagnostics → Force Limits</em>. Verify the robot stops within the configured force threshold (default 150 N).</li>
+    <li><strong>Full system backup:</strong> Perform a full system backup including OS configuration, safety parameters, calibration data, and user programs.</li>
+    <li><strong>Firmware check:</strong> Check <em>Settings → System Update</em> for available firmware updates. Review release notes before scheduling an update.</li>
+    <li><strong>Encoder battery check:</strong> Review battery voltages for all joint encoders under <em>Diagnostics → Encoder → Battery Status</em>. Replace any battery below 2.9 V.</li>
+</ol>
+
+<h2>5. Quarterly Maintenance</h2>
+
+<img src="images/lubrication-points-diagram.png" alt="Lubrication points diagram showing the six joint locations, grease type (Contoso RoboGrease LT-4), and the recommended quantity (5 ml per joint) for quarterly lubrication." />
+
+<ol>
+    <li><strong>Joint lubrication:</strong> Apply 5 ml of Contoso RoboGrease LT-4 (part number CB-LUB-100) to each joint's lubrication port using the included grease gun. Over-lubrication can damage seals—do not exceed 7 ml per joint.</li>
+    <li><strong>Harmonic drive backlash check:</strong> Run the backlash measurement from <em>Diagnostics → Mechanical → Backlash Test</em>. Acceptable: &lt;0.02° per joint. If backlash exceeds 0.03°, schedule a harmonic drive replacement.</li>
+    <li><strong>Brake holding test:</strong> Command each joint to hold a static load for 60 seconds with power to the motor disabled (brake-only mode). Verify zero drift on the joint position encoder.</li>
+    <li><strong>EtherCAT communication health:</strong> Review 90-day EtherCAT statistics under <em>Diagnostics → EtherCAT → Long-Term Statistics</em>. Total frame loss should be &lt;0.001% of total frames.</li>
+    <li><strong>Control cabinet inspection:</strong> Open the cabinet (with power disconnected) and inspect for dust buildup on circuit boards, loose terminal connections, and fan operation. Use compressed air (max 2 bar) to remove dust.</li>
+</ol>
+
+<h2>6. Annual Maintenance</h2>
+
+<ol>
+    <li><strong>Full joint calibration:</strong> Perform a complete joint calibration including gravity compensation recalibration. This is mandatory to maintain the ±0.03 mm (Pro 500) or ±0.05 mm (Pro 700) repeatability specification.</li>
+    <li><strong>Force-torque sensor calibration:</strong> Recalibrate the force-torque sensors in each joint using the built-in calibration routine. For detailed sensor specifications and calibration procedures, refer to the <strong>Force-Torque Sensor Specification</strong> in the Engineering documentation.</li>
+    <li><strong>Cable replacement assessment:</strong> Inspect all flex cables for signs of fatigue (cracking, fraying, resistance changes). Cables at joints 1–3 typically last 5+ years; cables at joints 4–6 (higher flex cycles) should be replaced every 3 years or 20,000 operating hours.</li>
+    <li><strong>Encoder battery replacement:</strong> Replace all joint encoder batteries proactively, regardless of measured voltage. Use only Contoso-approved CR2032 batteries (part number CB-BAT-032).</li>
+    <li><strong>Safety certification review:</strong> Review the SC-100 audit log for the past year. Verify all safety configuration changes were authorized and documented. Archive the audit log per your facility's compliance requirements.</li>
+    <li><strong>VM-200 lens and sensor cleaning:</strong> If the vision module is installed, perform a deep cleaning of the camera lenses and structured light projector optic using the Contoso Vision Cleaning Kit (CB-VCK-100).</li>
+</ol>
+
+<h2>7. Replacement Parts Reference</h2>
+
+<img src="images/wear-inspection-checklist.png" alt="Wear inspection checklist showing visual indicators for cable fatigue, seal wear, grease condition, and harmonic drive backlash with pass/fail examples." />
+
+<table>
+    <thead>
+        <tr>
+            <th>Part</th>
+            <th>Part Number</th>
+            <th>Typical Lifespan</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Joint flex cable (J1–J3)</td>
+            <td>CB-FLX-100</td>
+            <td>5 years / 30,000 hours</td>
+        </tr>
+        <tr>
+            <td>Joint flex cable (J4–J6)</td>
+            <td>CB-FLX-200</td>
+            <td>3 years / 20,000 hours</td>
+        </tr>
+        <tr>
+            <td>Harmonic drive unit</td>
+            <td>CB-HD-[joint]</td>
+            <td>25,000 hours</td>
+        </tr>
+        <tr>
+            <td>Joint encoder battery</td>
+            <td>CB-BAT-032</td>
+            <td>1 year (replace annually)</td>
+        </tr>
+        <tr>
+            <td>Control cabinet fan</td>
+            <td>CB-FAN-120</td>
+            <td>3 years / 25,000 hours</td>
+        </tr>
+        <tr>
+            <td>Air filter (optional kit)</td>
+            <td>CB-AF-200</td>
+            <td>3–6 months (environment dependent)</td>
+        </tr>
+        <tr>
+            <td>RoboGrease LT-4 cartridge</td>
+            <td>CB-LUB-100</td>
+            <td>1 cartridge per 4 quarterly services</td>
+        </tr>
+    </tbody>
+</table>
+
+<p>All replacement parts are available through the Contoso Robotics Parts Portal at <strong>parts.contoso-robotics.com</strong> or by contacting your regional distributor.</p>
+
+<p><em>Document version 4.2.0 | Last updated: 2025-01-15 | Contoso Robotics Technical Support</em></p>
+
+</body>
+</html>
