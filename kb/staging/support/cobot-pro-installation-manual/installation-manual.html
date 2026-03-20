@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoBot Pro Installation Manual</title>
+</head>
+<body>
+
+<h1>CoBot Pro Installation Manual</h1>
+
+<p>This manual provides complete installation instructions for the Contoso Robotics CoBot Pro 500 and CoBot Pro 700 collaborative robots. Follow each section sequentially to ensure a safe, compliant, and fully functional installation. For detailed electrical wiring diagrams beyond what is covered here, refer to the <strong>Electrical Schematics</strong> in the Engineering documentation.</p>
+
+<h2>1. Pre-Installation Site Assessment</h2>
+
+<p>Before the robot arrives on-site, complete the following assessment:</p>
+
+<ul>
+    <li><strong>Floor loading:</strong> The mounting surface must support a static load of at least 150 kg (robot weight + maximum payload + dynamic forces). For overhead or wall-mounted installations, consult Contoso Robotics Engineering.</li>
+    <li><strong>Power supply:</strong> A dedicated 200–240 V AC, 50/60 Hz, 16 A single-phase circuit with protective earth is required. The circuit must have a residual current device (RCD) rated at 30 mA.</li>
+    <li><strong>Network infrastructure:</strong> Provide at least one Gigabit Ethernet drop within 5 m of the control cabinet location. For real-time control applications, a dedicated VLAN is recommended.</li>
+    <li><strong>Environmental conditions:</strong> Operating temperature 5–45°C, humidity 20–80% non-condensing, altitude up to 2000 m without derating.</li>
+    <li><strong>Safety perimeter:</strong> Define the collaborative workspace boundary per ISO/TS 15066. Mark the floor with yellow safety tape.</li>
+</ul>
+
+<img src="images/mounting-bracket-diagram.png" alt="Detailed mounting bracket diagram showing the four M10 bolt positions, alignment pin locations, cable pass-through channel, and torque specifications." />
+
+<h2>2. Mounting the Robot Base</h2>
+
+<p>The CoBot Pro ships with a universal mounting bracket that supports table-top, floor, wall, and ceiling orientations.</p>
+
+<ol>
+    <li>Select the appropriate mounting orientation. If using wall or ceiling mounting, install the optional anti-gravity spring kit (part number CB-AGS-100).</li>
+    <li>Drill four M10 holes using the paper template included in the mounting kit. Hole depth: 35 mm minimum in steel, 50 mm in aluminum.</li>
+    <li>Insert the alignment pins into the two guide holes.</li>
+    <li>Place the mounting bracket over the alignment pins and hand-tighten all four M10 bolts.</li>
+    <li>Torque the bolts in a cross pattern to 40 Nm (±2 Nm) using a calibrated torque wrench.</li>
+    <li>Place the robot arm on the bracket and engage the three-point locking mechanism. Torque the locking ring to 25 Nm.</li>
+    <li>Verify the mounting with a pull test: apply 500 N lateral force and confirm zero displacement.</li>
+</ol>
+
+<h2>3. Cable Routing</h2>
+
+<p>Proper cable routing prevents electromagnetic interference, mechanical wear, and tripping hazards.</p>
+
+<img src="images/cable-routing-schematic.png" alt="Cable routing schematic showing the recommended paths for power, EtherCAT, safety, and I/O cables between the robot base and the control cabinet." />
+
+<ol>
+    <li>Route the robot-to-cabinet EtherCAT cable (CAT6a, shielded) through the cable channel on the mounting bracket. Maintain a minimum bend radius of 50 mm.</li>
+    <li>Route the power cable separately from signal cables, maintaining at least 100 mm separation to prevent EMI.</li>
+    <li>Route the external E-Stop cable and safety I/O cables through the dedicated safety cable conduit (orange conduit, included).</li>
+    <li>Secure all cables at 300 mm intervals using the included cable ties and adhesive mounts.</li>
+    <li>At the control cabinet, connect cables to the labeled terminal blocks:
+        <ul>
+            <li><strong>TB1:</strong> Main power input (L, N, PE)</li>
+            <li><strong>TB2:</strong> EtherCAT IN / OUT</li>
+            <li><strong>TB3:</strong> Safety I/O (E-Stop, Safety Inputs SI1–SI4, Safety Outputs SO1–SO2)</li>
+            <li><strong>TB4:</strong> General purpose I/O (DI1–DI8, DO1–DO8, AI1–AI2, AO1–AO2)</li>
+        </ul>
+    </li>
+</ol>
+
+<h2>4. Power Connection</h2>
+
+<ol>
+    <li>Verify the facility power matches the robot requirements: 200–240 V AC, 50/60 Hz, 16 A.</li>
+    <li>Connect the IEC C19 power cable to the control cabinet power inlet.</li>
+    <li>Connect the other end to the dedicated circuit breaker.</li>
+    <li>Measure the voltage at TB1 with a multimeter and confirm it is within 200–240 V AC ±10%.</li>
+    <li>Verify the protective earth impedance is less than 0.1 Ω.</li>
+</ol>
+
+<h2>5. Network Configuration</h2>
+
+<p>The control cabinet has two network interfaces:</p>
+
+<ul>
+    <li><strong>LAN (RJ45):</strong> For facility network connectivity, remote programming via CoBot Studio IDE, and OPC-UA data exchange.</li>
+    <li><strong>EtherCAT (RJ45):</strong> Dedicated real-time fieldbus for joint servo communication. Do not connect to the facility LAN.</li>
+</ul>
+
+<p>Default network settings (configurable via teach pendant or CoBot Studio IDE):</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>Parameter</th>
+            <th>Default Value</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>IP Address</td>
+            <td>192.168.1.100</td>
+        </tr>
+        <tr>
+            <td>Subnet Mask</td>
+            <td>255.255.255.0</td>
+        </tr>
+        <tr>
+            <td>Gateway</td>
+            <td>192.168.1.1</td>
+        </tr>
+        <tr>
+            <td>OPC-UA Port</td>
+            <td>4840</td>
+        </tr>
+        <tr>
+            <td>SSH Port</td>
+            <td>22 (disabled by default)</td>
+        </tr>
+    </tbody>
+</table>
+
+<h2>6. Initial Calibration</h2>
+
+<p>After mechanical and electrical installation, perform initial calibration:</p>
+
+<ol>
+    <li>Power on the system and wait for CoBot OS v4.2 to boot completely.</li>
+    <li>On the teach pendant, navigate to <em>Settings → Calibration → Joint Calibration</em>.</li>
+    <li>Follow the on-screen prompts to move each joint to its reference position. The encoder index pulse is captured automatically.</li>
+    <li>Run the <em>Gravity Compensation Calibration</em> wizard: the robot moves through a series of poses while measuring joint torques to build the dynamic model.</li>
+    <li>Verify calibration accuracy by commanding the TCP to a known reference point and measuring with a dial indicator. The expected accuracy is ±0.03 mm for the CoBot Pro 500 and ±0.05 mm for the CoBot Pro 700.</li>
+</ol>
+
+<img src="images/installation-checklist-flowchart.png" alt="Installation checklist flowchart showing the step-by-step verification process from mounting through calibration with pass/fail decision points." />
+
+<h2>7. Installation Verification Checklist</h2>
+
+<p>Complete every item before handing the robot to the operator:</p>
+
+<ul>
+    <li>☐ Mounting bolts torqued to specification</li>
+    <li>☐ Cable routing compliant with EMI separation requirements</li>
+    <li>☐ Power voltage within 200–240 V AC ±10%</li>
+    <li>☐ Protective earth impedance &lt; 0.1 Ω</li>
+    <li>☐ EtherCAT link established (green LED solid on both ends)</li>
+    <li>☐ LAN network connectivity confirmed (ping test)</li>
+    <li>☐ Emergency stop tested from all E-Stop devices in the chain</li>
+    <li>☐ Safety zone configuration matches workspace layout</li>
+    <li>☐ Joint calibration completed with all axes within tolerance</li>
+    <li>☐ Gravity compensation calibration completed</li>
+    <li>☐ First motion test executed at 10% speed without collision</li>
+</ul>
+
+<p>For the Safety Controller SC-100 configuration steps referenced in this checklist, see the <strong>Safety Controller SC-100 Configuration Guide</strong> in the Support documentation.</p>
+
+<p><em>Document version 4.2.0 | Last updated: 2025-01-15 | Contoso Robotics Technical Support</em></p>
+
+</body>
+</html>

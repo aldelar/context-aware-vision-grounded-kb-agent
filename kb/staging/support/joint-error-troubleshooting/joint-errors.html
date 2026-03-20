@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoBot Pro Joint Error Troubleshooting Guide</title>
+</head>
+<body>
+
+<h1>CoBot Pro Joint Error Troubleshooting Guide</h1>
+
+<p>This guide helps you diagnose and resolve joint-related errors on the CoBot Pro 500 and CoBot Pro 700. Joint errors are displayed on the teach pendant as error codes in the format E-0XX and are also logged in the CoBot OS v4.2 system journal. For sensor hardware specifications, refer to the <strong>Force-Torque Sensor Specification</strong> in the Engineering documentation.</p>
+
+<h2>1. Understanding Joint Error Codes</h2>
+
+<p>Joint errors fall into four categories: communication faults, mechanical faults, thermal faults, and calibration faults. The following table provides a complete reference for codes E-001 through E-015.</p>
+
+<img src="images/joint-error-codes-table.png" alt="Joint error codes reference table showing error codes E-001 through E-015 with category, severity level, and affected components." />
+
+<table>
+    <thead>
+        <tr>
+            <th>Code</th>
+            <th>Category</th>
+            <th>Description</th>
+            <th>Severity</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>E-001</td>
+            <td>Communication</td>
+            <td>EtherCAT frame loss on joint N servo drive</td>
+            <td>Warning</td>
+        </tr>
+        <tr>
+            <td>E-002</td>
+            <td>Communication</td>
+            <td>EtherCAT CRC error exceeding threshold (>10/s)</td>
+            <td>Warning</td>
+        </tr>
+        <tr>
+            <td>E-003</td>
+            <td>Communication</td>
+            <td>Joint N servo drive not responding (timeout >5 ms)</td>
+            <td>Critical</td>
+        </tr>
+        <tr>
+            <td>E-004</td>
+            <td>Mechanical</td>
+            <td>Joint N torque exceeds 110% of rated maximum</td>
+            <td>Critical</td>
+        </tr>
+        <tr>
+            <td>E-005</td>
+            <td>Mechanical</td>
+            <td>Joint N following error exceeds 0.5° during motion</td>
+            <td>Warning</td>
+        </tr>
+        <tr>
+            <td>E-006</td>
+            <td>Mechanical</td>
+            <td>Joint N brake engagement failure detected</td>
+            <td>Critical</td>
+        </tr>
+        <tr>
+            <td>E-007</td>
+            <td>Mechanical</td>
+            <td>Joint N harmonic drive backlash exceeds 0.02°</td>
+            <td>Warning</td>
+        </tr>
+        <tr>
+            <td>E-008</td>
+            <td>Thermal</td>
+            <td>Joint N motor temperature exceeds 85°C</td>
+            <td>Warning</td>
+        </tr>
+        <tr>
+            <td>E-009</td>
+            <td>Thermal</td>
+            <td>Joint N motor temperature exceeds 95°C (shutdown imminent)</td>
+            <td>Critical</td>
+        </tr>
+        <tr>
+            <td>E-010</td>
+            <td>Thermal</td>
+            <td>Joint N servo driver heatsink temperature exceeds 80°C</td>
+            <td>Warning</td>
+        </tr>
+        <tr>
+            <td>E-011</td>
+            <td>Calibration</td>
+            <td>Joint N encoder index pulse not detected during homing</td>
+            <td>Critical</td>
+        </tr>
+        <tr>
+            <td>E-012</td>
+            <td>Calibration</td>
+            <td>Joint N absolute encoder battery low (<2.8 V)</td>
+            <td>Warning</td>
+        </tr>
+        <tr>
+            <td>E-013</td>
+            <td>Calibration</td>
+            <td>Joint N position deviation from expected calibration >0.1°</td>
+            <td>Warning</td>
+        </tr>
+        <tr>
+            <td>E-014</td>
+            <td>Mechanical</td>
+            <td>Joint N force-torque sensor signal out of range</td>
+            <td>Critical</td>
+        </tr>
+        <tr>
+            <td>E-015</td>
+            <td>Communication</td>
+            <td>Safety Controller SC-100 reports joint N STO latch</td>
+            <td>Critical</td>
+        </tr>
+    </tbody>
+</table>
+
+<h2>2. Torque Limit Issues (E-004, E-005)</h2>
+
+<p>Torque-related errors are the most common joint faults and typically indicate a collision, excessive payload, or mechanical binding.</p>
+
+<img src="images/torque-limit-diagram.png" alt="Torque limit diagram showing the relationship between commanded torque, measured torque, and the safety threshold for each joint, with the E-004 trigger zone highlighted." />
+
+<h3>Diagnostic Steps</h3>
+
+<ol>
+    <li><strong>Check payload configuration:</strong> Navigate to <em>Settings → Payload</em> and verify the mass (kg) and center of gravity (X, Y, Z) match the actual tool and workpiece. An incorrect payload causes the gravity compensation model to over- or under-command torque.</li>
+    <li><strong>Inspect for mechanical obstructions:</strong> Manually move each joint through its full range (with the robot in freedrive mode) and feel for binding, grinding, or unusual resistance.</li>
+    <li><strong>Review the torque log:</strong> Navigate to <em>Diagnostics → Joint Torque History</em>. Look for sudden spikes that coincide with the error timestamp. Gradual increases suggest mechanical wear.</li>
+    <li><strong>Check the harmonic drive:</strong> Error E-007 (backlash) often precedes E-004 (over-torque) if a gear is wearing. Schedule a preventive maintenance inspection if backlash exceeds 0.015°.</li>
+    <li><strong>Reduce acceleration:</strong> If the error occurs during high-speed motions, reduce the joint acceleration limit in <em>Settings → Motion → Acceleration Limits</em> by 20% and retest.</li>
+</ol>
+
+<h2>3. Encoder and Calibration Faults (E-011, E-012, E-013)</h2>
+
+<p>Encoder faults prevent the robot from knowing its exact joint positions, which is a safety-critical condition.</p>
+
+<h3>E-011: Index Pulse Not Detected</h3>
+<ol>
+    <li>Verify the encoder cable is securely connected at both the joint and the servo drive.</li>
+    <li>Check for cable damage—flex cables near the joint pivot points are susceptible to fatigue.</li>
+    <li>Run the encoder diagnostic: <em>Diagnostics → Encoder → Signal Quality</em>. The A/B channel amplitude should be 200–800 mV. Below 150 mV indicates a failing encoder.</li>
+    <li>If the encoder is faulty, replace it (part number varies by joint—see the spare parts catalog).</li>
+</ol>
+
+<h3>E-012: Encoder Battery Low</h3>
+<ol>
+    <li>The absolute encoder in each joint uses a CR2032 lithium battery to maintain position through power cycles.</li>
+    <li>When battery voltage drops below 2.8 V, the encoder may lose its absolute reference after the next power-off.</li>
+    <li>Replace the battery within 30 days of the warning. The battery compartment is accessible via the small panel on the side of each joint module.</li>
+    <li>After replacement, run <em>Settings → Calibration → Joint Calibration</em> to re-establish the index reference.</li>
+</ol>
+
+<h3>E-013: Calibration Drift</h3>
+<ol>
+    <li>A position deviation &gt;0.1° from the stored calibration indicates the encoder reference has shifted.</li>
+    <li>This commonly occurs after a collision that displaces the encoder disk or after battery replacement.</li>
+    <li>Recalibrate the affected joint using the calibration wizard on the teach pendant.</li>
+    <li>If the error recurs frequently, inspect the encoder mounting screws for looseness (torque spec: 1.2 Nm).</li>
+</ol>
+
+<h2>4. Thermal Faults (E-008, E-009, E-010)</h2>
+
+<ol>
+    <li>Check ambient temperature. The CoBot Pro is rated for 5–45°C. Operating above 40°C significantly reduces the thermal margin.</li>
+    <li>Verify the duty cycle. Continuous operation at &gt;80% rated torque will cause thermal buildup. Introduce dwell times in the program.</li>
+    <li>Inspect the cooling fan on the control cabinet. A blocked or failed fan (listen for bearing noise) causes E-010.</li>
+    <li>If E-009 triggers, the robot will enter a 15-minute cool-down period before it can be restarted. Do not bypass this—motor demagnetization can occur above 100°C.</li>
+</ol>
+
+<h2>5. Communication Faults (E-001, E-002, E-003)</h2>
+
+<ol>
+    <li>Check the EtherCAT cable connections at both ends. Re-seat the RJ45 connectors.</li>
+    <li>Verify cable quality: use CAT6a shielded cables only. Unshielded or CAT5e cables are not supported.</li>
+    <li>Check for EMI sources near the cable path (VFDs, welding equipment, high-power motors). Reroute if necessary.</li>
+    <li>Run the EtherCAT diagnostics: <em>Diagnostics → EtherCAT → Link Statistics</em>. Frame loss rate should be &lt;0.001% and CRC error rate &lt;1/hour.</li>
+    <li>If E-003 persists, the servo drive may require replacement. Contact Contoso Robotics Support.</li>
+</ol>
+
+<h2>6. When to Contact Support</h2>
+
+<p>Contact Contoso Robotics Technical Support if:</p>
+
+<ul>
+    <li>Any Critical-severity error recurs after following the resolution steps above</li>
+    <li>Multiple joints report errors simultaneously (may indicate a control cabinet power supply issue)</li>
+    <li>The error code is not listed in this guide (custom error codes from third-party integrations)</li>
+    <li>Physical damage to the robot is visible (dents, exposed wiring, fluid leaks)</li>
+</ul>
+
+<p>For firmware fixes that address known joint error bugs, see the <strong>Firmware Update Procedure</strong> in the Support documentation. For force-torque sensor calibration and replacement procedures, refer to the <strong>Force-Torque Sensor Specification</strong> in the Engineering documentation.</p>
+
+<p><em>Document version 4.2.0 | Last updated: 2025-01-15 | Contoso Robotics Technical Support</em></p>
+
+</body>
+</html>

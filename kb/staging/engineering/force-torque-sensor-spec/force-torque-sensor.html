@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Force-Torque Sensor FTS-600 — Technical Specification</title>
+</head>
+<body>
+
+<h1>Force-Torque Sensor FTS-600 — Technical Specification</h1>
+
+<p>This document provides the complete technical specification for the Contoso Robotics Force-Torque Sensor FTS-600, a high-precision 6-axis force and torque measurement device designed for integration with the CoBot Pro 500 and CoBot Pro 700 collaborative robots. The FTS-600 enables advanced applications including adaptive force control, polishing, insertion tasks, and collision detection refinement. For troubleshooting sensor-related error codes, refer to the <strong>Joint Error Troubleshooting Guide</strong> in the Support documentation. For sensor maintenance intervals and calibration schedules, see the <strong>Preventive Maintenance Schedule</strong> in the Support documentation.</p>
+
+<img src="images/sensor-cross-section.png" alt="Cross-section diagram of the FTS-600 showing the four silicon strain gauge bridges, the central deformable element, the protective overload stop ring, and the M12 connector." />
+
+<h2>1. Sensor Overview</h2>
+
+<p>The FTS-600 is a monolithic 6-axis force-torque sensor based on silicon strain gauge technology. Unlike foil gauges, silicon strain gauges provide approximately 50× higher gauge factor (GF ≈ 130 vs. GF ≈ 2 for foil), enabling superior resolution without signal amplification noise. The sensor body is machined from a single block of 17-4 PH stainless steel with four instrumented flexural beams arranged in a Maltese cross configuration, providing full 6-DOF measurement (Fx, Fy, Fz, Tx, Ty, Tz).</p>
+
+<h3>1.1 Key Features</h3>
+<ul>
+    <li>6-axis simultaneous measurement with less than 1% cross-talk between axes</li>
+    <li>Silicon strain gauge bridges with temperature compensation (on-chip Wheatstone bridge)</li>
+    <li>Mechanical overload protection ring: 10× rated load without permanent deformation</li>
+    <li>Integrated 24-bit sigma-delta ADC with 4 kHz output data rate</li>
+    <li>EtherCAT CoE (CAN over EtherCAT) communication per ETG.6010</li>
+    <li>ISO 9409-1-50-4-M6 mechanical interface (tool side and robot side)</li>
+    <li>IP67 sealed enclosure for industrial environments</li>
+</ul>
+
+<h2>2. Specifications</h2>
+
+<table>
+    <tr>
+        <th>Parameter</th>
+        <th>Fx / Fy</th>
+        <th>Fz</th>
+        <th>Tx / Ty</th>
+        <th>Tz</th>
+    </tr>
+    <tr>
+        <td>Measurement Range</td>
+        <td>±600 N</td>
+        <td>±1200 N</td>
+        <td>±30 Nm</td>
+        <td>±30 Nm</td>
+    </tr>
+    <tr>
+        <td>Resolution</td>
+        <td>0.05 N</td>
+        <td>0.10 N</td>
+        <td>0.002 Nm</td>
+        <td>0.002 Nm</td>
+    </tr>
+    <tr>
+        <td>Accuracy (% of full scale)</td>
+        <td>±0.5%</td>
+        <td>±0.5%</td>
+        <td>±0.5%</td>
+        <td>±0.5%</td>
+    </tr>
+    <tr>
+        <td>Overload Capacity</td>
+        <td>6000 N</td>
+        <td>12000 N</td>
+        <td>300 Nm</td>
+        <td>300 Nm</td>
+    </tr>
+    <tr>
+        <td>Stiffness</td>
+        <td>12.5 kN/µm</td>
+        <td>25.0 kN/µm</td>
+        <td>6.8 kNm/rad</td>
+        <td>6.8 kNm/rad</td>
+    </tr>
+    <tr>
+        <td>Resonant Frequency</td>
+        <td colspan="4">≥ 1500 Hz (unloaded)</td>
+    </tr>
+</table>
+
+<h3>2.1 General Specifications</h3>
+
+<table>
+    <tr>
+        <th>Parameter</th>
+        <th>Value</th>
+    </tr>
+    <tr>
+        <td>Output Data Rate</td>
+        <td>4 kHz (configurable: 1 kHz, 2 kHz, 4 kHz)</td>
+    </tr>
+    <tr>
+        <td>ADC Resolution</td>
+        <td>24-bit sigma-delta</td>
+    </tr>
+    <tr>
+        <td>Communication Interface</td>
+        <td>EtherCAT CoE (ETG.6010)</td>
+    </tr>
+    <tr>
+        <td>Supply Voltage</td>
+        <td>24 VDC ± 10% via EtherCAT power</td>
+    </tr>
+    <tr>
+        <td>Power Consumption</td>
+        <td>2.5 W typical</td>
+    </tr>
+    <tr>
+        <td>Operating Temperature</td>
+        <td>0°C to 60°C</td>
+    </tr>
+    <tr>
+        <td>Temperature Drift (Zero)</td>
+        <td>≤ 0.05% FS/°C</td>
+    </tr>
+    <tr>
+        <td>Temperature Drift (Sensitivity)</td>
+        <td>≤ 0.02% FS/°C</td>
+    </tr>
+    <tr>
+        <td>Ingress Protection</td>
+        <td>IP67</td>
+    </tr>
+    <tr>
+        <td>Weight</td>
+        <td>0.45 kg</td>
+    </tr>
+    <tr>
+        <td>Diameter × Height</td>
+        <td>75 mm × 33.5 mm</td>
+    </tr>
+</table>
+
+<h2>3. Calibration Procedure</h2>
+
+<img src="images/calibration-curve-chart.png" alt="Calibration curve chart showing measured vs. applied force for all six axes of the FTS-600, with linearity error bands highlighted." />
+
+<p>Each FTS-600 is factory-calibrated using a NIST-traceable multi-axis calibration fixture. The calibration process consists of the following steps:</p>
+
+<ol>
+    <li><strong>Zero offset measurement:</strong> With no applied load, record 10,000 samples per channel and compute the mean offset value. Store in the sensor's internal EEPROM as the factory zero.</li>
+    <li><strong>Sensitivity matrix determination:</strong> Apply known forces and torques at 10%, 25%, 50%, 75%, and 100% of full scale in both positive and negative directions for each axis (60 load points total). Compute the 6×6 sensitivity matrix [S] using least-squares regression. Condition number must be less than 15.</li>
+    <li><strong>Cross-talk compensation:</strong> From the sensitivity matrix, derive the 6×6 cross-talk compensation matrix [C] = [S]⁻¹. Verify that off-diagonal elements are less than 1% of diagonal elements.</li>
+    <li><strong>Temperature compensation:</strong> Repeat zero and 50% FS measurements at 0°C, 25°C, and 60°C. Compute temperature coefficient polynomials (2nd order) for each channel.</li>
+    <li><strong>Final verification:</strong> Apply NIST-traceable reference loads at 5 random orientations and verify accuracy is within ±0.5% FS on all axes.</li>
+</ol>
+
+<h3>3.1 Field Recalibration</h3>
+
+<p>Users can perform a simplified two-point field recalibration through the CoBot OS v4.2 calibration wizard (<em>Settings → Sensors → FTS-600 → Calibrate</em>). This corrects zero drift caused by thermal cycling or mechanical wear. The procedure takes approximately 5 minutes and requires removing all loads from the end-effector. Full multi-point recalibration requires return to a Contoso Robotics service center or use of a certified calibration fixture (part number CAL-FTS-600-KIT).</p>
+
+<h2>4. Mounting Interface</h2>
+
+<img src="images/mounting-interface-detail.png" alt="Detailed mechanical drawing of the FTS-600 mounting interface showing the ISO 9409-1 bolt circle, alignment pin locations, and the M12 electrical connector position." />
+
+<p>The FTS-600 mounts between the CoBot Pro Joint 6 output flange (robot side) and the end-effector (tool side) using the ISO 9409-1-50-4-M6 standard interface:</p>
+
+<ul>
+    <li><strong>Bolt circle diameter:</strong> 50 mm</li>
+    <li><strong>Bolt pattern:</strong> 4× M6 socket head cap screws</li>
+    <li><strong>Bolt torque:</strong> 9.5 Nm ± 0.5 Nm (use calibrated torque wrench)</li>
+    <li><strong>Alignment:</strong> 2× ø4 mm H7 dowel pins on a 40 mm PCD for repeatable angular alignment (±0.01°)</li>
+    <li><strong>Surface flatness:</strong> ≤ 5 µm across the mounting face</li>
+</ul>
+
+<p>When mounting, ensure the sensor cable exits at the 3 o'clock position (viewed from the tool side) and is routed through the cable management clip provided. Do not bend the cable below a 30 mm radius to avoid damaging the shielded twisted-pair conductors inside.</p>
+
+<h2>5. Signal Conditioning</h2>
+
+<p>The FTS-600's internal signal conditioning chain consists of:</p>
+
+<ol>
+    <li><strong>Wheatstone bridge excitation:</strong> 5.0 V regulated, ratiometric measurement eliminates supply voltage errors.</li>
+    <li><strong>Instrumentation amplifier:</strong> Gain = 200, CMRR > 120 dB, input noise < 5 nV/√Hz.</li>
+    <li><strong>Anti-aliasing filter:</strong> 4th-order Butterworth low-pass at 1.6 kHz (−3 dB point), providing > 60 dB attenuation at the 4 kHz Nyquist frequency.</li>
+    <li><strong>ADC:</strong> 24-bit sigma-delta converter per channel (6 channels), synchronized sampling to avoid inter-channel phase errors. Effective number of bits (ENOB) ≥ 19.</li>
+    <li><strong>Digital filter:</strong> Configurable FIR low-pass with user-selectable cutoff frequency (10 Hz, 50 Hz, 100 Hz, 500 Hz, 1 kHz) via EtherCAT SDO at index 0x6100:03.</li>
+</ol>
+
+<h2>6. Communication Protocol</h2>
+
+<p>The FTS-600 communicates over EtherCAT using the CANopen over EtherCAT (CoE) protocol. It implements the following object dictionary entries:</p>
+
+<table>
+    <tr>
+        <th>Index</th>
+        <th>Sub-Index</th>
+        <th>Name</th>
+        <th>Data Type</th>
+        <th>Access</th>
+    </tr>
+    <tr>
+        <td>0x6000</td>
+        <td>01–06</td>
+        <td>Force/Torque Readings (Fx, Fy, Fz, Tx, Ty, Tz)</td>
+        <td>INT32 (0.001 N / 0.0001 Nm)</td>
+        <td>RO (PDO mapped)</td>
+    </tr>
+    <tr>
+        <td>0x6100</td>
+        <td>01</td>
+        <td>Output Data Rate</td>
+        <td>UINT16 (Hz)</td>
+        <td>RW (SDO)</td>
+    </tr>
+    <tr>
+        <td>0x6100</td>
+        <td>02</td>
+        <td>Zero Command</td>
+        <td>UINT8 (write 1 to zero)</td>
+        <td>WO (SDO)</td>
+    </tr>
+    <tr>
+        <td>0x6100</td>
+        <td>03</td>
+        <td>Digital Filter Cutoff</td>
+        <td>UINT16 (Hz)</td>
+        <td>RW (SDO)</td>
+    </tr>
+    <tr>
+        <td>0x6200</td>
+        <td>01–36</td>
+        <td>Calibration Matrix (6×6)</td>
+        <td>FLOAT32</td>
+        <td>RO (SDO)</td>
+    </tr>
+    <tr>
+        <td>0x6300</td>
+        <td>01</td>
+        <td>Sensor Status</td>
+        <td>UINT16 (bitfield)</td>
+        <td>RO (PDO mapped)</td>
+    </tr>
+    <tr>
+        <td>0x6300</td>
+        <td>02</td>
+        <td>Internal Temperature</td>
+        <td>INT16 (0.1 °C)</td>
+        <td>RO (SDO)</td>
+    </tr>
+</table>
+
+<p>Process Data Objects (PDOs) for the 6 force/torque channels and the status word are transmitted every EtherCAT cycle (1 ms default). Service Data Objects (SDOs) are used for configuration, calibration readback, and diagnostics access via the EtherCAT mailbox protocol. For details on the EtherCAT bus configuration, refer to the <strong>EtherCAT Communication Stack Specification</strong> in the Engineering documentation.</p>
+
+<p><em>Document version 2.3.1 | Last updated: 2025-01-10 | Contoso Robotics Engineering — Sensor Team</em></p>
+
+</body>
+</html>

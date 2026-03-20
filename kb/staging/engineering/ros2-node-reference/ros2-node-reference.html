@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoBot ROS 2 Node Reference Manual</title>
+</head>
+<body>
+
+<h1>CoBot ROS 2 Node Reference Manual</h1>
+
+<p>This manual provides the complete ROS 2 API reference for the CoBot Pro 500 and CoBot Pro 700 collaborative robots running CoBot OS v4.2. The <strong>CoBot ROS 2 Bridge</strong> exposes robot state, sensor data, and control interfaces as standard ROS 2 topics, services, and actions, enabling integration with the broader ROS 2 ecosystem including MoveIt 2, Nav2, and custom application nodes. For initial ROS 2 bridge setup and network configuration, refer to the <strong>ROS 2 Integration Guide</strong> in the Support documentation. For ROS 2 as a market-facing feature, see the <strong>Product Overview</strong> from Contoso Robotics Marketing.</p>
+
+<img src="images/node-graph-overview.png" alt="ROS 2 computation graph showing the cobot_driver node, cobot_vision node, cobot_safety node, and their interconnections via topics, services, and actions." />
+
+<h2>1. Node Architecture</h2>
+
+<p>The CoBot ROS 2 Bridge consists of three managed lifecycle nodes (per the ROS 2 <code>lifecycle_msgs</code> interface), all running within a single component container for zero-copy intra-process communication:</p>
+
+<ul>
+    <li><strong><code>cobot_driver</code></strong> — Primary node that bridges EtherCAT joint data to ROS 2. Publishes joint states, subscribes to trajectory commands, and hosts control services.</li>
+    <li><strong><code>cobot_vision</code></strong> — Vision perception node that publishes camera images, depth maps, point clouds, and detected object poses from the CoBot Vision Module VM-200.</li>
+    <li><strong><code>cobot_safety</code></strong> — Safety status relay node that publishes Safety Controller SC-100 state, active safety functions, and I/O status.</li>
+</ul>
+
+<p>All nodes use the Cyclone DDS middleware with shared-memory transport for local communication (< 15 µs latency) and UDP multicast for remote subscribers. QoS profiles are configured per topic as described in each section below.</p>
+
+<h2>2. Published Topics</h2>
+
+<h3>2.1 Joint State Topics</h3>
+<table>
+    <tr>
+        <th>Topic</th>
+        <th>Message Type</th>
+        <th>Rate</th>
+        <th>QoS</th>
+        <th>Description</th>
+    </tr>
+    <tr>
+        <td><code>/joint_states</code></td>
+        <td><code>sensor_msgs/JointState</code></td>
+        <td>1 kHz</td>
+        <td>Best Effort, Volatile, Depth 1</td>
+        <td>Position (rad), velocity (rad/s), and effort (Nm) for all 6 joints. Timestamp from EtherCAT DC clock.</td>
+    </tr>
+    <tr>
+        <td><code>/joint_temperatures</code></td>
+        <td><code>sensor_msgs/Temperature</code></td>
+        <td>1 Hz</td>
+        <td>Reliable, Transient Local, Depth 5</td>
+        <td>Motor winding temperature (°C) for each joint. Array of 6 readings.</td>
+    </tr>
+</table>
+
+<h3>2.2 Force-Torque Topics</h3>
+<table>
+    <tr>
+        <th>Topic</th>
+        <th>Message Type</th>
+        <th>Rate</th>
+        <th>QoS</th>
+        <th>Description</th>
+    </tr>
+    <tr>
+        <td><code>/wrench</code></td>
+        <td><code>geometry_msgs/WrenchStamped</code></td>
+        <td>1 kHz</td>
+        <td>Best Effort, Volatile, Depth 1</td>
+        <td>6-axis force/torque from FTS-600 in the sensor frame. Only published when FTS-600 is detected on the EtherCAT bus.</td>
+    </tr>
+</table>
+
+<h3>2.3 Vision Topics</h3>
+<table>
+    <tr>
+        <th>Topic</th>
+        <th>Message Type</th>
+        <th>Rate</th>
+        <th>QoS</th>
+        <th>Description</th>
+    </tr>
+    <tr>
+        <td><code>/camera/color/image_raw</code></td>
+        <td><code>sensor_msgs/Image</code></td>
+        <td>30 Hz</td>
+        <td>Best Effort, Volatile, Depth 1</td>
+        <td>1280×800 BGR8 image from D455 RGB sensor.</td>
+    </tr>
+    <tr>
+        <td><code>/camera/depth/image_rect</code></td>
+        <td><code>sensor_msgs/Image</code></td>
+        <td>30 Hz</td>
+        <td>Best Effort, Volatile, Depth 1</td>
+        <td>1280×720 16UC1 rectified depth image (millimeters).</td>
+    </tr>
+    <tr>
+        <td><code>/camera/color/camera_info</code></td>
+        <td><code>sensor_msgs/CameraInfo</code></td>
+        <td>30 Hz</td>
+        <td>Reliable, Volatile, Depth 1</td>
+        <td>Intrinsic calibration parameters for the RGB camera.</td>
+    </tr>
+    <tr>
+        <td><code>/camera/depth/points</code></td>
+        <td><code>sensor_msgs/PointCloud2</code></td>
+        <td>15 Hz</td>
+        <td>Best Effort, Volatile, Depth 1</td>
+        <td>Organized XYZRGB point cloud, 1280×720 points.</td>
+    </tr>
+    <tr>
+        <td><code>/cobot_vision/object_poses</code></td>
+        <td><code>geometry_msgs/PoseArray</code></td>
+        <td>20 Hz</td>
+        <td>Reliable, Volatile, Depth 5</td>
+        <td>6-DOF poses of detected objects in the robot base frame.</td>
+    </tr>
+</table>
+
+<h3>2.4 Safety Topics</h3>
+<table>
+    <tr>
+        <th>Topic</th>
+        <th>Message Type</th>
+        <th>Rate</th>
+        <th>QoS</th>
+        <th>Description</th>
+    </tr>
+    <tr>
+        <td><code>/safety_status</code></td>
+        <td><code>cobot_msgs/SafetyStatus</code></td>
+        <td>100 Hz</td>
+        <td>Reliable, Transient Local, Depth 10</td>
+        <td>SC-100 state (MONITORING, SS1, SS2, STO, FAULT), active safety functions (SLS, SSM, SOS), and E-Stop status.</td>
+    </tr>
+</table>
+
+<h2>3. Subscribed Topics</h2>
+
+<img src="images/message-type-hierarchy.png" alt="Message type hierarchy diagram showing standard ROS 2 messages (sensor_msgs, geometry_msgs, trajectory_msgs) and custom cobot_msgs used by the CoBot ROS 2 Bridge." />
+
+<table>
+    <tr>
+        <th>Topic</th>
+        <th>Message Type</th>
+        <th>Expected Rate</th>
+        <th>Description</th>
+    </tr>
+    <tr>
+        <td><code>/cmd_vel</code></td>
+        <td><code>geometry_msgs/Twist</code></td>
+        <td>≤ 100 Hz</td>
+        <td>Cartesian velocity command for TCP jogging. Velocities are clamped to the active SLS limit. Timeout: 200 ms (robot stops if no new message received).</td>
+    </tr>
+    <tr>
+        <td><code>/joint_trajectory_controller/joint_trajectory</code></td>
+        <td><code>trajectory_msgs/JointTrajectory</code></td>
+        <td>Aperiodic</td>
+        <td>Multi-waypoint joint trajectory with time-from-start stamps. Used by MoveIt 2 and custom planners. Maximum 200 waypoints per message.</td>
+    </tr>
+</table>
+
+<h2>4. Services</h2>
+
+<img src="images/service-call-sequence.png" alt="Sequence diagram showing a typical service call flow: client sends /enable request, cobot_driver validates safety state, enables motor drives via EtherCAT, and returns success/failure response." />
+
+<table>
+    <tr>
+        <th>Service</th>
+        <th>Type</th>
+        <th>Description</th>
+    </tr>
+    <tr>
+        <td><code>/cobot/enable</code></td>
+        <td><code>std_srvs/Trigger</code></td>
+        <td>Enable motor drives. Requires SC-100 to be in MONITORING state with no active safety stops. Returns success=false if safety preconditions are not met.</td>
+    </tr>
+    <tr>
+        <td><code>/cobot/disable</code></td>
+        <td><code>std_srvs/Trigger</code></td>
+        <td>Disable motor drives (controlled stop, then STO). Always succeeds.</td>
+    </tr>
+    <tr>
+        <td><code>/cobot/zero_ft_sensor</code></td>
+        <td><code>std_srvs/Trigger</code></td>
+        <td>Zero (tare) the FTS-600 sensor. Robot must be stationary. Samples 1000 readings and sets the current mean as the new zero offset.</td>
+    </tr>
+    <tr>
+        <td><code>/cobot/get_robot_info</code></td>
+        <td><code>cobot_msgs/GetRobotInfo</code></td>
+        <td>Returns model name, serial number, firmware version, joint count, and safety controller firmware version.</td>
+    </tr>
+    <tr>
+        <td><code>/cobot/set_speed_override</code></td>
+        <td><code>cobot_msgs/SetSpeedOverride</code></td>
+        <td>Set global speed scaling factor (0.0–1.0). Applied to all trajectory execution. Default: 1.0 (100% speed).</td>
+    </tr>
+    <tr>
+        <td><code>/cobot/get_digital_io</code></td>
+        <td><code>cobot_msgs/GetDigitalIO</code></td>
+        <td>Read current state of all digital inputs (16) and outputs (16) from the I/O expansion module.</td>
+    </tr>
+    <tr>
+        <td><code>/cobot/set_digital_io</code></td>
+        <td><code>cobot_msgs/SetDigitalIO</code></td>
+        <td>Set a specific digital output pin (0–15) to HIGH or LOW. Returns success=false if the pin is configured as safety I/O.</td>
+    </tr>
+</table>
+
+<h2>5. Actions</h2>
+
+<table>
+    <tr>
+        <th>Action</th>
+        <th>Type</th>
+        <th>Description</th>
+    </tr>
+    <tr>
+        <td><code>/cobot/follow_joint_trajectory</code></td>
+        <td><code>control_msgs/FollowJointTrajectory</code></td>
+        <td>Execute a multi-waypoint joint trajectory with real-time feedback. Supports goal tolerance (per-joint position: ±0.01 rad default, time: ±0.5 s). Feedback at 100 Hz: actual joint positions, velocities, errors. Result: error code per joint if tolerance violated.</td>
+    </tr>
+    <tr>
+        <td><code>/cobot/pick_place</code></td>
+        <td><code>cobot_msgs/PickPlace</code></td>
+        <td>High-level pick-and-place action. Accepts pick pose, place pose, approach/retreat vectors, gripper commands. Internally decomposes into a sequence of <code>FollowJointTrajectory</code> goals with IK solving. Feedback: current phase (APPROACH, GRASP, LIFT, MOVE, PLACE, RETREAT) and progress (0.0–1.0).</td>
+    </tr>
+</table>
+
+<h2>6. TF2 Frame Tree</h2>
+
+<p>The CoBot ROS 2 Bridge publishes the following TF2 transforms at 1 kHz (joint frames) and 30 Hz (camera frames):</p>
+
+<pre>
+world
+└── base_link                    (robot base, static)
+    ├── joint_1_link             (revolute, from /joint_states)
+    │   └── joint_2_link
+    │       └── joint_3_link
+    │           └── joint_4_link
+    │               └── joint_5_link
+    │                   └── joint_6_link
+    │                       └── tool0           (flange center)
+    │                           ├── ft_sensor   (FTS-600 frame, static offset)
+    │                           │   └── tool_tcp (user-defined TCP)
+    │                           └── camera_link  (VM-200 mount, static)
+    │                               ├── camera_color_optical_frame
+    │                               └── camera_depth_optical_frame
+    └── safety_zone_origin       (static, configurable)
+</pre>
+
+<p>Static transforms (base_link ↔ world, tool0 ↔ ft_sensor, tool0 ↔ camera_link) are published by a <code>static_transform_publisher</code> loaded from the robot URDF. Dynamic joint transforms are computed from the joint state encoder data at the EtherCAT cycle rate.</p>
+
+<h2>7. Launch Files</h2>
+
+<p>The CoBot ROS 2 Bridge provides the following launch files in the <code>cobot_bringup</code> package:</p>
+
+<table>
+    <tr>
+        <th>Launch File</th>
+        <th>Description</th>
+    </tr>
+    <tr>
+        <td><code>cobot_bringup.launch.py</code></td>
+        <td>Full system bringup: loads URDF, starts <code>cobot_driver</code>, <code>cobot_safety</code>, joint state publisher, and robot state publisher. Accepts arguments: <code>robot_model</code> (pro500/pro700), <code>ip_address</code>, <code>cycle_time_ms</code>.</td>
+    </tr>
+    <tr>
+        <td><code>cobot_vision.launch.py</code></td>
+        <td>Starts the <code>cobot_vision</code> node with camera drivers. Arguments: <code>camera_type</code> (realsense/basler), <code>enable_detection</code> (true/false), <code>detection_model</code> (path to TensorRT engine).</td>
+    </tr>
+    <tr>
+        <td><code>cobot_moveit.launch.py</code></td>
+        <td>Launches MoveIt 2 with CoBot Pro SRDF, OMPL planners, and the <code>FollowJointTrajectory</code> action interface. Includes RViz 2 visualization.</td>
+    </tr>
+    <tr>
+        <td><code>cobot_all.launch.py</code></td>
+        <td>Convenience launch file that includes all of the above with sensible defaults.</td>
+    </tr>
+</table>
+
+<h2>8. Custom Message Definitions</h2>
+
+<p>The <code>cobot_msgs</code> package defines the following custom message and service types:</p>
+
+<ul>
+    <li><code>cobot_msgs/msg/SafetyStatus</code> — uint8 state, bool[] active_functions, bool estop_pressed, uint16 fault_code</li>
+    <li><code>cobot_msgs/msg/RobotInfo</code> — string model, string serial, string firmware_version, uint8 joint_count, string safety_firmware_version</li>
+    <li><code>cobot_msgs/srv/GetRobotInfo</code> — empty request → RobotInfo response</li>
+    <li><code>cobot_msgs/srv/SetSpeedOverride</code> — float64 speed_override → bool success, string message</li>
+    <li><code>cobot_msgs/srv/GetDigitalIO</code> — empty request → bool[16] inputs, bool[16] outputs</li>
+    <li><code>cobot_msgs/srv/SetDigitalIO</code> — uint8 pin, bool value → bool success, string message</li>
+    <li><code>cobot_msgs/action/PickPlace</code> — PoseStamped pick_pose, PoseStamped place_pose, Vector3 approach, Vector3 retreat, string gripper_action → feedback: string phase, float32 progress → result: bool success, string message</li>
+</ul>
+
+<p><em>Document version 4.2.0 | Last updated: 2025-01-16 | Contoso Robotics Engineering — Software Team</em></p>
+
+</body>
+</html>

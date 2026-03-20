@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoBot Pro 700 Launch Presentation</title>
+</head>
+<body>
+
+<h1>CoBot Pro 700 Launch Presentation</h1>
+
+<p>This document accompanies the official Contoso Robotics CoBot Pro 700 launch event. It outlines the market opportunity, product positioning, key differentiators, product roadmap, pricing strategy, and go-to-market plan for the CoBot Pro 700 — our flagship collaborative robot designed for high-payload industrial applications.</p>
+
+<h2>1. Market Opportunity</h2>
+
+<p>The global collaborative robot market is projected to reach $12.3 billion by 2028, growing at a CAGR of 32.5% from 2024. Key growth drivers include labor shortages in manufacturing (estimated 2.1 million unfilled positions in the U.S. alone by 2030), rising demand for flexible automation in small and medium enterprises (SMEs), and evolving safety standards that make fenceless human-robot collaboration commercially viable.</p>
+
+<p>Contoso Robotics currently holds an 8.4% global market share in the collaborative robot segment. The CoBot Pro 700 launch is expected to accelerate share growth to 12% within 18 months by addressing the underserved 5–10 kg payload tier — a segment that accounts for 38% of new cobot deployments but is dominated by legacy products with inferior safety and ease-of-use profiles.</p>
+
+<img src="images/market-positioning-chart.png" alt="Market positioning chart plotting payload capacity vs. reach for major collaborative robot competitors, with the CoBot Pro 700 positioned in the high-value quadrant." />
+
+<h2>2. Product Positioning</h2>
+
+<p>The CoBot Pro 700 is positioned as the <strong>safest, most versatile cobot in the 10 kg payload class</strong>. Our value proposition rests on three pillars:</p>
+
+<ol>
+    <li><strong>Safety without compromise:</strong> The integrated Safety Controller SC-100 (SIL-3 / PLe Cat 4) eliminates the need for external safety PLCs, reducing system cost and complexity. ISO 10218-1/2 and ISO/TS 15066 compliance is out of the box.</li>
+    <li><strong>Plug-and-produce simplicity:</strong> CoBot OS v4.2 and CoBot Studio IDE enable a 4-hour deployment from unboxing to first production cycle — 60% faster than any competitor in the segment.</li>
+    <li><strong>AI-ready platform:</strong> The optional CoBot Vision Module VM-200 and native ROS 2 integration position the CoBot Pro 700 as the only cobot in its class with an open, extensible perception and planning stack.</li>
+</ol>
+
+<h2>3. Key Differentiators</h2>
+
+<h3>3.1 Integrated Safety Architecture</h3>
+<p>Unlike competitors who rely on add-on safety modules or external safety controllers, the CoBot Pro 700 ships with the SC-100 safety controller embedded in the control cabinet. This provides dual-channel SIL-3 monitoring of all joint torques, TCP forces, and workspace boundaries — with a safety-rated response time under 8 ms. The architecture is detailed in the <strong>System Architecture Overview</strong> in the Engineering documentation.</p>
+
+<h3>3.2 CoBot Vision Module VM-200</h3>
+<p>The VM-200 is a first-party vision solution purpose-built for CoBot Pro. It integrates a 5 MP global shutter camera, structured light projector, and onboard NVIDIA Jetson module running Contoso's proprietary detection algorithms. Competitors require third-party vision systems that add $8,000–$15,000 to system cost and weeks of integration time.</p>
+
+<h3>3.3 CoBot Studio IDE</h3>
+<p>CoBot Studio IDE provides a unified programming environment with drag-and-drop task building, hand-guided teaching, simulation, and advanced scripting (Python, C++, ROS 2). No competitor offers an integrated IDE with these capabilities included at no additional cost.</p>
+
+<h3>3.4 EtherCAT Real-Time Communication</h3>
+<p>The CoBot Pro 700 uses an EtherCAT fieldbus running at a 1 kHz control loop rate — 4× faster than the industry-standard 250 Hz. This enables smoother trajectories, faster reaction to force events, and tighter integration with external sensors and actuators.</p>
+
+<h2>4. Competitive Comparison</h2>
+
+<img src="images/competitive-comparison.png" alt="Side-by-side feature comparison table showing CoBot Pro 700 vs. Universal Robots UR10e, FANUC CRX-10iA, ABB GoFa 10, and KUKA LBR iisy 11." />
+
+<table>
+    <tr>
+        <th>Feature</th>
+        <th>CoBot Pro 700</th>
+        <th>UR UR10e</th>
+        <th>FANUC CRX-10iA</th>
+        <th>ABB GoFa 10</th>
+    </tr>
+    <tr>
+        <td>Payload</td>
+        <td>10 kg</td>
+        <td>12.5 kg</td>
+        <td>10 kg</td>
+        <td>5 kg</td>
+    </tr>
+    <tr>
+        <td>Reach</td>
+        <td>700 mm</td>
+        <td>1300 mm</td>
+        <td>1249 mm</td>
+        <td>950 mm</td>
+    </tr>
+    <tr>
+        <td>Repeatability</td>
+        <td>±0.02 mm</td>
+        <td>±0.05 mm</td>
+        <td>±0.04 mm</td>
+        <td>±0.05 mm</td>
+    </tr>
+    <tr>
+        <td>Integrated Safety Controller</td>
+        <td>Yes (SC-100, SIL-3)</td>
+        <td>No (software-based)</td>
+        <td>No (external PLC)</td>
+        <td>Yes (SafeMove)</td>
+    </tr>
+    <tr>
+        <td>First-Party Vision</td>
+        <td>Yes (VM-200)</td>
+        <td>No</td>
+        <td>No</td>
+        <td>No</td>
+    </tr>
+    <tr>
+        <td>ROS 2 Native</td>
+        <td>Yes</td>
+        <td>Community only</td>
+        <td>No</td>
+        <td>No</td>
+    </tr>
+    <tr>
+        <td>Control Loop Rate</td>
+        <td>1 kHz</td>
+        <td>500 Hz</td>
+        <td>250 Hz</td>
+        <td>250 Hz</td>
+    </tr>
+    <tr>
+        <td>Deployment Time</td>
+        <td>4 hours</td>
+        <td>8 hours</td>
+        <td>12 hours</td>
+        <td>10 hours</td>
+    </tr>
+</table>
+
+<p>For a more detailed competitive analysis including market share data and strategic positioning, refer to the <strong>Collaborative Robot Market — Competitive Analysis Report</strong> from Contoso Robotics Marketing.</p>
+
+<h2>5. Product Roadmap</h2>
+
+<img src="images/product-roadmap-timeline.png" alt="Product roadmap timeline showing CoBot Pro 700 launch milestones from Q1 2025 through Q4 2026, including software updates, accessory releases, and next-generation planning." />
+
+<table>
+    <tr>
+        <th>Milestone</th>
+        <th>Target Date</th>
+        <th>Description</th>
+    </tr>
+    <tr>
+        <td>CoBot Pro 700 General Availability</td>
+        <td>Q1 2025</td>
+        <td>Global launch in all 23 service regions. Initial SKUs include base arm, SC-100 controller, and teach pendant.</td>
+    </tr>
+    <tr>
+        <td>VM-200 Vision Module Bundle</td>
+        <td>Q2 2025</td>
+        <td>Pre-integrated vision bundle available as a factory option, reducing on-site integration from 2 days to 2 hours.</td>
+    </tr>
+    <tr>
+        <td>CoBot OS v4.3 Software Update</td>
+        <td>Q3 2025</td>
+        <td>Adds pallet pattern generator, enhanced collision avoidance, and OPC UA connectivity.</td>
+    </tr>
+    <tr>
+        <td>CoBot Pro 700 HD (High-Duty) Variant</td>
+        <td>Q1 2026</td>
+        <td>Extended-duty variant with IP67 rating and 15 kg payload for harsh environments.</td>
+    </tr>
+    <tr>
+        <td>CoBot Pro 1000 (Next Generation)</td>
+        <td>Q4 2026</td>
+        <td>1000 mm reach, 20 kg payload, 7 DoF, integrated force-torque sensing in every joint.</td>
+    </tr>
+</table>
+
+<h2>6. Pricing Strategy</h2>
+
+<p>The CoBot Pro 700 is priced to deliver best-in-class value at the mid-premium tier:</p>
+
+<ul>
+    <li><strong>CoBot Pro 700 Base System:</strong> $34,500 MSRP (arm + SC-100 controller + teach pendant + CoBot OS v4.2 license)</li>
+    <li><strong>VM-200 Vision Module Add-On:</strong> $6,900 MSRP</li>
+    <li><strong>CoBot Pro 700 + VM-200 Bundle:</strong> $39,900 MSRP (8% bundle discount)</li>
+    <li><strong>Extended Warranty (3 years):</strong> $2,400</li>
+    <li><strong>CoBot Care Premium Support:</strong> $4,800/year (24/7 remote support, 24-hour on-site response, firmware updates)</li>
+</ul>
+
+<p>Volume pricing tiers are available for orders of 5+ units (8% discount), 20+ units (14% discount), and 50+ units (custom pricing through enterprise sales).</p>
+
+<h2>7. Go-to-Market Plan</h2>
+
+<h3>Phase 1: Launch (Q1 2025)</h3>
+<ul>
+    <li>Press announcement and virtual launch event targeting 5,000+ registrants</li>
+    <li>Demo units deployed to 15 key distributor partners and 10 strategic end-customers</li>
+    <li>Launch content package: product video, technical brief, customer success stories, and competitive battle cards</li>
+</ul>
+
+<h3>Phase 2: Ramp (Q2–Q3 2025)</h3>
+<ul>
+    <li>Trade show presence at Automate 2025, Hannover Messe, and IREX</li>
+    <li>Regional roadshow events in 8 cities across North America and Europe</li>
+    <li>Channel enablement: distributor training program, certified integrator certification, and MDF funding</li>
+</ul>
+
+<h3>Phase 3: Scale (Q4 2025+)</h3>
+<ul>
+    <li>Expansion into Asia-Pacific markets with localized sales and support teams</li>
+    <li>Customer success case study program targeting 20 published references</li>
+    <li>Product line expansion with the VM-200 bundle and CoBot OS v4.3 software update</li>
+</ul>
+
+<p><em>Confidential — Contoso Robotics Internal Use Only | Document version 1.0 | Last updated: 2025-01-18 | Contoso Robotics Marketing</em></p>
+
+</body>
+</html>

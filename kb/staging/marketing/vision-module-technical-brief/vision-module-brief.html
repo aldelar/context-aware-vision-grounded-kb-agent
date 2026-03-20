@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoBot Vision Module VM-200 — Technical Brief</title>
+</head>
+<body>
+
+<h1>CoBot Vision Module VM-200 — Technical Brief</h1>
+
+<p>The CoBot Vision Module VM-200 is Contoso Robotics' integrated machine vision solution, purpose-built for the CoBot Pro 500 and CoBot Pro 700 collaborative robot platforms. The VM-200 combines a high-resolution industrial camera, structured light projector, and onboard AI inference engine into a single, robot-mountable unit — eliminating the cost, complexity, and integration risk of third-party vision systems. This technical brief covers the VM-200's capabilities, specifications, integration options, use cases, and performance benchmarks.</p>
+
+<h2>1. System Architecture</h2>
+
+<img src="images/vm200-architecture-block.png" alt="Block diagram of the CoBot Vision Module VM-200 architecture showing the image sensor, structured light projector, ISP pipeline, AI inference engine, and communication interfaces." />
+
+<p>The VM-200 architecture consists of four major subsystems:</p>
+
+<ul>
+    <li><strong>Image Acquisition:</strong> A 5-megapixel (2592 × 1944) global shutter CMOS sensor with 3.45 µm pixel pitch captures distortion-free images at up to 30 fps. The global shutter eliminates motion blur during robot movement, enabling in-motion inspection without pausing the arm.</li>
+    <li><strong>Structured Light Projection:</strong> An integrated 450 nm blue laser pattern projector generates 3D point clouds with 0.1 mm depth resolution at working distances of 200–800 mm. This enables bin picking, dimensional measurement, and surface profiling.</li>
+    <li><strong>Image Signal Processor (ISP):</strong> A dedicated hardware ISP handles demosaicing, white balance, lens distortion correction, and HDR tone mapping in real time, delivering consistently high-quality images regardless of ambient lighting conditions.</li>
+    <li><strong>AI Inference Engine:</strong> An onboard NVIDIA Jetson Orin NX module with 100 TOPS of INT8 performance runs Contoso's proprietary detection, classification, and segmentation neural networks. Models are trained and deployed through CoBot Studio IDE without requiring separate deep learning tools.</li>
+</ul>
+
+<h2>2. AI-Powered Detection Capabilities</h2>
+
+<p>The VM-200 ships with a library of pre-trained models optimized for common industrial vision tasks. Custom models can be trained on user-provided datasets directly within CoBot Studio IDE using transfer learning, typically requiring as few as 50–100 annotated images for production-grade accuracy.</p>
+
+<h3>Pre-Trained Model Library</h3>
+
+<table>
+    <tr>
+        <th>Model</th>
+        <th>Task</th>
+        <th>Accuracy</th>
+        <th>Inference Time</th>
+    </tr>
+    <tr>
+        <td>PartDetect-v3</td>
+        <td>Part presence/absence detection</td>
+        <td>99.4% mAP</td>
+        <td>12 ms</td>
+    </tr>
+    <tr>
+        <td>DefectNet-v2</td>
+        <td>Surface defect classification (scratch, dent, stain)</td>
+        <td>97.8% F1-score</td>
+        <td>18 ms</td>
+    </tr>
+    <tr>
+        <td>BarcodeReader-v4</td>
+        <td>1D/2D barcode and Data Matrix reading</td>
+        <td>99.9% read rate</td>
+        <td>5 ms</td>
+    </tr>
+    <tr>
+        <td>DimCheck-v1</td>
+        <td>Dimensional measurement (length, width, diameter)</td>
+        <td>±0.05 mm accuracy</td>
+        <td>22 ms</td>
+    </tr>
+    <tr>
+        <td>BinPick-v2</td>
+        <td>Bin picking pose estimation (6-DoF)</td>
+        <td>98.2% grasp success</td>
+        <td>35 ms</td>
+    </tr>
+</table>
+
+<img src="images/detection-accuracy-chart.png" alt="Chart showing detection accuracy benchmarks for each pre-trained model across varying lighting conditions (bright, ambient, low-light, and mixed)." />
+
+<h2>3. Technical Specifications</h2>
+
+<table>
+    <tr>
+        <th>Parameter</th>
+        <th>Value</th>
+    </tr>
+    <tr>
+        <td>Sensor Resolution</td>
+        <td>5 MP (2592 × 1944)</td>
+    </tr>
+    <tr>
+        <td>Sensor Type</td>
+        <td>Global shutter CMOS, 3.45 µm pixel pitch</td>
+    </tr>
+    <tr>
+        <td>Frame Rate</td>
+        <td>30 fps (full resolution), 60 fps (1296 × 972 ROI mode)</td>
+    </tr>
+    <tr>
+        <td>Lens</td>
+        <td>C-mount, 8 mm fixed focal length (12 mm and 16 mm options available)</td>
+    </tr>
+    <tr>
+        <td>Working Distance</td>
+        <td>200–800 mm</td>
+    </tr>
+    <tr>
+        <td>Field of View (at 400 mm)</td>
+        <td>320 mm × 240 mm</td>
+    </tr>
+    <tr>
+        <td>3D Depth Resolution</td>
+        <td>0.1 mm at 400 mm working distance</td>
+    </tr>
+    <tr>
+        <td>AI Compute</td>
+        <td>NVIDIA Jetson Orin NX, 100 TOPS (INT8)</td>
+    </tr>
+    <tr>
+        <td>Interface</td>
+        <td>GigE Vision, USB 3.0, EtherCAT (via CoBot Pro control cabinet)</td>
+    </tr>
+    <tr>
+        <td>Power</td>
+        <td>24 V DC, 25 W (supplied by CoBot Pro control cabinet)</td>
+    </tr>
+    <tr>
+        <td>Dimensions</td>
+        <td>85 mm × 65 mm × 45 mm</td>
+    </tr>
+    <tr>
+        <td>Weight</td>
+        <td>320 g</td>
+    </tr>
+    <tr>
+        <td>IP Rating</td>
+        <td>IP54 (IP67 housing option available)</td>
+    </tr>
+    <tr>
+        <td>Operating Temperature</td>
+        <td>0°C to 50°C</td>
+    </tr>
+</table>
+
+<h2>4. Integration Options</h2>
+
+<img src="images/integration-diagram.png" alt="Integration diagram showing the VM-200 connected to the CoBot Pro arm via the tool flange, with data flowing through EtherCAT to the control cabinet and optionally to an external PC via GigE Vision." />
+
+<h3>4.1 Direct Mount (Recommended)</h3>
+<p>The VM-200 mounts directly to the CoBot Pro tool flange using the included ISO 9409-1-50-4 adapter. Power and data are routed through the internal cable harness — no external cables are required. The robot's kinematic model automatically compensates for the camera offset.</p>
+
+<h3>4.2 Fixed Mount</h3>
+<p>For stationary inspection tasks, the VM-200 can be mounted on a separate bracket above the workspace. In this configuration, the GigE Vision interface connects the camera to the CoBot Pro control cabinet or an external PC running CoBot Studio IDE.</p>
+
+<h3>4.3 ROS 2 Integration</h3>
+<p>The VM-200 publishes standard ROS 2 sensor_msgs/Image and sensor_msgs/PointCloud2 topics, enabling seamless integration with custom perception pipelines. For architecture details on the ROS 2 perception stack, see the <strong>Perception Pipeline Design</strong> document in the Engineering documentation.</p>
+
+<h2>5. Use Cases</h2>
+
+<h3>Bin Picking</h3>
+<p>The VM-200's structured light projector generates dense 3D point clouds, enabling the BinPick-v2 model to estimate 6-DoF grasp poses for randomly oriented parts. Cycle times of 3.5 seconds per pick (including image capture, inference, and robot motion) have been achieved with the CoBot Pro 700 in production environments.</p>
+
+<h3>Quality Inspection</h3>
+<p>DefectNet-v2 detects surface defects as small as 0.3 mm across painted, machined, and molded surfaces. Combined with the DimCheck-v1 dimensional measurement model, the VM-200 replaces manual visual inspection stations with 98% fewer escapes.</p>
+
+<h3>Traceability</h3>
+<p>BarcodeReader-v4 reads 1D barcodes, QR codes, and Data Matrix codes at any orientation, even on curved or reflective surfaces. Read rates exceed 99.9% in production environments, supporting full part traceability for regulated industries.</p>
+
+<h2>6. Performance Benchmarks</h2>
+
+<p>The following benchmarks were measured on a CoBot Pro 700 with VM-200 mounted at the tool flange, operating in a standard factory lighting environment (500 lux ambient):</p>
+
+<table>
+    <tr>
+        <th>Benchmark</th>
+        <th>Result</th>
+    </tr>
+    <tr>
+        <td>Part detection throughput</td>
+        <td>30 parts/second (PartDetect-v3, 2D mode)</td>
+    </tr>
+    <tr>
+        <td>Bin picking cycle time</td>
+        <td>3.5 seconds/pick (BinPick-v2, including robot motion)</td>
+    </tr>
+    <tr>
+        <td>Defect detection false positive rate</td>
+        <td>0.2% (DefectNet-v2, 10,000-image test set)</td>
+    </tr>
+    <tr>
+        <td>Barcode read rate</td>
+        <td>99.92% (BarcodeReader-v4, mixed code types)</td>
+    </tr>
+    <tr>
+        <td>3D point cloud generation</td>
+        <td>85 ms per frame (full resolution, 0.1 mm depth)</td>
+    </tr>
+    <tr>
+        <td>End-to-end latency (capture to result)</td>
+        <td>45 ms (PartDetect-v3, GigE Vision path)</td>
+    </tr>
+</table>
+
+<h2>7. Getting Started</h2>
+
+<p>To install and configure the VM-200 on your CoBot Pro, follow the step-by-step instructions in the <strong>Vision Module Setup Guide</strong> from Contoso Robotics Support. The guide covers physical mounting, cable connections, camera calibration, and running your first detection job in CoBot Studio IDE.</p>
+
+<p>For questions about custom model training, advanced integration scenarios, or volume pricing, contact your Contoso Robotics sales representative or email <strong>vision-support@contoso-robotics.com</strong>.</p>
+
+<p><em>Document version 1.2 | Last updated: 2025-02-01 | Contoso Robotics Marketing</em></p>
+
+</body>
+</html>

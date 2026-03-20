@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoBot Vision Perception Pipeline — Design Document</title>
+</head>
+<body>
+
+<h1>CoBot Vision Perception Pipeline — Design Document</h1>
+
+<p>This document describes the design and implementation of the vision perception pipeline for the Contoso Robotics CoBot Vision Module VM-200 as deployed on the CoBot Pro 500 and CoBot Pro 700 platforms. The pipeline transforms raw camera data into actionable object poses for the motion planning stack in CoBot OS v4.2. For initial camera calibration and hardware setup, refer to the <strong>Vision Module Setup Guide</strong> in the Support documentation. For customer-facing specifications of the VM-200, see the <strong>Vision Module Technical Brief</strong> from Contoso Robotics Marketing.</p>
+
+<img src="images/perception-pipeline-stages.png" alt="End-to-end perception pipeline flow diagram showing five stages: image capture, preprocessing, object detection, tracking, and 6-DOF pose estimation." />
+
+<h2>1. Pipeline Architecture Overview</h2>
+
+<p>The perception pipeline is structured as a directed acyclic graph (DAG) of processing nodes, each running as an independent thread within the <code>cobot_vision</code> ROS 2 component. The pipeline must complete a full perception cycle — from image capture to published pose — within a 50 ms hard deadline to maintain synchronization with the 1 ms EtherCAT motion control loop (poses are consumed once per trajectory segment, typically every 50–100 ms).</p>
+
+<h3>1.1 Pipeline Stages</h3>
+<ol>
+    <li><strong>Capture</strong> (3–5 ms): Synchronized acquisition of RGB and depth frames from camera hardware.</li>
+    <li><strong>Preprocessing</strong> (2–4 ms): Undistortion, rectification, color space conversion, and region-of-interest (ROI) cropping.</li>
+    <li><strong>Detection</strong> (15–25 ms): Object detection using DNN inference to produce 2D bounding boxes and class labels.</li>
+    <li><strong>Tracking</strong> (1–2 ms): Multi-object tracking to maintain consistent object IDs across frames and smooth transient detection failures.</li>
+    <li><strong>Pose Estimation</strong> (10–15 ms): 6-DOF pose computation from detected regions using depth data and geometric model fitting.</li>
+</ol>
+
+<p>Total worst-case latency: 47 ms, within the 50 ms budget with 3 ms margin for scheduling jitter.</p>
+
+<h2>2. Camera Hardware</h2>
+
+<p>The VM-200 module supports two camera configurations depending on application requirements:</p>
+
+<table>
+    <tr>
+        <th>Parameter</th>
+        <th>Intel RealSense D455</th>
+        <th>Basler ace 2 (a2A2590-22gcPRO)</th>
+    </tr>
+    <tr>
+        <td>Use Case</td>
+        <td>General-purpose depth + RGB</td>
+        <td>High-resolution inspection</td>
+    </tr>
+    <tr>
+        <td>RGB Resolution</td>
+        <td>1280 × 800 @ 30 fps</td>
+        <td>2592 × 1944 @ 22 fps</td>
+    </tr>
+    <tr>
+        <td>Depth Resolution</td>
+        <td>1280 × 720 @ 30 fps</td>
+        <td>N/A (external structured light)</td>
+    </tr>
+    <tr>
+        <td>Depth Range</td>
+        <td>0.2 m – 6.0 m</td>
+        <td>N/A</td>
+    </tr>
+    <tr>
+        <td>Depth Accuracy</td>
+        <td>< 2% at 2 m</td>
+        <td>N/A</td>
+    </tr>
+    <tr>
+        <td>Interface</td>
+        <td>USB 3.2 Gen 1</td>
+        <td>GigE Vision (PoE)</td>
+    </tr>
+    <tr>
+        <td>Shutter</td>
+        <td>Global (depth), Rolling (RGB)</td>
+        <td>Global</td>
+    </tr>
+    <tr>
+        <td>Field of View (H × V)</td>
+        <td>87° × 58°</td>
+        <td>54° × 42° (with 8 mm lens)</td>
+    </tr>
+</table>
+
+<p>The default configuration uses the Intel RealSense D455 for combined depth and RGB capture. The Basler ace 2 is used when applications require higher spatial resolution for defect detection or fine-feature measurement, paired with an external structured-light projector (Contoso Robotics SLP-100, 405 nm blue laser, Class 1 eye-safe).</p>
+
+<h2>3. Preprocessing Stage</h2>
+
+<p>The preprocessing stage prepares raw sensor data for DNN inference:</p>
+
+<ul>
+    <li><strong>Lens undistortion:</strong> Brown-Conrady radial-tangential model with 5 coefficients (k1, k2, p1, p2, k3). Coefficients are loaded from the calibration file generated during the hand-eye calibration procedure (see Section 7).</li>
+    <li><strong>Stereo rectification:</strong> For the D455, rectification aligns RGB and depth image planes using the factory-stored extrinsic rotation and translation. The reprojection error after rectification must be less than 0.3 pixels.</li>
+    <li><strong>Color space conversion:</strong> RGB → BGR (OpenCV convention) and optional RGB → HSV for color-based segmentation tasks.</li>
+    <li><strong>ROI cropping:</strong> A configurable 3D workspace bounding box (defined in the robot base frame) is projected into camera image coordinates. Only pixels within this ROI are forwarded to the detection stage, reducing DNN inference time by 30–40% on typical setups.</li>
+    <li><strong>Depth filtering:</strong> Temporal averaging (3-frame window) and spatial edge-preserving filter (bilateral, σ_spatial=3, σ_range=25 mm) to reduce depth noise from < 2% to < 0.5% RMS at 1 m.</li>
+</ul>
+
+<h2>4. Object Detection</h2>
+
+<img src="images/object-detection-flow.png" alt="Object detection data flow showing the DNN inference engine accepting a preprocessed RGB image and outputting 2D bounding boxes, class labels, and confidence scores." />
+
+<p>Object detection is performed using a quantized YOLOv8m model optimized for the NVIDIA Jetson Orin NX accelerator integrated into the VM-200 module:</p>
+
+<ul>
+    <li><strong>Model:</strong> YOLOv8m (medium), trained on a Contoso Robotics custom dataset of 120,000 annotated images covering 47 object classes (fasteners, PCBs, connectors, packaging, automotive parts).</li>
+    <li><strong>Input resolution:</strong> 640 × 640 pixels (letterbox-padded from camera aspect ratio).</li>
+    <li><strong>Quantization:</strong> INT8 calibrated via TensorRT 8.6 post-training quantization. mAP@0.5 drops from 87.3% (FP32) to 86.1% (INT8) — less than 1.5% degradation.</li>
+    <li><strong>Inference time:</strong> 18 ms typical on Jetson Orin NX (20W power mode), meeting the 25 ms stage budget.</li>
+    <li><strong>NMS threshold:</strong> IoU = 0.45, confidence threshold = 0.35 (configurable per class via <code>/cobot_vision/detection_params</code> ROS 2 parameter).</li>
+</ul>
+
+<h3>4.1 Custom Model Training</h3>
+
+<p>Users can fine-tune the detection model on application-specific objects using the CoBot Vision Training Toolkit (Python package <code>cobot-vision-train</code>). The toolkit provides annotation tools, augmentation pipelines (random crop, color jitter, mosaic, MixUp), and automated TensorRT export. A minimum of 500 annotated images per class is recommended for reliable detection (≥ 80% mAP@0.5).</p>
+
+<h2>5. Point Cloud Processing</h2>
+
+<img src="images/point-cloud-processing.png" alt="Point cloud processing pipeline showing raw depth map conversion to organized point cloud, followed by plane segmentation, clustering, and surface normal estimation." />
+
+<p>Depth data from the D455 is converted to an organized point cloud and processed using the Point Cloud Library (PCL 1.13) and Open3D (0.18):</p>
+
+<ol>
+    <li><strong>Depth-to-point-cloud conversion:</strong> Using the camera intrinsic matrix K, each depth pixel (u, v, d) is back-projected to 3D: P = d · K⁻¹ · [u, v, 1]ᵀ. This runs on the GPU via CUDA at 1.2 ms for a 1280 × 720 depth frame.</li>
+    <li><strong>Statistical outlier removal:</strong> Points with mean distance to 50 nearest neighbors exceeding 2σ are removed. Typical rejection rate: 3–5% of points.</li>
+    <li><strong>Voxel downsampling:</strong> Grid size 2 mm for manipulation tasks, 5 mm for bin-picking. Reduces point count from ~920K to ~150K (2 mm grid) or ~25K (5 mm grid).</li>
+    <li><strong>Plane segmentation:</strong> RANSAC-based dominant plane removal (table/conveyor surface) with inlier threshold 5 mm. Iterative for up to 3 planes.</li>
+    <li><strong>Euclidean clustering:</strong> Remaining points are clustered with a 10 mm distance threshold and minimum cluster size of 100 points. Each cluster corresponds to a candidate object.</li>
+    <li><strong>Surface normal estimation:</strong> Normal vectors computed using PCA over a 15-point neighborhood. Normals are oriented consistently toward the camera viewpoint.</li>
+</ol>
+
+<h2>6. Pose Estimation</h2>
+
+<p>For each detected object, 6-DOF pose (translation + rotation) is estimated using a hybrid approach:</p>
+
+<ul>
+    <li><strong>Coarse pose:</strong> PointNet++ (MSG variant, 3 set abstraction levels) processes the object point cloud to predict an initial SE(3) pose. Trained on 50,000 synthetic point cloud / pose pairs per object class. Inference time: 8 ms on Jetson Orin NX.</li>
+    <li><strong>Pose refinement:</strong> Iterative Closest Point (ICP) alignment between the observed point cloud and the known CAD model, initialized from the PointNet++ coarse pose. Convergence criteria: translation residual < 0.1 mm or 50 iterations maximum. Typical refinement time: 3–5 ms.</li>
+    <li><strong>Symmetry handling:</strong> Objects with rotational symmetry (e.g., cylinders, spheres) use a reduced pose representation. Symmetry type (none, Cn, S∞) is specified per object class in the model database.</li>
+</ul>
+
+<p>The final pose is published on the <code>/cobot_vision/object_poses</code> ROS 2 topic as a <code>geometry_msgs/PoseArray</code> stamped with the camera frame timestamp. The <strong>CoBot ROS 2 Node Reference Manual</strong> in the Engineering documentation provides the full topic and service API.</p>
+
+<h2>7. Calibration</h2>
+
+<p>The perception pipeline requires three calibration procedures:</p>
+
+<h3>7.1 Intrinsic Calibration</h3>
+<p>Camera intrinsic parameters (focal length, principal point, distortion coefficients) are calibrated using a 9×7 ChArUco board with 30 mm squares and 22 mm ArUco markers. A minimum of 30 images captured at varied distances (0.3–1.5 m) and angles (±30°) are required. Reprojection error must be below 0.5 pixels. The D455 ships pre-calibrated but recalibration is recommended annually or after mechanical shock.</p>
+
+<h3>7.2 Hand-Eye Calibration</h3>
+<p>The transformation from the camera optical frame to the robot tool frame is determined using the Tsai-Lenz method (eye-in-hand configuration). The robot moves to 20+ poses while observing a fixed calibration target. CoBot OS v4.2 automates this process via <em>Settings → Vision → Hand-Eye Calibration</em>. Expected translational accuracy: < 1 mm. Rotational accuracy: < 0.3°.</p>
+
+<h3>7.3 Extrinsic Calibration (Multi-Camera)</h3>
+<p>For setups with multiple VM-200 modules (e.g., overhead + in-hand), extrinsic calibration establishes the relative camera transforms using simultaneous observation of a shared calibration target. The calibration graph is solved using bundle adjustment with Levenberg-Marquardt optimization.</p>
+
+<h2>8. Performance Requirements</h2>
+
+<table>
+    <tr>
+        <th>Metric</th>
+        <th>Requirement</th>
+        <th>Measured (Typical)</th>
+    </tr>
+    <tr>
+        <td>End-to-end latency</td>
+        <td>< 50 ms</td>
+        <td>38 ms</td>
+    </tr>
+    <tr>
+        <td>Detection mAP@0.5</td>
+        <td>≥ 80%</td>
+        <td>86.1%</td>
+    </tr>
+    <tr>
+        <td>Pose translation error</td>
+        <td>< 2 mm</td>
+        <td>0.8 mm</td>
+    </tr>
+    <tr>
+        <td>Pose rotation error</td>
+        <td>< 2°</td>
+        <td>0.7°</td>
+    </tr>
+    <tr>
+        <td>Tracking ID consistency</td>
+        <td>≥ 95% over 100 frames</td>
+        <td>97.2%</td>
+    </tr>
+    <tr>
+        <td>GPU memory usage</td>
+        <td>< 4 GB (Orin NX 8 GB)</td>
+        <td>3.1 GB</td>
+    </tr>
+    <tr>
+        <td>Power consumption</td>
+        <td>< 25 W (total VM-200)</td>
+        <td>21 W</td>
+    </tr>
+</table>
+
+<p><em>Document version 3.1.0 | Last updated: 2025-01-12 | Contoso Robotics Engineering — Vision Team</em></p>
+
+</body>
+</html>

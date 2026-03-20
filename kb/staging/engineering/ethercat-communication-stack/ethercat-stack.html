@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EtherCAT Communication Stack — Specification</title>
+</head>
+<body>
+
+<h1>EtherCAT Communication Stack — Specification</h1>
+
+<p>This document specifies the EtherCAT communication stack implementation used in the Contoso Robotics CoBot Pro 500 and CoBot Pro 700 collaborative robots. EtherCAT serves as the primary real-time fieldbus connecting the main controller to six joint servo drives, the optional Force-Torque Sensor FTS-600, and the Safety Controller SC-100 process data interface. For information on the ROS 2 bridge that exposes EtherCAT data to ROS 2 topics, refer to the <strong>ROS 2 Integration Guide</strong> in the Support documentation. For diagnosing communication errors and joint faults, see the <strong>Joint Error Troubleshooting Guide</strong> in the Support documentation.</p>
+
+<img src="images/ethercat-topology.png" alt="EtherCAT network topology diagram showing the main controller as master, six joint servo drives (J1–J6) in line topology, optional FTS-600 sensor, and ring redundancy return path." />
+
+<h2>1. Network Topology</h2>
+
+<p>The CoBot Pro EtherCAT network uses a line topology with optional ring redundancy:</p>
+
+<h3>1.1 Standard Configuration (Line Topology)</h3>
+<ol>
+    <li><strong>Master:</strong> CoBot Pro main controller (ARM Cortex-A72) running the SOEM (Simple Open EtherCAT Master) library v1.4.0 with Contoso Robotics real-time patches.</li>
+    <li><strong>Slave 1–6:</strong> Joint servo drives (Contoso Robotics JSD-200 series) — one per joint, each containing a Beckhoff ET1100 EtherCAT Slave Controller (ESC) ASIC.</li>
+    <li><strong>Slave 7 (optional):</strong> Force-Torque Sensor FTS-600 with integrated ET1100 ESC.</li>
+    <li><strong>Slave 8 (optional):</strong> I/O expansion module for additional digital/analog I/O.</li>
+</ol>
+
+<p>The physical layer uses 100BASE-TX Ethernet (100 Mbit/s, full-duplex) over CAT6a shielded cables with M12 D-coded connectors (IP67) at each joint. Maximum cable length between any two slaves: 10 m. Total bus length: 60 m maximum.</p>
+
+<h3>1.2 Ring Redundancy</h3>
+<p>When the optional ring-redundancy cable is installed (connecting the last slave's OUT port back to the master's secondary Ethernet port), the network can tolerate a single cable break or slave failure without losing communication to the remaining slaves. Failover time is less than 15 µs — within a single EtherCAT cycle — ensuring no disruption to the motion control loop. The master detects the break via Working Counter (WKC) mismatch and reconfigures the logical addressing to route frames through the redundant path.</p>
+
+<h2>2. Frame Structure</h2>
+
+<img src="images/frame-structure-diagram.png" alt="EtherCAT frame structure breakdown showing the Ethernet header, EtherCAT header, multiple datagrams (each with command, address, data, and working counter fields), and the frame check sequence." />
+
+<p>EtherCAT operates by embedding process data directly into standard Ethernet frames (EtherType 0x88A4). Each frame contains one or more datagrams:</p>
+
+<h3>2.1 Ethernet Frame Layout</h3>
+<table>
+    <tr>
+        <th>Field</th>
+        <th>Size (bytes)</th>
+        <th>Description</th>
+    </tr>
+    <tr>
+        <td>Preamble + SFD</td>
+        <td>8</td>
+        <td>Standard Ethernet preamble</td>
+    </tr>
+    <tr>
+        <td>Destination MAC</td>
+        <td>6</td>
+        <td>Broadcast (FF:FF:FF:FF:FF:FF) or multicast</td>
+    </tr>
+    <tr>
+        <td>Source MAC</td>
+        <td>6</td>
+        <td>Master MAC address</td>
+    </tr>
+    <tr>
+        <td>EtherType</td>
+        <td>2</td>
+        <td>0x88A4 (EtherCAT)</td>
+    </tr>
+    <tr>
+        <td>EtherCAT Header</td>
+        <td>2</td>
+        <td>Frame length (11 bits) + reserved + type</td>
+    </tr>
+    <tr>
+        <td>Datagram(s)</td>
+        <td>Variable</td>
+        <td>1–15 datagrams per frame (see below)</td>
+    </tr>
+    <tr>
+        <td>Padding</td>
+        <td>Variable</td>
+        <td>Minimum Ethernet frame size: 64 bytes</td>
+    </tr>
+    <tr>
+        <td>FCS</td>
+        <td>4</td>
+        <td>CRC-32 Frame Check Sequence</td>
+    </tr>
+</table>
+
+<h3>2.2 Datagram Structure</h3>
+<table>
+    <tr>
+        <th>Field</th>
+        <th>Size (bytes)</th>
+        <th>Description</th>
+    </tr>
+    <tr>
+        <td>Command</td>
+        <td>1</td>
+        <td>LRD (Logical Read), LWR (Logical Write), LRW (Logical Read-Write), BRD, BWR, etc.</td>
+    </tr>
+    <tr>
+        <td>Index</td>
+        <td>1</td>
+        <td>Datagram sequence number for identification</td>
+    </tr>
+    <tr>
+        <td>Address</td>
+        <td>4</td>
+        <td>Logical address (32-bit) mapped to slave FMMU</td>
+    </tr>
+    <tr>
+        <td>Length</td>
+        <td>2</td>
+        <td>Data payload length (11 bits) + flags</td>
+    </tr>
+    <tr>
+        <td>IRQ</td>
+        <td>2</td>
+        <td>Interrupt request register</td>
+    </tr>
+    <tr>
+        <td>Data</td>
+        <td>Variable</td>
+        <td>Process data (read/written on the fly by slaves)</td>
+    </tr>
+    <tr>
+        <td>Working Counter</td>
+        <td>2</td>
+        <td>Incremented by each slave that successfully processes the datagram</td>
+    </tr>
+</table>
+
+<p>For the CoBot Pro's 6-joint configuration, the master sends a single LRW datagram per cycle containing the output process data image (252 bytes: 42 bytes × 6 joints). Each joint's servo drive reads its 42 bytes (target position, velocity feedforward, torque feedforward, control word) and writes back its 42 bytes (actual position, actual velocity, actual torque, status word) — all within the same frame as it passes through the slave ESC at wire speed.</p>
+
+<h2>3. CANopen over EtherCAT (CoE)</h2>
+
+<p>The CoBot Pro uses the CANopen over EtherCAT (CoE) application protocol per ETG.6010, implementing the CiA 402 drive profile for all joint servo drives:</p>
+
+<h3>3.1 Supported Operating Modes</h3>
+<ul>
+    <li><strong>Cyclic Synchronous Position (CSP) — Mode 8:</strong> Default mode. The master sends target joint positions every cycle; the drive executes position control locally with its cascaded PID loop.</li>
+    <li><strong>Cyclic Synchronous Velocity (CSV) — Mode 9:</strong> Used for jogging and manual teach mode. Master sends target velocity; drive executes velocity + current loops.</li>
+    <li><strong>Cyclic Synchronous Torque (CST) — Mode 10:</strong> Used for force-control applications and admittance control. Master sends target torque; drive executes current loop only.</li>
+    <li><strong>Profile Position (PP) — Mode 1:</strong> Used for simple point-to-point moves. Master sends target position and motion profile parameters; drive generates trajectory locally.</li>
+</ul>
+
+<h3>3.2 Object Dictionary (Joint Servo Drive)</h3>
+<table>
+    <tr>
+        <th>Index:Sub</th>
+        <th>Name</th>
+        <th>PDO Mapping</th>
+    </tr>
+    <tr>
+        <td>0x6040:00</td>
+        <td>Control Word</td>
+        <td>RxPDO</td>
+    </tr>
+    <tr>
+        <td>0x607A:00</td>
+        <td>Target Position (encoder counts)</td>
+        <td>RxPDO</td>
+    </tr>
+    <tr>
+        <td>0x60FF:00</td>
+        <td>Target Velocity (counts/s)</td>
+        <td>RxPDO</td>
+    </tr>
+    <tr>
+        <td>0x6071:00</td>
+        <td>Target Torque (0.1% rated)</td>
+        <td>RxPDO</td>
+    </tr>
+    <tr>
+        <td>0x6041:00</td>
+        <td>Status Word</td>
+        <td>TxPDO</td>
+    </tr>
+    <tr>
+        <td>0x6064:00</td>
+        <td>Actual Position (encoder counts)</td>
+        <td>TxPDO</td>
+    </tr>
+    <tr>
+        <td>0x606C:00</td>
+        <td>Actual Velocity (counts/s)</td>
+        <td>TxPDO</td>
+    </tr>
+    <tr>
+        <td>0x6077:00</td>
+        <td>Actual Torque (0.1% rated)</td>
+        <td>TxPDO</td>
+    </tr>
+</table>
+
+<h2>4. Distributed Clocks</h2>
+
+<p>EtherCAT Distributed Clocks (DC) synchronize all slaves to a common time base, critical for coordinated multi-axis motion:</p>
+
+<ul>
+    <li><strong>Reference clock:</strong> Slave 1 (Joint 1 servo drive) serves as the DC reference clock. Its local 100 MHz counter is propagated to all other slaves.</li>
+    <li><strong>Synchronization accuracy:</strong> After initial DC propagation delay compensation (automatic during network initialization), all slave clocks are synchronized to within ±50 ns of the reference clock.</li>
+    <li><strong>SYNC0 signal:</strong> A hardware interrupt generated by each slave's ESC at the configured cycle time, triggering the local servo drive's control loop. Jitter on SYNC0: < ±20 ns.</li>
+    <li><strong>Drift compensation:</strong> Each slave runs a PLL that adjusts its local oscillator based on the master's periodic time distribution frames (every 10 cycles). Maximum drift rate after PLL lock: < 1 ppm.</li>
+</ul>
+
+<h2>5. Cycle Time Configuration</h2>
+
+<img src="images/timing-diagram.png" alt="Timing diagram showing one EtherCAT cycle at 1 ms, including frame transmission time, slave processing windows, SYNC0 events, and the master's servo computation window." />
+
+<p>The CoBot Pro supports three cycle time settings, configurable via CoBot OS v4.2 (<em>Settings → Communication → EtherCAT → Cycle Time</em>):</p>
+
+<table>
+    <tr>
+        <th>Cycle Time</th>
+        <th>Use Case</th>
+        <th>Max Slaves</th>
+        <th>Master CPU Load (A72)</th>
+    </tr>
+    <tr>
+        <td>1.0 ms (default)</td>
+        <td>Standard collaborative operations</td>
+        <td>16</td>
+        <td>12%</td>
+    </tr>
+    <tr>
+        <td>0.5 ms</td>
+        <td>High-speed pick-and-place, force control</td>
+        <td>12</td>
+        <td>22%</td>
+    </tr>
+    <tr>
+        <td>0.25 ms</td>
+        <td>Ultra-high-bandwidth torque control, vibration suppression</td>
+        <td>8</td>
+        <td>38%</td>
+    </tr>
+</table>
+
+<p>The cycle time determines the servo loop update rate, trajectory interpolation resolution, and the maximum number of EtherCAT slaves that can be served within one cycle (constrained by frame propagation time and slave processing delay). At 0.25 ms, the frame round-trip time for 8 slaves is approximately 45 µs, leaving 205 µs for master-side motion planning computation.</p>
+
+<h2>6. Diagnostics and Error Handling</h2>
+
+<p>The EtherCAT master monitors bus health using the following mechanisms:</p>
+
+<ul>
+    <li><strong>Working Counter (WKC) check:</strong> Every datagram's WKC is compared against the expected value. A WKC mismatch indicates a slave did not process the datagram. Three consecutive mismatches trigger slave re-initialization; persistent failure triggers an E0x10xx communication fault code displayed on the teach pendant.</li>
+    <li><strong>CRC error counters:</strong> Each slave's ESC maintains Ethernet frame CRC error counters (registers 0x0300–0x030F). The master polls these every 100 cycles and logs them. CRC error rate > 10⁻⁹ per byte indicates cable or connector degradation.</li>
+    <li><strong>AL Status monitoring:</strong> Each slave's Application Layer (AL) status register is polled every cycle. Valid states: INIT (0x01), PRE-OP (0x02), SAFE-OP (0x04), OP (0x08). Any slave transitioning out of OP triggers a controlled stop (SS1).</li>
+    <li><strong>Link lost detection:</strong> Physical link loss on any port is detected within 10 µs by the ESC hardware. In ring-redundancy mode, the master reconfigures within one cycle. Without redundancy, link loss triggers SS1 → STO.</li>
+</ul>
+
+<p>For a complete list of EtherCAT-related error codes and troubleshooting steps, refer to the <strong>Joint Error Troubleshooting Guide</strong> in the Support documentation.</p>
+
+<p><em>Document version 4.2.0 | Last updated: 2025-01-14 | Contoso Robotics Engineering — Controls Team</em></p>
+
+</body>
+</html>

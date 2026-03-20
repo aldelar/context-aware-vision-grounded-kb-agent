@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Safety Controller SC-100 — Firmware Architecture</title>
+</head>
+<body>
+
+<h1>Safety Controller SC-100 — Firmware Architecture</h1>
+
+<p>This document describes the firmware architecture of the Contoso Robotics Safety Controller SC-100, the dual-channel safety system integrated into every CoBot Pro 500 and CoBot Pro 700 control cabinet. The SC-100 firmware is certified to IEC 61508 SIL 2 and ISO 13849-1 PLe Category 4. For user-facing configuration instructions, refer to the <strong>Safety Controller Configuration</strong> guide in the Support documentation. For compliance certifications and safety marketing claims, see the <strong>Safety Certification Factsheet</strong> from Contoso Robotics Marketing.</p>
+
+<img src="images/safety-plc-architecture.png" alt="Safety PLC architecture block diagram showing the dual-channel Cortex-R5F lockstep core, FPGA monitor, safe I/O modules, and cross-channel comparison logic." />
+
+<h2>1. Safety PLC Architecture</h2>
+
+<p>The SC-100 implements a Category 4 architecture per ISO 13849-1, using two independent processing channels with cross-comparison:</p>
+
+<h3>1.1 Channel A — Safety Microcontroller</h3>
+<p>The primary safety channel runs on the ARM Cortex-R5F dual-core lockstep processor at 800 MHz. In lockstep mode, both cores execute identical instructions in parallel and a hardware comparator verifies that outputs match on every clock cycle. Any mismatch triggers an immediate Non-Maskable Interrupt (NMI) that forces the safety outputs to the safe state (de-energized) within 1 clock cycle (1.25 ns). The R5F has 512 KB of tightly-coupled memory (TCM) with ECC protection (SECDED — Single Error Correction, Double Error Detection).</p>
+
+<h3>1.2 Channel B — FPGA Safety Monitor</h3>
+<p>The redundant channel is implemented on a Xilinx Artix-7 (XC7A35T) FPGA configured as an independent safety monitor. The FPGA reads joint encoder positions and velocities via a separate SPI bus (physically distinct from the main controller's encoder path) and independently computes joint-space safety metrics at 4 kHz. The FPGA design is generated from a qualified model-based design tool and undergoes formal verification against the safety requirements specification.</p>
+
+<h3>1.3 Cross-Channel Comparison</h3>
+<p>Channel A and Channel B exchange safety-critical data (joint positions, velocities, computed safety function status) over a dedicated point-to-point SPI link at 10 MHz. The comparison protocol:</p>
+<ol>
+    <li>Both channels compute safety outputs independently every 250 µs (4 kHz).</li>
+    <li>Channel A sends its computed outputs with a CRC-16 to Channel B, and vice versa.</li>
+    <li>Each channel compares received values against its own computation. Position tolerance: ±0.01° per joint. Velocity tolerance: ±1°/s.</li>
+    <li>If disagreement persists for 2 consecutive cycles (500 µs), both channels independently trigger Safe Torque Off (STO).</li>
+</ol>
+
+<h2>2. Firmware State Machine</h2>
+
+<img src="images/firmware-state-machine.png" alt="Safety controller firmware state machine diagram showing states: INIT, SELF_TEST, IDLE, MONITORING, SAFE_STOP_1, SAFE_STOP_2, STO, and FAULT, with labeled transition conditions." />
+
+<p>The SC-100 firmware operates as a deterministic state machine with the following states:</p>
+
+<table>
+    <tr>
+        <th>State</th>
+        <th>Description</th>
+        <th>LED Indicator</th>
+    </tr>
+    <tr>
+        <td>INIT</td>
+        <td>Power-on initialization. Clock, memory, and peripheral setup.</td>
+        <td>Yellow — blinking fast</td>
+    </tr>
+    <tr>
+        <td>SELF_TEST</td>
+        <td>ROM CRC check, RAM march test (March C−), watchdog test, I/O loopback test. Duration: 3.5 seconds.</td>
+        <td>Yellow — blinking slow</td>
+    </tr>
+    <tr>
+        <td>IDLE</td>
+        <td>Self-test passed. Waiting for application processor handshake to enter monitoring mode.</td>
+        <td>Green — solid</td>
+    </tr>
+    <tr>
+        <td>MONITORING</td>
+        <td>Active safety monitoring. All safety function blocks executing at 4 kHz.</td>
+        <td>Green — blinking</td>
+    </tr>
+    <tr>
+        <td>SAFE_STOP_1 (SS1)</td>
+        <td>Controlled deceleration to zero velocity, then transition to STO. Maximum deceleration time: 500 ms.</td>
+        <td>Orange — solid</td>
+    </tr>
+    <tr>
+        <td>SAFE_STOP_2 (SS2)</td>
+        <td>Controlled deceleration to zero velocity, then hold position with Safe Operating Stop (SOS).</td>
+        <td>Orange — blinking</td>
+    </tr>
+    <tr>
+        <td>STO</td>
+        <td>Safe Torque Off. All motor drive enable signals de-asserted. Robot is gravity-settling.</td>
+        <td>Red — solid</td>
+    </tr>
+    <tr>
+        <td>FAULT</td>
+        <td>Unrecoverable fault detected (hardware failure, cross-channel disagreement). Requires power cycle and service intervention.</td>
+        <td>Red — blinking</td>
+    </tr>
+</table>
+
+<h3>2.1 State Transition Rules</h3>
+<ul>
+    <li>INIT → SELF_TEST: Automatic on power-up after voltage rails stabilize (POR delay: 100 ms).</li>
+    <li>SELF_TEST → IDLE: All self-test routines pass. If any test fails, transition directly to FAULT.</li>
+    <li>IDLE → MONITORING: Application processor sends valid handshake message (0xA5A5 + session ID + CRC-32) within 30-second timeout.</li>
+    <li>MONITORING → SS1: E-Stop pressed, or SLS violation detected, or operator command via safe I/O.</li>
+    <li>MONITORING → SS2: Reduced-speed collaborative mode velocity limit exceeded (configurable threshold, default 250 mm/s TCP).</li>
+    <li>MONITORING → STO: Direct STO request from application processor, or E-Stop with immediate-stop configuration.</li>
+    <li>SS1 → STO: Deceleration complete (velocity < 0.1°/s on all joints) or timeout (500 ms).</li>
+    <li>SS2 → SOS: Deceleration complete, robot holds position with active braking.</li>
+    <li>Any State → FAULT: Cross-channel disagreement > 2 cycles, watchdog timeout, CRC failure, or hardware diagnostic error.</li>
+</ul>
+
+<h2>3. Watchdog Timer Design</h2>
+
+<img src="images/watchdog-timer-sequence.png" alt="Timing sequence diagram showing the dual-redundant watchdog architecture with Window Watchdog (WWDG) and Independent Watchdog (IWDG) feeding into the safety output logic." />
+
+<p>The SC-100 employs a dual-redundant watchdog architecture to detect firmware hangs or timing violations:</p>
+
+<h3>3.1 Window Watchdog (WWDG)</h3>
+<p>The WWDG must be serviced within a specific time window — not too early and not too late. The window is configured as [200 µs, 250 µs] relative to the 250 µs safety cycle start. Servicing before 200 µs (indicating the safety loop completed too fast, possibly skipping computations) or after 250 µs (indicating a timing overrun) both trigger an NMI. The WWDG is clocked from an independent 32 kHz RC oscillator, separate from the main system clock, to detect clock failures.</p>
+
+<h3>3.2 Independent Watchdog (IWDG)</h3>
+<p>The IWDG is a simple countdown timer with a 10 ms timeout, serviced by the main safety loop. If the loop fails to execute for 10 ms (40 missed safety cycles), the IWDG triggers a hardware reset of the safety controller, forcing a transition to STO via the fail-safe output logic (outputs are de-energized by default when the reset line is asserted). The IWDG uses a dedicated low-speed oscillator (LSI, 40 kHz ± 10%) independent of all other clock domains.</p>
+
+<h2>4. Safety Function Blocks</h2>
+
+<p>The SC-100 firmware implements the following IEC 61800-5-2 safety function blocks, all executing at the 4 kHz safety cycle rate:</p>
+
+<h3>4.1 Safe Torque Off (STO)</h3>
+<p>Removes the power stage enable signal from all six joint motor drives within 10 ms of activation. Implemented as a hardware-assisted function: the R5F de-asserts a GPIO line that is AND-gated with the FPGA's independent STO output before reaching the motor drive enable input. Both channels must agree to keep drives enabled.</p>
+
+<h3>4.2 Safe Limited Speed (SLS)</h3>
+<p>Monitors TCP Cartesian speed and individual joint velocities against configurable thresholds. Four speed limit sets (SLS1–SLS4) can be defined, selectable via safe digital inputs. Default SLS1: TCP speed ≤ 250 mm/s, each joint ≤ 60°/s. Violation triggers SS1 with a 100 ms reaction time (detection + deceleration initiation).</p>
+
+<h3>4.3 Safe Speed Monitor (SSM)</h3>
+<p>Continuously monitors that actual speeds remain within the currently active SLS limits. Unlike SLS (which triggers a stop), SSM provides a safe binary output signal indicating "speed OK" or "speed exceeded" for integration with external safety systems (e.g., light curtain muting).</p>
+
+<h3>4.4 Safe Operating Stop (SOS)</h3>
+<p>Monitors that joint positions remain within ±0.5° of the reference position captured when SOS was activated. If any joint drifts beyond this window (due to external forces, gravity, or drive failure), SOS escalates to STO. Position monitoring runs at 4 kHz with encoder data cross-checked between Channel A and Channel B.</p>
+
+<h2>5. I/O Mapping</h2>
+
+<p>The SC-100 provides the following safety-rated I/O channels:</p>
+
+<table>
+    <tr>
+        <th>Pin</th>
+        <th>Type</th>
+        <th>Function</th>
+        <th>Default Configuration</th>
+    </tr>
+    <tr>
+        <td>SI1 / SI2</td>
+        <td>Safe Input (dual-channel)</td>
+        <td>Emergency Stop</td>
+        <td>NC (normally closed), monitored</td>
+    </tr>
+    <tr>
+        <td>SI3 / SI4</td>
+        <td>Safe Input (dual-channel)</td>
+        <td>Protective Stop / Safety Gate</td>
+        <td>NC, monitored</td>
+    </tr>
+    <tr>
+        <td>SI5</td>
+        <td>Safe Input (single)</td>
+        <td>Reduced Speed Select</td>
+        <td>PNP, active high</td>
+    </tr>
+    <tr>
+        <td>SI6</td>
+        <td>Safe Input (single)</td>
+        <td>Enable Switch (3-position)</td>
+        <td>3-position deadman</td>
+    </tr>
+    <tr>
+        <td>SO1 / SO2</td>
+        <td>Safe Output (dual-channel)</td>
+        <td>STO Status / External Contactor</td>
+        <td>Dual PNP, 0.5 A max</td>
+    </tr>
+    <tr>
+        <td>SO3</td>
+        <td>Safe Output (single)</td>
+        <td>SSM Status (Robot Moving)</td>
+        <td>PNP, 0.5 A max</td>
+    </tr>
+    <tr>
+        <td>SO4</td>
+        <td>Safe Output (single)</td>
+        <td>Fault Status</td>
+        <td>PNP, 0.5 A max</td>
+    </tr>
+</table>
+
+<p>All safe inputs include test-pulse diagnostics: the SC-100 periodically de-energizes the sensor supply for 0.5 ms and verifies that the input follows the supply. This detects short-circuits to external voltage sources. Test pulse interval: 50 ms.</p>
+
+<h2>6. CRC Validation</h2>
+
+<p>Data integrity is enforced throughout the SC-100 firmware using multiple CRC mechanisms:</p>
+
+<ul>
+    <li><strong>Firmware image:</strong> CRC-32 (IEEE 802.3 polynomial) computed over the entire flash image at boot during SELF_TEST. Expected value stored in the last 4 bytes of the image. Mismatch → FAULT.</li>
+    <li><strong>Safety parameters:</strong> CRC-64 (ECMA-182) over the safety parameter block (zone boundaries, speed limits, force thresholds). Checked on every parameter read at the start of each safety cycle (4 kHz). Mismatch → FAULT.</li>
+    <li><strong>Cross-channel messages:</strong> CRC-16 (CCITT) appended to every 250 µs cross-channel data exchange frame. CRC failure on 2 consecutive frames → STO.</li>
+    <li><strong>EtherCAT mailbox:</strong> CRC-32 on all SDO configuration messages received from the application processor. Invalid CRC → message rejected, error counter incremented, logged to diagnostics buffer.</li>
+</ul>
+
+<h2>7. Diagnostics Interface</h2>
+
+<p>The SC-100 exposes a diagnostics interface through the EtherCAT CoE object dictionary and via a dedicated UART debug port (115200 baud, 8N1) on the controller board:</p>
+
+<ul>
+    <li><strong>EtherCAT OD 0x7000–0x70FF:</strong> Safety status registers (current state, active safety functions, I/O states, fault history — last 64 events with timestamps).</li>
+    <li><strong>UART debug log:</strong> Continuous text log of state transitions, watchdog events, CRC errors, and cross-channel comparison results. Rate-limited to 1 kByte/s to avoid affecting safety cycle timing.</li>
+    <li><strong>Diagnostic counters:</strong> CRC error count, watchdog near-miss count, cross-channel disagreement count, I/O test-pulse failure count. Counters are non-volatile (stored in FRAM) and persist across power cycles.</li>
+</ul>
+
+<p>For interpreting diagnostic error codes and resolving common SC-100 faults, refer to the <strong>Joint Error Troubleshooting Guide</strong> in the Support documentation.</p>
+
+<p><em>Document version 2.1.0 | Last updated: 2025-01-08 | Contoso Robotics Engineering — Safety Team</em></p>
+
+</body>
+</html>

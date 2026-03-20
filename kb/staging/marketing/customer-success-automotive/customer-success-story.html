@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Success: Meridian Automotive — CoBot Pro Deployment</title>
+</head>
+<body>
+
+<h1>Customer Success: Meridian Automotive — CoBot Pro Deployment</h1>
+
+<p>Meridian Automotive is a Tier-1 automotive supplier headquartered in Detroit, Michigan, with annual revenues of $2.8 billion and 14 manufacturing plants across North America and Europe. This case study documents Meridian's deployment of 12 Contoso Robotics CoBot Pro 700 units at their flagship Dearborn assembly plant — a project that delivered a 40% increase in throughput, 99.7% quality yield, and full return on investment in under 14 months.</p>
+
+<h2>1. The Challenge</h2>
+
+<p>Meridian's Dearborn plant produces brake caliper sub-assemblies for three major OEM customers, running three shifts across two production lines. In early 2024, Meridian faced a convergence of challenges that threatened their ability to meet contractual delivery targets:</p>
+
+<ul>
+    <li><strong>Labor shortages:</strong> A 22% vacancy rate on the assembly floor, with an average 4-month time-to-fill for skilled manufacturing operators.</li>
+    <li><strong>Quality escapes:</strong> Manual visual inspection was catching only 96.2% of surface defects on machined caliper bodies, below the OEM contractual threshold of 99.5%.</li>
+    <li><strong>Throughput bottleneck:</strong> The screw-driving and sealant dispensing stations were manually operated and limited to 45 units per hour, while upstream CNC machining produced 63 units per hour.</li>
+    <li><strong>Ergonomic concerns:</strong> Repetitive screw-driving tasks were generating 18 OSHA-recordable ergonomic injuries per year across the two lines.</li>
+</ul>
+
+<p>Meridian evaluated five collaborative robot platforms from four vendors. The CoBot Pro 700 was selected based on its integrated Safety Controller SC-100, the CoBot Vision Module VM-200 for inline inspection, and CoBot Studio IDE's rapid programming capabilities.</p>
+
+<h2>2. The Solution</h2>
+
+<p>Contoso Robotics and Meridian's automation engineering team designed a phased deployment of 12 CoBot Pro 700 units across the two production lines:</p>
+
+<img src="images/deployment-photo-factory.png" alt="Photograph of the Meridian Automotive Dearborn plant floor showing six CoBot Pro 700 units installed along the brake caliper assembly line, working alongside human operators." />
+
+<h3>Cell Configuration</h3>
+
+<table>
+    <tr>
+        <th>Station</th>
+        <th>CoBot Pro 700 Units</th>
+        <th>Task</th>
+        <th>Accessories</th>
+    </tr>
+    <tr>
+        <td>Screw Driving</td>
+        <td>4</td>
+        <td>M6 and M8 bolt insertion and torquing (12–35 Nm)</td>
+        <td>Torque-controlled screwdriver end-effector</td>
+    </tr>
+    <tr>
+        <td>Sealant Dispensing</td>
+        <td>4</td>
+        <td>RTV silicone bead application on caliper mating surfaces</td>
+        <td>Precision dispensing valve, force-torque sensor</td>
+    </tr>
+    <tr>
+        <td>Visual Inspection</td>
+        <td>4</td>
+        <td>Surface defect detection, dimensional verification, barcode traceability</td>
+        <td>CoBot Vision Module VM-200</td>
+    </tr>
+</table>
+
+<h3>Software and Integration</h3>
+<p>All 12 CoBot Pro 700 units run CoBot OS v4.2 and are programmed through CoBot Studio IDE. The robots communicate with Meridian's Siemens S7-1500 PLC via EtherCAT, and with the plant MES (Manufacturing Execution System) via OPC UA. The four inspection stations use the VM-200 running DefectNet-v2 for surface defect detection and DimCheck-v1 for critical dimension verification.</p>
+
+<p>For details on how CoBot Pro integrates with existing automation infrastructure via ROS 2, refer to the <strong>ROS 2 Integration Guide</strong> in the Contoso Robotics Support documentation.</p>
+
+<h2>3. Implementation Timeline</h2>
+
+<table>
+    <tr>
+        <th>Phase</th>
+        <th>Duration</th>
+        <th>Activities</th>
+    </tr>
+    <tr>
+        <td>Assessment and Design</td>
+        <td>4 weeks</td>
+        <td>On-site workflow analysis, cell layout design, risk assessment per ISO 12100, cycle time simulation in CoBot Studio IDE</td>
+    </tr>
+    <tr>
+        <td>Procurement and Staging</td>
+        <td>3 weeks</td>
+        <td>Order 12 CoBot Pro 700 systems + 4 VM-200 modules, pre-stage and test at Contoso Robotics integration lab</td>
+    </tr>
+    <tr>
+        <td>Line 1 Installation</td>
+        <td>2 weeks</td>
+        <td>Install 6 cobots on Line 1, integrate with PLC and MES, train 8 operators, run parallel production</td>
+    </tr>
+    <tr>
+        <td>Line 1 Validation</td>
+        <td>2 weeks</td>
+        <td>Production validation: 10,000-unit quality audit, cycle time confirmation, safety zone verification</td>
+    </tr>
+    <tr>
+        <td>Line 2 Installation</td>
+        <td>2 weeks</td>
+        <td>Replicate Line 1 configuration on Line 2 using saved CoBot Studio IDE programs</td>
+    </tr>
+    <tr>
+        <td>Full Production</td>
+        <td>1 week</td>
+        <td>Both lines running at full rate, final sign-off by Meridian quality and safety teams</td>
+    </tr>
+</table>
+
+<p><strong>Total implementation time: 14 weeks</strong> from project kickoff to full production on both lines.</p>
+
+<h2>4. Results</h2>
+
+<img src="images/productivity-improvement-chart.png" alt="Bar chart comparing Meridian Automotive's key performance indicators before and after CoBot Pro 700 deployment: throughput, quality yield, ergonomic injuries, and operator training time." />
+
+<h3>Throughput</h3>
+<p>Assembly throughput increased from 45 units/hour to 63 units/hour — a <strong>40% improvement</strong> — eliminating the bottleneck between CNC machining and final assembly. The line now operates at full CNC output without overtime or additional shifts.</p>
+
+<h3>Quality</h3>
+<p>The VM-200 vision inspection stations achieved a <strong>99.7% first-pass quality yield</strong>, exceeding the OEM contractual requirement of 99.5%. Defect escapes dropped from 3.8% to 0.3%, with the largest improvement in detecting hairline surface cracks previously missed by manual inspection.</p>
+
+<h3>Safety and Ergonomics</h3>
+<p>OSHA-recordable ergonomic injuries related to repetitive assembly tasks dropped from 18 per year to <strong>zero</strong> in the first 6 months following deployment. The CoBot Pro 700's integrated SC-100 safety controller enabled fenceless operation, with human operators working within arm's reach without safety cages.</p>
+
+<h3>Operator Training</h3>
+<p>Using CoBot Studio IDE, Meridian trained new operators to monitor and adjust cobot programs in just 2 days — compared to the 3-week training cycle for the manual processes the cobots replaced.</p>
+
+<h2>5. ROI Analysis</h2>
+
+<img src="images/roi-analysis-graph.png" alt="Line graph showing Meridian Automotive's cumulative cost savings vs. investment over 24 months, with the break-even point at month 14." />
+
+<table>
+    <tr>
+        <th>Cost Category</th>
+        <th>Amount</th>
+    </tr>
+    <tr>
+        <td>12× CoBot Pro 700 Base Systems</td>
+        <td>$414,000</td>
+    </tr>
+    <tr>
+        <td>4× VM-200 Vision Modules</td>
+        <td>$27,600</td>
+    </tr>
+    <tr>
+        <td>End-Effectors and Accessories</td>
+        <td>$48,000</td>
+    </tr>
+    <tr>
+        <td>Integration Services (Contoso Robotics)</td>
+        <td>$85,000</td>
+    </tr>
+    <tr>
+        <td>Operator Training</td>
+        <td>$12,000</td>
+    </tr>
+    <tr>
+        <td><strong>Total Investment</strong></td>
+        <td><strong>$586,600</strong></td>
+    </tr>
+</table>
+
+<table>
+    <tr>
+        <th>Savings Category</th>
+        <th>Annual Amount</th>
+    </tr>
+    <tr>
+        <td>Labor cost reduction (12 FTE positions reallocated)</td>
+        <td>$384,000</td>
+    </tr>
+    <tr>
+        <td>Quality improvement (reduced scrap and rework)</td>
+        <td>$92,000</td>
+    </tr>
+    <tr>
+        <td>Overtime elimination</td>
+        <td>$47,000</td>
+    </tr>
+    <tr>
+        <td>Ergonomic injury cost avoidance</td>
+        <td>$28,000</td>
+    </tr>
+    <tr>
+        <td><strong>Total Annual Savings</strong></td>
+        <td><strong>$551,000</strong></td>
+    </tr>
+</table>
+
+<p><strong>Payback period: 12.8 months.</strong> Meridian projects cumulative savings of $1.52 million over the first 3 years, representing a 159% return on investment.</p>
+
+<h2>6. Customer Testimonial</h2>
+
+<blockquote>
+    <p>"The CoBot Pro 700 transformed our Dearborn assembly operation. We went from struggling to fill operator positions to running at full CNC output with better quality, zero ergonomic injuries, and a payback period under 15 months. The CoBot Studio IDE made it easy for our existing technicians to learn the system, and the VM-200 vision module caught defects our best inspectors were missing. Contoso Robotics has been a true partner — from the initial assessment through ongoing support. We're already planning to deploy CoBot Pro 700 units at three additional plants."</p>
+    <p>— <strong>Sarah Chen, Vice President of Manufacturing, Meridian Automotive</strong></p>
+</blockquote>
+
+<h2>7. Maintaining Uptime</h2>
+
+<p>To sustain the performance gains achieved in this deployment, Meridian follows the preventive maintenance schedule recommended by Contoso Robotics. This includes quarterly joint lubrication, annual harmonic drive inspection, and bi-annual safety controller calibration. Full maintenance procedures and schedules are documented in the <strong>Preventive Maintenance Schedule</strong> guide in the Contoso Robotics Support documentation.</p>
+
+<p>For more information about the CoBot Pro 700 or to schedule an on-site assessment for your facility, contact Contoso Robotics at <strong>sales@contoso-robotics.com</strong> or call <strong>+1-800-CONTOSO</strong>.</p>
+
+<p><em>Document version 1.1 | Last updated: 2025-02-10 | Contoso Robotics Marketing</em></p>
+
+</body>
+</html>

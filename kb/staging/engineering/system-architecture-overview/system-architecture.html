@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoBot Pro System Architecture Overview</title>
+</head>
+<body>
+
+<h1>CoBot Pro System Architecture Overview</h1>
+
+<p>This document provides a comprehensive technical overview of the CoBot Pro system architecture spanning both the CoBot Pro 500 and CoBot Pro 700 models. It covers the controller hardware platform, communication bus topology, software stack layers, sensor subsystems, and safety architecture. For user-facing setup instructions, refer to the <strong>Quick Start Guide</strong> in the Contoso Robotics Support documentation. For market positioning and feature summary, see the <strong>Product Overview</strong> from Contoso Robotics Marketing.</p>
+
+<img src="images/system-block-diagram.png" alt="High-level system block diagram of the CoBot Pro showing the main controller board, safety controller SC-100, six joint modules, the EtherCAT bus, and peripheral interfaces." />
+
+<h2>1. Controller Hardware Platform</h2>
+
+<p>The CoBot Pro main controller is built around a heterogeneous dual-processor architecture designed to separate real-time motion control from application-level processing:</p>
+
+<ul>
+    <li><strong>Application Processor:</strong> ARM Cortex-A72 quad-core running at 1.8 GHz, with 4 GB LPDDR4X RAM and 32 GB eMMC storage. This processor hosts CoBot OS v4.2, the motion planning stack, user applications, and the CoBot Studio IDE runtime.</li>
+    <li><strong>Real-Time Safety Core:</strong> ARM Cortex-R5F dual-core lockstep running at 800 MHz with 512 KB tightly-coupled memory (TCM). This core executes the safety-certified firmware for the Safety Controller SC-100, including Safe Torque Off (STO), Safe Limited Speed (SLS), and Safe Stop monitoring (SS1/SS2). The lockstep configuration provides hardware-level fault detection per IEC 61508 SIL 2.</li>
+</ul>
+
+<p>Inter-processor communication between the A72 and R5F uses a shared-memory mailbox with CRC-32 integrity checking, delivering less than 50 µs latency for safety status updates. A hardware watchdog timer with a 10 ms timeout ensures the safety core can trigger an autonomous safe state if the application processor becomes unresponsive.</p>
+
+<h3>1.1 Memory Map</h3>
+
+<p>The system memory is partitioned as follows:</p>
+
+<table>
+    <tr>
+        <th>Region</th>
+        <th>Address Range</th>
+        <th>Size</th>
+        <th>Owner</th>
+    </tr>
+    <tr>
+        <td>Application DRAM</td>
+        <td>0x8000_0000 – 0x8FFF_FFFF</td>
+        <td>4 GB</td>
+        <td>Cortex-A72</td>
+    </tr>
+    <tr>
+        <td>Safety TCM</td>
+        <td>0x0000_0000 – 0x0007_FFFF</td>
+        <td>512 KB</td>
+        <td>Cortex-R5F</td>
+    </tr>
+    <tr>
+        <td>Shared Mailbox</td>
+        <td>0x4400_0000 – 0x4400_FFFF</td>
+        <td>64 KB</td>
+        <td>Both (mutex-guarded)</td>
+    </tr>
+    <tr>
+        <td>EtherCAT DMA Buffer</td>
+        <td>0x4800_0000 – 0x4800_7FFF</td>
+        <td>32 KB</td>
+        <td>ESC DMA engine</td>
+    </tr>
+    <tr>
+        <td>Peripheral I/O</td>
+        <td>0x5000_0000 – 0x5FFF_FFFF</td>
+        <td>256 MB</td>
+        <td>A72 (memory-mapped)</td>
+    </tr>
+</table>
+
+<h2>2. Communication Bus Architecture</h2>
+
+<img src="images/communication-bus-layout.png" alt="Communication bus layout showing the EtherCAT daisy-chain connecting six joint modules, the CAN-FD bus for auxiliary peripherals, and the Ethernet management port." />
+
+<p>The CoBot Pro employs two fieldbus networks for deterministic, low-latency communication:</p>
+
+<h3>2.1 EtherCAT (Primary Motion Bus)</h3>
+
+<p>EtherCAT is the primary real-time communication backbone connecting the main controller to all six joint servo drives. The bus runs in a line topology with ring-redundancy support. Key parameters:</p>
+
+<ul>
+    <li><strong>Cycle time:</strong> Configurable at 1 ms (default), 0.5 ms, or 0.25 ms via CoBot OS configuration files.</li>
+    <li><strong>Jitter:</strong> Less than ±1 µs at the 1 ms cycle rate, achieved through distributed clock (DC) synchronization with IEEE 1588-compatible timestamps.</li>
+    <li><strong>Protocol:</strong> CANopen over EtherCAT (CoE) per ETG.6010, providing standardized access to drive profiles (CiA 402) for cyclic synchronous position (CSP), cyclic synchronous velocity (CSV), and cyclic synchronous torque (CST) modes.</li>
+    <li><strong>Bandwidth:</strong> 100 Mbit/s full-duplex. Typical process data image (PDI) size is 42 bytes per joint (252 bytes total for 6 joints) per cycle.</li>
+</ul>
+
+<h3>2.2 CAN-FD (Auxiliary Bus)</h3>
+
+<p>A secondary CAN-FD bus at 5 Mbit/s data rate connects lower-priority peripherals: the teach pendant interface, digital I/O expansion modules (up to 4 modules with 16 DI + 16 DO each), and the optional Force-Torque Sensor FTS-600. CAN-FD frames carry up to 64 bytes of payload with a 20 ms polling cycle for I/O updates.</p>
+
+<h3>2.3 Ethernet (Management Interface)</h3>
+
+<p>A dedicated Gigabit Ethernet port (RJ45) provides non-real-time connectivity for CoBot Studio IDE remote access, ROS 2 bridge communication via the <strong>CoBot ROS 2 Bridge</strong>, OPC UA server (v4.2.0+), firmware updates, and log file retrieval. This interface is isolated from the EtherCAT bus at the MAC layer to prevent management traffic from affecting real-time performance.</p>
+
+<h2>3. Software Stack</h2>
+
+<img src="images/software-stack-layers.png" alt="CoBot OS v4.2 software stack diagram showing five layers: RTOS kernel, HAL, motion control engine, application framework, and user interface." />
+
+<p>CoBot OS v4.2 is a layered software platform running on the Cortex-A72 application processor. The stack is organized into five distinct layers:</p>
+
+<h3>3.1 RTOS Kernel (Layer 0)</h3>
+<p>A preemptive real-time Linux kernel (PREEMPT_RT patch, kernel 5.15 LTS) provides deterministic scheduling for the motion control loop. The kernel is configured with a 1 kHz tick rate and SCHED_FIFO priority 99 for the EtherCAT master thread. Maximum measured scheduling latency is 35 µs under full CPU load.</p>
+
+<h3>3.2 Hardware Abstraction Layer (Layer 1)</h3>
+<p>The HAL provides unified APIs for accessing joint actuators, sensors, I/O, and communication interfaces. Device drivers for the Beckhoff ET1100 EtherCAT Slave Controller (ESC), ADC channels (16-bit, 10 kSPS for force-torque data), SPI (encoder interfaces), and GPIO are implemented as loadable kernel modules. The HAL exposes a POSIX-compatible ioctl interface for user-space access.</p>
+
+<h3>3.3 Motion Control Engine (Layer 2)</h3>
+<p>The motion planning and servo control layer runs as a real-time user-space process with memory-locked pages (mlockall). It implements:</p>
+<ul>
+    <li><strong>Trajectory generator:</strong> Quintic spline interpolation with configurable velocity (up to 2.0 m/s TCP) and acceleration (up to 10 m/s² TCP) profiles. S-curve jerk limiting at 100 m/s³ default.</li>
+    <li><strong>Inverse kinematics:</strong> Closed-form 6-DOF IK solver with 8 solution branches; automatic selection based on joint limit proximity and singularity avoidance metrics.</li>
+    <li><strong>Servo loop:</strong> Cascaded PID control at the EtherCAT cycle rate—position loop (Kp, Ki, Kd) → velocity loop → current loop (executed on the joint servo drives).</li>
+    <li><strong>Collision avoidance:</strong> Real-time swept-sphere distance checking against a configurable obstacle model at 500 Hz update rate.</li>
+</ul>
+
+<h3>3.4 Application Framework (Layer 3)</h3>
+<p>The application framework provides high-level APIs in Python 3.11 and C++17 for task programming. Key components include the CoBot Studio IDE runtime, a REST API server (port 8080) for external integration, a task state machine engine, and the CoBot ROS 2 Bridge node. The framework communicates with the motion engine via a shared-memory ring buffer (128 KB, lock-free SPSC design).</p>
+
+<h3>3.5 User Interface (Layer 4)</h3>
+<p>The teach pendant UI is a Qt 6 application rendered on a 7-inch 1280×800 capacitive touchscreen. It provides drag-and-drop program creation, 3D robot visualization (OpenGL ES 3.2), real-time joint state monitoring, and safety zone configuration. Remote access to the UI is available through CoBot Studio IDE on desktop (Windows, Linux, macOS) over the management Ethernet interface.</p>
+
+<h2>4. Sensor Subsystems</h2>
+
+<p>The CoBot Pro integrates the following sensor subsystems:</p>
+
+<ul>
+    <li><strong>Joint encoders:</strong> 20-bit absolute encoders (1,048,576 counts/rev) on each joint, providing ±0.02 mm TCP repeatability. Encoder data is read via SPI at the EtherCAT cycle rate.</li>
+    <li><strong>Motor current sensors:</strong> In-line Hall-effect current sensors on each phase winding (3 per joint, 18 total), sampled at 20 kHz for field-oriented control and torque estimation.</li>
+    <li><strong>Force-Torque Sensor FTS-600 (optional):</strong> A 6-axis strain-gauge sensor mounted between Joint 6 and the end-effector flange. Provides ±600 N force and ±30 Nm torque measurement at 4 kHz over EtherCAT CoE. See the <strong>Force-Torque Sensor FTS-600 Technical Specification</strong> for full details.</li>
+    <li><strong>CoBot Vision Module VM-200 (optional):</strong> Stereo depth camera with 5 MP global shutter RGB sensor and structured-light IR projector. Delivers point clouds and 2D images at up to 30 fps. See the <strong>Perception Pipeline Design Document</strong> for the vision software architecture.</li>
+    <li><strong>Temperature sensors:</strong> NTC thermistors in each joint motor and the controller board (8 total), monitored at 1 Hz with over-temperature shutdown at 85°C.</li>
+</ul>
+
+<h2>5. Safety Architecture</h2>
+
+<p>The CoBot Pro safety architecture is designed as a dual-channel system certified to ISO 13849-1 PLe Category 4 and IEC 62443 for cybersecurity:</p>
+
+<ol>
+    <li><strong>Channel A (Primary):</strong> The Cortex-R5F safety core executes certified safety function blocks—STO, SLS, Safe Speed Monitor (SSM), and Safe Operating Stop (SOS)—at a 4 kHz rate. All inputs (E-Stop, safety I/O, joint position/velocity) are validated with cross-channel comparison against Channel B.</li>
+    <li><strong>Channel B (Redundant):</strong> A secondary FPGA-based safety monitor (Xilinx Artix-7) independently tracks joint positions and velocities using separate encoder read-back paths. Disagreement between Channel A and Channel B triggers an immediate STO within 10 ms.</li>
+</ol>
+
+<p>Safety configuration parameters (zone boundaries, force limits, speed limits) are stored in a write-protected EEPROM partition with CRC-64 integrity. Changes require authentication via the Safety Controller SC-100 configuration interface. For detailed safety controller setup instructions, see the <strong>Safety Controller Configuration</strong> guide in the Support documentation. For compliance and certification claims, see the <strong>Safety Certification Factsheet</strong> from Contoso Robotics Marketing.</p>
+
+<h2>6. System Integration Points</h2>
+
+<p>The CoBot Pro provides the following integration interfaces for factory-floor connectivity:</p>
+
+<table>
+    <tr>
+        <th>Interface</th>
+        <th>Protocol</th>
+        <th>Use Case</th>
+    </tr>
+    <tr>
+        <td>EtherCAT IN/OUT</td>
+        <td>EtherCAT CoE (CiA 402)</td>
+        <td>Joint servo drives, FTS-600</td>
+    </tr>
+    <tr>
+        <td>Ethernet (RJ45)</td>
+        <td>TCP/IP, ROS 2 DDS, OPC UA</td>
+        <td>CoBot Studio IDE, ROS 2 Bridge, SCADA</td>
+    </tr>
+    <tr>
+        <td>CAN-FD</td>
+        <td>CAN 2.0B / CAN-FD</td>
+        <td>Digital I/O expansion, teach pendant</td>
+    </tr>
+    <tr>
+        <td>USB 3.0 (Type-A × 2)</td>
+        <td>USB Mass Storage, UVC</td>
+        <td>Firmware recovery, USB cameras</td>
+    </tr>
+    <tr>
+        <td>Digital I/O (M12)</td>
+        <td>24V PNP / NPN configurable</td>
+        <td>Gripper control, conveyor signals</td>
+    </tr>
+    <tr>
+        <td>Analog Input (M12)</td>
+        <td>0–10V / 4–20mA</td>
+        <td>External force sensors, pressure gauges</td>
+    </tr>
+</table>
+
+<p><em>Document version 4.2.0 | Last updated: 2025-01-15 | Contoso Robotics Engineering</em></p>
+
+</body>
+</html>

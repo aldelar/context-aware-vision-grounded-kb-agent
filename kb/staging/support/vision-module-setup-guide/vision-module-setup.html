@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoBot Vision Module VM-200 Setup Guide</title>
+</head>
+<body>
+
+<h1>CoBot Vision Module VM-200 Setup Guide</h1>
+
+<p>The CoBot Vision Module VM-200 adds advanced machine-vision capabilities to the CoBot Pro 500 and CoBot Pro 700 platforms. This guide covers hardware installation, camera calibration, software configuration, integration testing, and common setup issues. For detailed information about the vision processing algorithms and neural network inference pipeline, refer to the <strong>Perception Pipeline Design</strong> document in the Engineering documentation.</p>
+
+<h2>1. VM-200 Hardware Overview</h2>
+
+<p>The VM-200 module consists of the following components:</p>
+
+<ul>
+    <li><strong>Stereo RGB camera pair:</strong> 2× 5 MP global-shutter sensors, 60° horizontal field of view, baseline 80 mm</li>
+    <li><strong>Structured light projector:</strong> 850 nm IR dot pattern for depth sensing, effective range 150–1200 mm</li>
+    <li><strong>Edge compute unit:</strong> NVIDIA Jetson Orin Nano, 8 GB RAM, running CoBot Vision Runtime v2.1</li>
+    <li><strong>Integrated LED ring light:</strong> White, 5000K, software-adjustable intensity (0–100%)</li>
+    <li><strong>Connector:</strong> Single M12 hybrid cable (power + GigE + trigger) to the control cabinet</li>
+</ul>
+
+<img src="images/vm200-mounting-positions.png" alt="VM-200 mounting positions diagram showing the three supported configurations: end-of-arm (wrist-mounted), fixed overhead, and fixed angled-view." />
+
+<h2>2. Mounting the VM-200</h2>
+
+<p>The VM-200 supports three mounting configurations:</p>
+
+<ol>
+    <li><strong>End-of-arm (wrist-mounted):</strong> Attach the VM-200 to the tool flange using the ISO 9409-1-50-4-M6 adapter plate. Torque four M6 bolts to 8 Nm. Update the tool center point (TCP) offset in CoBot OS: X=0, Y=0, Z=95.3 mm, Rx=0, Ry=0, Rz=0.</li>
+    <li><strong>Fixed overhead:</strong> Mount the VM-200 on a rigid frame 600–1000 mm above the workspace. Use the M6 mounting holes on the rear of the housing. Ensure the camera has an unobstructed view of the entire pick zone.</li>
+    <li><strong>Fixed angled-view:</strong> Mount on an adjustable arm at 30–60° from vertical. This is optimal for bin-picking applications where top-down views are occluded.</li>
+</ol>
+
+<h2>3. Cable Connection</h2>
+
+<p>Connect the M12 hybrid cable from the VM-200 to the VISION port on the CoBot Pro control cabinet. The cable carries:</p>
+
+<ul>
+    <li>24 V DC power (2 A max)</li>
+    <li>GigE Vision data (1000BASE-T)</li>
+    <li>Hardware trigger signal (for synchronized image capture)</li>
+</ul>
+
+<p>After connection, the VM-200 power LED should turn solid blue within 10 seconds, indicating a successful boot of the CoBot Vision Runtime.</p>
+
+<h2>4. Camera Calibration</h2>
+
+<p>Accurate calibration is essential for precise object localization. The VM-200 ships factory-calibrated, but recalibration is required after mounting or if accuracy degrades.</p>
+
+<img src="images/camera-calibration-screen.png" alt="Camera calibration screen in CoBot Studio IDE showing the checkerboard pattern detection, intrinsic parameters, and reprojection error histogram." />
+
+<ol>
+    <li>Open CoBot Studio IDE and navigate to <em>Vision → Calibration Wizard</em>.</li>
+    <li>Select the calibration method:
+        <ul>
+            <li><strong>Hand-eye calibration (wrist-mounted):</strong> Uses the included 7×5 checkerboard target (30 mm squares). The robot moves to 15 predefined poses while capturing images. Duration: ~5 minutes.</li>
+            <li><strong>Fixed-mount calibration (overhead/angled):</strong> Place the checkerboard in 9 positions within the field of view. Capture images manually from the teach pendant.</li>
+        </ul>
+    </li>
+    <li>The wizard computes intrinsic parameters (focal length, distortion coefficients) and extrinsic parameters (camera-to-robot transform).</li>
+    <li>Verify the reprojection error. Acceptable values: &lt;0.5 px for the CoBot Pro 500, &lt;0.8 px for the CoBot Pro 700.</li>
+    <li>Save the calibration profile. Multiple profiles can be stored for different tool configurations.</li>
+</ol>
+
+<h2>5. Software Configuration</h2>
+
+<p>Configure the VM-200 vision pipeline in CoBot Studio IDE under <em>Vision → Pipeline Editor</em>:</p>
+
+<ol>
+    <li><strong>Image acquisition:</strong> Set resolution (2592×1944 or 1296×972 binned), exposure mode (auto/manual), and trigger mode (continuous/software/hardware).</li>
+    <li><strong>Pre-processing:</strong> Enable or disable noise reduction, white balance, and HDR multi-exposure fusion.</li>
+    <li><strong>Object detection:</strong> Select from built-in models (box detection, cylinder detection, custom CAD match) or load a custom ONNX model trained in CoBot Vision Trainer.</li>
+    <li><strong>Depth processing:</strong> Configure the structured-light depth map parameters: smoothing kernel size (3–11), hole-filling mode, and outlier rejection threshold.</li>
+    <li><strong>Output format:</strong> Choose between 6-DOF pose (for pick-and-place), 2D bounding box (for sorting), or point cloud (for advanced manipulation).</li>
+</ol>
+
+<img src="images/vision-module-connectivity.png" alt="Vision Module VM-200 connectivity diagram showing the data flow from camera sensors through the edge compute unit to the CoBot control cabinet via GigE Vision." />
+
+<h2>6. Integration Testing</h2>
+
+<p>Before deploying in production, run the following integration tests:</p>
+
+<ol>
+    <li><strong>Connectivity test:</strong> Navigate to <em>Vision → Diagnostics → Connectivity</em>. Verify ping latency &lt;1 ms and bandwidth &gt;900 Mbps.</li>
+    <li><strong>Accuracy test:</strong> Place a reference object at a known position. Command the robot to pick it using vision. Measure the position error with a dial indicator. Expected: &lt;1 mm for wrist-mounted, &lt;2 mm for fixed-mount.</li>
+    <li><strong>Cycle time test:</strong> Measure the total vision processing time for your pipeline. Typical values: 80–150 ms for 2D detection, 150–300 ms with depth processing.</li>
+    <li><strong>Robustness test:</strong> Vary lighting conditions (±30% ambient illumination) and verify detection success rate remains &gt;99%.</li>
+</ol>
+
+<h2>7. Common Setup Issues</h2>
+
+<table>
+    <thead>
+        <tr>
+            <th>Symptom</th>
+            <th>Likely Cause</th>
+            <th>Resolution</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>VM-200 LED stays red</td>
+            <td>Boot failure or firmware corruption</td>
+            <td>Re-flash firmware using the CoBot Vision Recovery USB tool</td>
+        </tr>
+        <tr>
+            <td>No image in CoBot Studio</td>
+            <td>GigE Vision network misconfiguration</td>
+            <td>Ensure the control cabinet VISION port has a valid IP (default 192.168.2.x subnet)</td>
+        </tr>
+        <tr>
+            <td>High reprojection error (&gt;1.5 px)</td>
+            <td>Poor checkerboard detection or vibration during calibration</td>
+            <td>Recalibrate with the robot powered and brakes engaged; ensure the checkerboard is flat</td>
+        </tr>
+        <tr>
+            <td>Intermittent detection failures</td>
+            <td>Ambient lighting interference with structured light</td>
+            <td>Increase LED ring intensity or switch to HDR mode; avoid direct sunlight on workspace</td>
+        </tr>
+        <tr>
+            <td>Depth map has large holes</td>
+            <td>Reflective or transparent surfaces</td>
+            <td>Apply matte spray or switch to stereo-only depth mode (disable structured light)</td>
+        </tr>
+    </tbody>
+</table>
+
+<p>For comprehensive vision algorithm details and custom model training, refer to the <strong>Perception Pipeline Design</strong> in the Engineering documentation. For marketing-level product specifications and comparison charts, see the <strong>Vision Module Technical Brief</strong> available from Contoso Robotics Marketing.</p>
+
+<p><em>Document version 2.1.0 | Last updated: 2025-01-15 | Contoso Robotics Technical Support</em></p>
+
+</body>
+</html>

@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoBot Pro Safety Certifications — Factsheet</title>
+</head>
+<body>
+
+<h1>CoBot Pro Safety Certifications — Factsheet</h1>
+
+<p>Safety is the foundation of every Contoso Robotics product. The CoBot Pro 500 and CoBot Pro 700 — along with the integrated Safety Controller SC-100 — hold the most comprehensive set of safety certifications in the collaborative robot industry. This factsheet summarizes all current certifications, testing results, safety features, and the compliance roadmap for upcoming standards.</p>
+
+<img src="images/certification-badges.png" alt="Grid of safety certification badges held by the CoBot Pro family: ISO 10218-1, ISO 10218-2, ISO/TS 15066, CE marking, UL listed, IEC 62443-4-2, and TÜV SÜD certified." />
+
+<h2>1. Current Certifications</h2>
+
+<table>
+    <tr>
+        <th>Certification</th>
+        <th>Standard</th>
+        <th>Scope</th>
+        <th>Certifying Body</th>
+        <th>Expiration</th>
+    </tr>
+    <tr>
+        <td>ISO 10218-1:2011</td>
+        <td>Robots and robotic devices — Safety requirements for industrial robots — Part 1: Robots</td>
+        <td>CoBot Pro 500, CoBot Pro 700</td>
+        <td>TÜV SÜD</td>
+        <td>2027-06-30</td>
+    </tr>
+    <tr>
+        <td>ISO 10218-2:2011</td>
+        <td>Robots and robotic devices — Safety requirements for industrial robots — Part 2: Robot systems and integration</td>
+        <td>CoBot Pro 500, CoBot Pro 700 (with SC-100)</td>
+        <td>TÜV SÜD</td>
+        <td>2027-06-30</td>
+    </tr>
+    <tr>
+        <td>ISO/TS 15066:2016</td>
+        <td>Robots and robotic devices — Collaborative robots</td>
+        <td>CoBot Pro 500, CoBot Pro 700</td>
+        <td>TÜV SÜD</td>
+        <td>2027-06-30</td>
+    </tr>
+    <tr>
+        <td>CE Marking</td>
+        <td>EU Machinery Directive 2006/42/EC</td>
+        <td>CoBot Pro 500, CoBot Pro 700, SC-100, VM-200</td>
+        <td>Self-declared (EU DoC)</td>
+        <td>N/A (ongoing)</td>
+    </tr>
+    <tr>
+        <td>UL Listed</td>
+        <td>UL 1740 (Robots and Robotic Equipment)</td>
+        <td>CoBot Pro 500, CoBot Pro 700</td>
+        <td>UL LLC</td>
+        <td>2026-12-31</td>
+    </tr>
+    <tr>
+        <td>IEC 62443-4-2</td>
+        <td>Security for industrial automation and control systems — Technical security requirements for IACS components</td>
+        <td>CoBot OS v4.2, SC-100 firmware v2.1</td>
+        <td>TÜV Rheinland</td>
+        <td>2027-03-31</td>
+    </tr>
+    <tr>
+        <td>EN ISO 13849-1 PLe Cat 4</td>
+        <td>Safety of machinery — Safety-related parts of control systems — Part 1: General principles for design</td>
+        <td>Safety Controller SC-100</td>
+        <td>TÜV SÜD</td>
+        <td>2027-06-30</td>
+    </tr>
+    <tr>
+        <td>IEC 61508 SIL-3</td>
+        <td>Functional safety of electrical/electronic/programmable electronic safety-related systems</td>
+        <td>Safety Controller SC-100</td>
+        <td>TÜV SÜD</td>
+        <td>2027-06-30</td>
+    </tr>
+</table>
+
+<h2>2. Safety Controller SC-100 Overview</h2>
+
+<p>The Safety Controller SC-100 is the hardware safety backbone of every CoBot Pro system. Unlike competitors that rely on software-only safety functions or external safety PLCs, the SC-100 is a dedicated dual-channel safety processor integrated into the CoBot Pro control cabinet.</p>
+
+<h3>Key SC-100 Specifications</h3>
+
+<ul>
+    <li><strong>Architecture:</strong> Dual-channel (1oo2D), independently verified by TÜV SÜD for SIL-3 / PLe Cat 4</li>
+    <li><strong>Safety response time:</strong> Less than 8 ms from hazard detection to Safe Torque Off (STO)</li>
+    <li><strong>Monitored parameters:</strong> Joint position, joint velocity, joint torque, TCP position, TCP velocity, TCP force, workspace boundaries (up to 16 configurable safety zones)</li>
+    <li><strong>Safety functions:</strong> Safe Torque Off (STO), Safe Stop 1 (SS1), Safe Stop 2 (SS2), Safely-Limited Speed (SLS), Safely-Limited Force (SLF), Safe Operating Stop (SOS), Safe Direction (SD)</li>
+    <li><strong>Emergency stop inputs:</strong> 2× dual-channel E-Stop inputs (IEC 60947-5-5 compliant)</li>
+    <li><strong>Safety I/O:</strong> 8× safe digital inputs, 4× safe digital outputs, all rated to SIL-3 / PLe Cat 4</li>
+    <li><strong>Communication:</strong> Safety-over-EtherCAT (FSoE) for integration with external safety PLCs</li>
+</ul>
+
+<p>For detailed configuration instructions, including setting up safety zones, force limits, and emergency stop circuits, see the <strong>Safety Standards Compliance</strong> guide in the Contoso Robotics Support documentation. For firmware architecture details and update procedures, refer to the <strong>Safety Controller Firmware</strong> documentation in Engineering.</p>
+
+<h2>3. ISO/TS 15066 Compliance Details</h2>
+
+<p>ISO/TS 15066 defines biomechanical force and pressure limits for human-robot contact during collaborative operation. The CoBot Pro family is tested and certified for all four collaborative operation methods defined in the standard:</p>
+
+<h3>3.1 Safety-Rated Monitored Stop</h3>
+<p>The SC-100 achieves Safe Operating Stop (SOS) within 8 ms, holding the arm in a zero-velocity state while maintaining motor power. Human workers can enter the collaborative workspace while the robot is in SOS mode.</p>
+
+<h3>3.2 Hand Guiding</h3>
+<p>The CoBot Pro supports direct hand guiding through a 6-axis force-torque sensor at the tool flange. When hand guiding mode is active, the SC-100 enforces a 250 mm/s TCP speed limit and 150 N force limit.</p>
+
+<h3>3.3 Speed and Separation Monitoring</h3>
+<p>When paired with external safety-rated laser scanners (connected via safe digital inputs), the SC-100 dynamically adjusts robot speed based on human proximity — full speed at distances over 1500 mm, reduced speed (250 mm/s) at 500–1500 mm, and protective stop at distances under 500 mm.</p>
+
+<h3>3.4 Power and Force Limiting</h3>
+<p>The CoBot Pro's default force limits comply with ISO/TS 15066 Annex A biomechanical thresholds for all 29 body regions. The SC-100 continuously monitors TCP force and joint torques, triggering Safe Stop 1 (SS1) if any threshold is exceeded. Default limits are configurable through CoBot Studio IDE within the certified range:</p>
+
+<table>
+    <tr>
+        <th>Body Region</th>
+        <th>Max. Transient Force</th>
+        <th>Max. Quasi-Static Force</th>
+        <th>Max. Pressure</th>
+    </tr>
+    <tr>
+        <td>Skull / Forehead</td>
+        <td>130 N</td>
+        <td>65 N</td>
+        <td>110 N/cm²</td>
+    </tr>
+    <tr>
+        <td>Chest</td>
+        <td>140 N</td>
+        <td>70 N</td>
+        <td>120 N/cm²</td>
+    </tr>
+    <tr>
+        <td>Hand / Fingers</td>
+        <td>200 N</td>
+        <td>100 N</td>
+        <td>250 N/cm²</td>
+    </tr>
+    <tr>
+        <td>Upper Arms / Elbow</td>
+        <td>150 N</td>
+        <td>75 N</td>
+        <td>140 N/cm²</td>
+    </tr>
+    <tr>
+        <td>Lower Legs</td>
+        <td>220 N</td>
+        <td>110 N</td>
+        <td>175 N/cm²</td>
+    </tr>
+</table>
+
+<h2>4. Testing Summary</h2>
+
+<img src="images/testing-results-summary.png" alt="Summary table showing key safety test results including emergency stop response time, force limiting accuracy, workspace boundary accuracy, and safety system diagnostic coverage." />
+
+<p>The following tests were conducted by TÜV SÜD at the Contoso Robotics safety laboratory in Redmond, Washington, and at TÜV SÜD's testing facility in Munich, Germany:</p>
+
+<table>
+    <tr>
+        <th>Test</th>
+        <th>Standard</th>
+        <th>Requirement</th>
+        <th>Result</th>
+        <th>Status</th>
+    </tr>
+    <tr>
+        <td>Emergency stop response time</td>
+        <td>ISO 10218-1 §5.5.3</td>
+        <td>≤500 ms</td>
+        <td>147 ms (worst case)</td>
+        <td>PASS</td>
+    </tr>
+    <tr>
+        <td>Safe Torque Off (STO) activation</td>
+        <td>IEC 61508 SIL-3</td>
+        <td>≤50 ms</td>
+        <td>7.8 ms (worst case)</td>
+        <td>PASS</td>
+    </tr>
+    <tr>
+        <td>Force limiting accuracy (TCP)</td>
+        <td>ISO/TS 15066</td>
+        <td>Within ±10% of configured limit</td>
+        <td>±4.2% (worst case)</td>
+        <td>PASS</td>
+    </tr>
+    <tr>
+        <td>Speed limiting accuracy (TCP)</td>
+        <td>ISO/TS 15066</td>
+        <td>Within ±10% of configured limit</td>
+        <td>±3.1% (worst case)</td>
+        <td>PASS</td>
+    </tr>
+    <tr>
+        <td>Workspace boundary accuracy</td>
+        <td>ISO 10218-1 §5.12.3</td>
+        <td>Within ±10 mm of configured boundary</td>
+        <td>±2.3 mm (worst case)</td>
+        <td>PASS</td>
+    </tr>
+    <tr>
+        <td>Safety system diagnostic coverage</td>
+        <td>IEC 61508 SIL-3</td>
+        <td>≥99%</td>
+        <td>99.7%</td>
+        <td>PASS</td>
+    </tr>
+    <tr>
+        <td>Probability of dangerous failure per hour (PFH)</td>
+        <td>IEC 61508 SIL-3</td>
+        <td>≤10⁻⁷/hour</td>
+        <td>3.2 × 10⁻⁸/hour</td>
+        <td>PASS</td>
+    </tr>
+    <tr>
+        <td>Electromagnetic compatibility (EMC)</td>
+        <td>IEC 61000-6-2 / IEC 61000-6-4</td>
+        <td>Immunity and emission limits</td>
+        <td>Compliant</td>
+        <td>PASS</td>
+    </tr>
+    <tr>
+        <td>Cybersecurity penetration test</td>
+        <td>IEC 62443-4-2</td>
+        <td>SL-2 (targeted attack resistance)</td>
+        <td>SL-2 achieved</td>
+        <td>PASS</td>
+    </tr>
+</table>
+
+<h2>5. Compliance Roadmap</h2>
+
+<p>Contoso Robotics actively monitors evolving safety and cybersecurity standards. The following certifications are planned for upcoming product and firmware releases:</p>
+
+<table>
+    <tr>
+        <th>Standard</th>
+        <th>Description</th>
+        <th>Target Product</th>
+        <th>Target Date</th>
+    </tr>
+    <tr>
+        <td>ISO 10218-1:2024 (revised)</td>
+        <td>Updated robot safety requirements, including new provisions for AI-based safety functions</td>
+        <td>CoBot Pro 500/700 (firmware update)</td>
+        <td>Q3 2025</td>
+    </tr>
+    <tr>
+        <td>ISO/TS 15066:2025 (revised)</td>
+        <td>Updated biomechanical limits based on new research, expanded body region model</td>
+        <td>CoBot Pro 500/700 (firmware update)</td>
+        <td>Q4 2025</td>
+    </tr>
+    <tr>
+        <td>EU Machinery Regulation 2023/1230</td>
+        <td>Replaces Machinery Directive 2006/42/EC, effective January 2027; includes AI and cybersecurity requirements</td>
+        <td>All CoBot Pro products</td>
+        <td>Q4 2026</td>
+    </tr>
+    <tr>
+        <td>IEC 62443-4-1</td>
+        <td>Security for IACS — Secure product development lifecycle</td>
+        <td>Contoso Robotics development process</td>
+        <td>Q2 2025</td>
+    </tr>
+    <tr>
+        <td>NIST Cybersecurity Framework 2.0</td>
+        <td>Voluntary U.S. cybersecurity framework alignment for critical manufacturing</td>
+        <td>CoBot OS v4.3</td>
+        <td>Q3 2025</td>
+    </tr>
+    <tr>
+        <td>UL 3100 (draft)</td>
+        <td>Proposed U.S. standard for collaborative robot safety, expected to harmonize with ISO 10218 revisions</td>
+        <td>CoBot Pro 500/700</td>
+        <td>Q1 2026 (pending standard publication)</td>
+    </tr>
+</table>
+
+<h2>6. Safety Features Overview</h2>
+
+<p>The CoBot Pro's safety features work together as a layered defense system:</p>
+
+<ol>
+    <li><strong>Mechanical current limiting:</strong> Brushless servo motors with current limiters prevent excessive torque at the hardware level, independent of software control.</li>
+    <li><strong>Dual-channel safety monitoring (SC-100):</strong> Two independent processors cross-check all safety-critical parameters every millisecond. A disagreement between channels triggers an immediate Safe Torque Off (STO).</li>
+    <li><strong>Configurable safety zones:</strong> Up to 16 3D safety zones can be defined in CoBot Studio IDE. The SC-100 enforces speed and force limits that vary by zone, enabling different safety profiles for human-accessible and restricted areas.</li>
+    <li><strong>Collision detection:</strong> Real-time joint torque monitoring detects unexpected contacts within 5 ms. The configurable collision response can be set to stop, retract, or reduce force depending on the application.</li>
+    <li><strong>Safe skin (optional):</strong> An optional capacitive safety skin covering the arm detects human proximity within 100 mm and triggers speed reduction before contact occurs.</li>
+    <li><strong>Redundant emergency stop:</strong> Two independent E-Stop circuits with cross-monitoring ensure that a single hardware failure cannot prevent an emergency stop.</li>
+    <li><strong>Automatic safety firmware updates:</strong> The SC-100 firmware is cryptographically signed and updated through CoBot OS, ensuring safety functions always reflect the latest certified algorithms.</li>
+</ol>
+
+<p>For detailed procedures on implementing these safety features in your specific application, refer to the <strong>Safety Standards Compliance</strong> guide in the Contoso Robotics Support documentation.</p>
+
+<p><em>Document version 2.0 | Last updated: 2025-02-05 | Contoso Robotics Product Safety and Marketing</em></p>
+
+</body>
+</html>

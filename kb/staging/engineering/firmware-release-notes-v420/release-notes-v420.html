@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoBot OS Firmware v4.2.0 — Release Notes</title>
+</head>
+<body>
+
+<h1>CoBot OS Firmware v4.2.0 — Release Notes</h1>
+
+<p>Contoso Robotics is pleased to announce the release of CoBot OS v4.2.0 for the CoBot Pro 500 and CoBot Pro 700 collaborative robots. This major release introduces adaptive force control, an enhanced vision API, a built-in OPC UA server, significant performance improvements, and numerous bug fixes. For step-by-step upgrade instructions, refer to the <strong>Firmware Update Procedure</strong> in the Support documentation. For a customer-facing summary of new features, see the <strong>Product Overview</strong> from Contoso Robotics Marketing.</p>
+
+<h2>1. Release Summary</h2>
+
+<table>
+    <tr>
+        <th>Field</th>
+        <th>Value</th>
+    </tr>
+    <tr>
+        <td>Version</td>
+        <td>4.2.0 (build 4200.2025.0115.1)</td>
+    </tr>
+    <tr>
+        <td>Release Date</td>
+        <td>2025-01-15</td>
+    </tr>
+    <tr>
+        <td>Supported Hardware</td>
+        <td>CoBot Pro 500 (rev C+), CoBot Pro 700 (rev B+)</td>
+    </tr>
+    <tr>
+        <td>Minimum Safety Controller FW</td>
+        <td>SC-100 v2.1.0</td>
+    </tr>
+    <tr>
+        <td>Previous Version</td>
+        <td>4.1.3</td>
+    </tr>
+    <tr>
+        <td>Upgrade Path</td>
+        <td>4.1.x → 4.2.0 (direct), 4.0.x → 4.1.3 → 4.2.0</td>
+    </tr>
+    <tr>
+        <td>Rollback Supported</td>
+        <td>Yes (dual-bank firmware with automatic fallback)</td>
+    </tr>
+    <tr>
+        <td>Estimated Upgrade Time</td>
+        <td>12 minutes (including safety controller sync)</td>
+    </tr>
+</table>
+
+<h2>2. New Features</h2>
+
+<h3>2.1 Adaptive Force Control (AFC)</h3>
+<p>CoBot OS v4.2.0 introduces an adaptive force control mode that automatically adjusts motion trajectory in real-time to maintain a target contact force during surface-following tasks (polishing, grinding, deburring, assembly insertion). Key capabilities:</p>
+<ul>
+    <li><strong>Force regulation:</strong> Maintains target force within ±2 N for forces between 5 N and 200 N, using data from the FTS-600 force-torque sensor at 1 kHz.</li>
+    <li><strong>Impedance/admittance switching:</strong> Automatically transitions between impedance control (stiff environment) and admittance control (compliant environment) based on estimated environment stiffness, computed online via a recursive least-squares estimator with λ = 0.995 forgetting factor.</li>
+    <li><strong>Programmable force profiles:</strong> Define force setpoints as a function of path progress (e.g., ramp from 10 N to 50 N over the first 20% of a polishing path). Configured via CoBot Studio IDE or the ROS 2 <code>/cobot/set_force_profile</code> service.</li>
+    <li><strong>Safety integration:</strong> AFC operates within the SLS safety envelope. If the TCP speed or force exceeds safety limits, the Safety Controller SC-100 overrides AFC and triggers SS1.</li>
+</ul>
+
+<h3>2.2 Enhanced Vision API (v2.0)</h3>
+<p>The CoBot Vision Module VM-200 API has been redesigned for v4.2.0 with breaking changes from the v1.x API. New capabilities include:</p>
+<ul>
+    <li><strong>Multi-model inference:</strong> Run up to 3 DNN models concurrently on the Jetson Orin NX (e.g., object detection + defect classification + OCR). GPU memory scheduler prevents OOM by queuing models that exceed the 8 GB budget.</li>
+    <li><strong>Streaming API:</strong> New gRPC-based streaming interface for low-latency detection results (< 5 ms overhead vs. the previous REST polling approach). See the <strong>Perception Pipeline Design Document</strong> in Engineering for implementation details.</li>
+    <li><strong>Model hot-swap:</strong> Load and unload TensorRT engine files at runtime without restarting the vision node. Average model switch time: 800 ms.</li>
+    <li><strong>Built-in calibration verification:</strong> Automated hand-eye calibration accuracy check that can be triggered via <code>/cobot_vision/verify_calibration</code> service. Returns translational and rotational error metrics.</li>
+</ul>
+
+<h3>2.3 OPC UA Server</h3>
+<p>CoBot OS v4.2.0 includes an integrated OPC UA server (based on open62541 v1.3) for SCADA and MES integration:</p>
+<ul>
+    <li><strong>Information model:</strong> Contoso Robotics companion specification based on OPC UA Robotics (Part 100). Exposes robot state, joint data, program status, safety status, and digital I/O as OPC UA nodes.</li>
+    <li><strong>Security:</strong> Supports Security Policy Basic256Sha256 with X.509 certificate-based authentication. Anonymous access is disabled by default.</li>
+    <li><strong>Performance:</strong> Supports up to 10 concurrent client sessions with 100 monitored items each at 100 ms sampling interval.</li>
+    <li><strong>Discovery:</strong> LDS (Local Discovery Server) compatible. The CoBot Pro appears on the OPC UA network as "Contoso Robotics CoBot Pro [serial number]".</li>
+</ul>
+
+<h2>3. Performance Improvements</h2>
+
+<img src="images/performance-improvement-chart.png" alt="Bar chart comparing v4.1.3 vs. v4.2.0 performance metrics: trajectory planning time (15% faster), EtherCAT jitter (30% lower), boot time (20% faster), and memory usage (10% lower)." />
+
+<table>
+    <tr>
+        <th>Metric</th>
+        <th>v4.1.3</th>
+        <th>v4.2.0</th>
+        <th>Improvement</th>
+    </tr>
+    <tr>
+        <td>Trajectory planning (100 waypoints)</td>
+        <td>8.5 ms</td>
+        <td>7.2 ms</td>
+        <td>15% faster</td>
+    </tr>
+    <tr>
+        <td>EtherCAT cycle jitter (1 ms cycle)</td>
+        <td>±1.4 µs</td>
+        <td>±1.0 µs</td>
+        <td>30% lower</td>
+    </tr>
+    <tr>
+        <td>System boot time (power-on to IDLE)</td>
+        <td>55 s</td>
+        <td>44 s</td>
+        <td>20% faster</td>
+    </tr>
+    <tr>
+        <td>Application RAM usage (idle)</td>
+        <td>1.45 GB</td>
+        <td>1.30 GB</td>
+        <td>10% lower</td>
+    </tr>
+    <tr>
+        <td>IK solver (8-branch full solve)</td>
+        <td>45 µs</td>
+        <td>32 µs</td>
+        <td>29% faster</td>
+    </tr>
+    <tr>
+        <td>Vision pipeline end-to-end latency</td>
+        <td>42 ms</td>
+        <td>38 ms</td>
+        <td>10% faster</td>
+    </tr>
+    <tr>
+        <td>REST API response time (GET /status)</td>
+        <td>12 ms</td>
+        <td>4 ms</td>
+        <td>67% faster</td>
+    </tr>
+</table>
+
+<p>Key optimization techniques: NEON SIMD vectorization of the trajectory spline interpolator, EtherCAT master thread pinned to CPU core 3 with IRQ affinity isolation, kernel page table optimization reducing TLB misses by 40%, and migration from Python REST server to a compiled Rust HTTP handler for the status endpoint.</p>
+
+<h2>4. Bug Fixes</h2>
+
+<img src="images/bug-fix-priority-matrix.png" alt="Bug fix priority matrix showing 12 resolved issues categorized by severity (Critical: 2, High: 4, Medium: 4, Low: 2) and subsystem (Motion: 3, Safety: 2, Vision: 3, Communication: 2, UI: 2)." />
+
+<table>
+    <tr>
+        <th>ID</th>
+        <th>Severity</th>
+        <th>Subsystem</th>
+        <th>Description</th>
+    </tr>
+    <tr>
+        <td>BUG-4187</td>
+        <td>Critical</td>
+        <td>Safety</td>
+        <td>SLS monitoring could miss a single-cycle speed overshoot during rapid direction reversals due to a sampling race condition in the velocity estimator. Fixed by double-buffering encoder data with atomic swap.</td>
+    </tr>
+    <tr>
+        <td>BUG-4192</td>
+        <td>Critical</td>
+        <td>Motion</td>
+        <td>Trajectory planner generated a non-continuous velocity profile at segment boundaries when waypoints were spaced < 2 mm apart, causing a momentary jerk spike. Fixed by adding minimum segment duration enforcement (0.5 ms).</td>
+    </tr>
+    <tr>
+        <td>BUG-4201</td>
+        <td>High</td>
+        <td>Communication</td>
+        <td>EtherCAT ring-redundancy failover occasionally failed on the second cable break event if the first break was restored < 100 ms prior. Root cause: stale WKC counter in the redundancy state machine. Fixed with counter reset on link recovery.</td>
+    </tr>
+    <tr>
+        <td>BUG-4209</td>
+        <td>High</td>
+        <td>Vision</td>
+        <td>Point cloud timestamp was offset by one frame (33.3 ms) relative to the RGB image due to double-buffering misalignment in the RealSense D455 driver. Fixed by synchronizing buffer swap to the depth hardware trigger signal.</td>
+    </tr>
+    <tr>
+        <td>BUG-4215</td>
+        <td>High</td>
+        <td>Motion</td>
+        <td>IK solver returned a shoulder-singularity solution when a non-singular solution existed, causing unnecessary joint reconfigurations. Fixed by adjusting the singularity avoidance weighting from 0.01 to 0.1 in the branch scoring function.</td>
+    </tr>
+    <tr>
+        <td>BUG-4218</td>
+        <td>High</td>
+        <td>Safety</td>
+        <td>SC-100 diagnostic UART log output could stall for up to 200 ms under heavy log load, risking safety cycle overrun. Fixed by implementing a lock-free ring buffer for the UART transmit path.</td>
+    </tr>
+    <tr>
+        <td>BUG-4223</td>
+        <td>Medium</td>
+        <td>Vision</td>
+        <td>YOLOv8 detection model failed to load after a hot-swap if the previous model's GPU memory was not fully released. Added explicit CUDA context synchronization before model unload.</td>
+    </tr>
+    <tr>
+        <td>BUG-4230</td>
+        <td>Medium</td>
+        <td>UI</td>
+        <td>Teach pendant 3D visualization flickered when the robot approached workspace boundary. Root cause: Z-fighting between the robot model and the safety zone wireframe. Fixed by adding a 0.5 mm depth offset to the safety zone rendering layer.</td>
+    </tr>
+    <tr>
+        <td>BUG-4235</td>
+        <td>Medium</td>
+        <td>Communication</td>
+        <td>Modbus TCP server returned stale joint position data (up to 100 ms old) when more than 5 clients were connected simultaneously. Replaced the polling architecture with an event-driven update mechanism.</td>
+    </tr>
+    <tr>
+        <td>BUG-4241</td>
+        <td>Medium</td>
+        <td>Motion</td>
+        <td>Speed override changes during trajectory execution caused a velocity discontinuity. Implemented a 500 ms linear ramp for speed override transitions.</td>
+    </tr>
+    <tr>
+        <td>BUG-4248</td>
+        <td>Low</td>
+        <td>UI</td>
+        <td>CoBot Studio IDE project save dialog did not preserve the last-used directory across sessions. Fixed by persisting the path in the user preferences file.</td>
+    </tr>
+    <tr>
+        <td>BUG-4252</td>
+        <td>Low</td>
+        <td>Vision</td>
+        <td>Camera info topic published incorrect distortion model string ("plumb_bob" instead of "rational_polynomial") for the Basler ace 2 with wide-angle lens. Corrected the model string lookup table.</td>
+    </tr>
+</table>
+
+<h2>5. Known Issues</h2>
+
+<table>
+    <tr>
+        <th>ID</th>
+        <th>Severity</th>
+        <th>Description</th>
+        <th>Workaround</th>
+    </tr>
+    <tr>
+        <td>KI-4260</td>
+        <td>Medium</td>
+        <td>OPC UA server may disconnect clients after exactly 30 minutes due to a session timeout that does not honor the client's requested timeout value. The server always uses its default 1800-second timeout.</td>
+        <td>Configure the OPC UA client to reconnect automatically. Fix planned for v4.2.1.</td>
+    </tr>
+    <tr>
+        <td>KI-4263</td>
+        <td>Low</td>
+        <td>Adaptive force control oscillates (±5 N) at target forces below 8 N on highly compliant surfaces (stiffness < 500 N/m). The admittance controller gains are tuned for industrial contact stiffness (> 5 kN/m).</td>
+        <td>Use impedance-only mode (<code>afc_mode: impedance</code>) for soft materials. Improved auto-tuning is planned for v4.3.0.</td>
+    </tr>
+    <tr>
+        <td>KI-4267</td>
+        <td>Low</td>
+        <td>ROS 2 bridge <code>/joint_states</code> topic drops to 500 Hz (from 1 kHz) when the OPC UA server has more than 8 active subscriptions due to CPU contention on core 2. Core affinity tuning is under investigation.</td>
+        <td>Limit OPC UA subscriptions to 8 or fewer, or reduce <code>/joint_states</code> publication rate to 500 Hz if OPC UA is required at full capacity.</td>
+    </tr>
+</table>
+
+<h2>6. Upgrade Instructions</h2>
+
+<ol>
+    <li><strong>Backup:</strong> Export current robot configuration and programs via <em>Settings → System → Backup → Export to USB</em>. Verify the backup file size is > 0 bytes.</li>
+    <li><strong>Download:</strong> Obtain the <code>cobot-os-4.2.0.swu</code> firmware image (842 MB) from the Contoso Robotics Customer Portal or the USB recovery drive shipped with your system.</li>
+    <li><strong>Verify integrity:</strong> Confirm the SHA-256 checksum: <code>a3f8c1d2e4b5...7f9a0b1c2d3e</code> (full hash available on the download page).</li>
+    <li><strong>Transfer:</strong> Copy the .swu file to a USB drive (FAT32 formatted, ≥ 2 GB) or upload via <em>Settings → System → Firmware → Upload</em> in CoBot Studio IDE.</li>
+    <li><strong>Install:</strong> Navigate to <em>Settings → System → Firmware → Install Update</em>. The system writes to the inactive firmware bank, verifies the image CRC, and reboots into the new firmware. Duration: approximately 12 minutes.</li>
+    <li><strong>Safety controller sync:</strong> After boot, if the SC-100 firmware is below v2.1.0, CoBot OS will prompt for a safety controller update (included in the .swu package). This adds approximately 3 minutes. The robot remains in IDLE until the safety controller update completes.</li>
+    <li><strong>Verify:</strong> Check the firmware version under <em>Settings → System → About</em>. Run the built-in self-test via <em>Diagnostics → System Test → Full</em>.</li>
+    <li><strong>Rollback:</strong> If issues are encountered, hold the RESET button on the control cabinet for 10 seconds during boot to revert to the previous firmware bank.</li>
+</ol>
+
+<p>For detailed step-by-step instructions with screenshots, refer to the <strong>Firmware Update Procedure</strong> in the Support documentation.</p>
+
+<h2>7. Compatibility Matrix</h2>
+
+<table>
+    <tr>
+        <th>Component</th>
+        <th>Minimum Version</th>
+        <th>Recommended Version</th>
+        <th>Notes</th>
+    </tr>
+    <tr>
+        <td>CoBot Pro 500 Hardware</td>
+        <td>Rev C</td>
+        <td>Rev D</td>
+        <td>Rev A/B not supported (different EtherCAT ESC)</td>
+    </tr>
+    <tr>
+        <td>CoBot Pro 700 Hardware</td>
+        <td>Rev B</td>
+        <td>Rev C</td>
+        <td>Rev A not supported (different motor driver IC)</td>
+    </tr>
+    <tr>
+        <td>Safety Controller SC-100 FW</td>
+        <td>v2.1.0</td>
+        <td>v2.1.0</td>
+        <td>Auto-updated during CoBot OS install if needed</td>
+    </tr>
+    <tr>
+        <td>JSD-200 Servo Drive FW</td>
+        <td>v1.8.0</td>
+        <td>v1.9.2</td>
+        <td>v1.8.0 lacks AFC torque feedforward support</td>
+    </tr>
+    <tr>
+        <td>FTS-600 Firmware</td>
+        <td>v1.3.0</td>
+        <td>v1.4.1</td>
+        <td>v1.4.1 adds improved temperature compensation</td>
+    </tr>
+    <tr>
+        <td>VM-200 Vision Module FW</td>
+        <td>v2.0.0</td>
+        <td>v2.0.0</td>
+        <td>Required for Vision API v2.0; v1.x modules need FW update</td>
+    </tr>
+    <tr>
+        <td>CoBot Studio IDE (Desktop)</td>
+        <td>v4.2.0</td>
+        <td>v4.2.0</td>
+        <td>Older IDE versions cannot connect to v4.2.0 robots</td>
+    </tr>
+    <tr>
+        <td>ROS 2</td>
+        <td>Humble Hawksbill</td>
+        <td>Iron Irwini</td>
+        <td>Galactic and earlier are no longer supported</td>
+    </tr>
+</table>
+
+<p><em>Document version 4.2.0 | Last updated: 2025-01-15 | Contoso Robotics Engineering — Release Management</em></p>
+
+</body>
+</html>
