@@ -22,16 +22,27 @@ Key questions:
 - **PDF dependencies:** pdfminer-six 20251230, pypdfium2 5.6.0, pdfplumber 0.11.9
 - **PPTX/DOCX dependencies:** python-pptx 1.0.2, python-docx 1.2.0
 - **Image extraction:** PyMuPDF (fitz) 1.27.2.2
-- **Sample docs:** Generated programmatically with reportlab (PDF), python-pptx (PPTX), python-docx (DOCX)
 
-Sample documents include: headings, paragraphs, bullet points, tables (styled with headers), embedded PNG images, and (for PPTX) speaker notes on every slide.
+### Test Group 1: Synthetic (Controlled)
+
+Generated programmatically with reportlab (PDF), python-pptx (PPTX), python-docx (DOCX). All documents include: headings, paragraphs, bullet points, tables (including a 30-row cross-page table), embedded PNG images (3 types), hyperlinks to external content, and (for PPTX) speaker notes on every slide.
 
 Three distinct image types stress-test extraction quality:
-1. **Architecture diagram** — color-coded service boxes (Web App, Agent API, AI Search, OpenAI, Cosmos DB, etc.), directional arrows, and text labels — simulates a typical cloud-architecture whiteboard diagram
-2. **Bar chart** — axes, data bars, category labels, and a legend — simulates a data-visualization figure from a performance report
-3. **Photo-like landscape** — pixel-level gradient with noise, organic ellipse shapes (trees, sun, clouds) — simulates a photograph to test color fidelity and detail preservation
+1. **Architecture diagram** — color-coded service boxes, directional arrows, and text labels
+2. **Bar chart** — axes, data bars, category labels, and a legend
+3. **Photo-like landscape** — pixel-level gradient with noise, organic ellipse shapes
 
-The generated sample documents (PDF, PPTX, DOCX) are committed under `src/spikes/004-pdf-pptx-conversion/samples/` for review.
+Synthetic samples committed under `src/spikes/004-pdf-pptx-conversion/samples/`.
+
+### Test Group 2: Real-World (Public Domain)
+
+Real-world complex documents from public sources, committed under `src/spikes/004-pdf-pptx-conversion/samples/real-world/`:
+
+| Document | Format | Size | Pages | Complexity |
+|----------|--------|-----:|------:|------------|
+| **OWASP ASVS 4.0.3** | PDF | 1.1 MB | 71 | 377 hyperlinks, 73 embedded images, extensive security controls tables, multi-level headings, cross-references |
+
+Additional real-world documents (PPTX, DOCX) listed in `download_real_world.py` — these require direct internet access to download (Microsoft Fabric deck, NIST CSF 2.0, Section 508 Word guide). The download script documents exact URLs and can be run locally.
 
 ## Results
 
@@ -190,14 +201,49 @@ This follows the same pre/post-processing pattern already used for HTML converte
 
 All three converters handle the 30-row table as a single Markdown table — no splitting or truncation at page/slide boundaries. The PDF table uses `repeatRows=1` to repeat the header row on each page, and MarkItDown correctly merges these into one table.
 
+## Real-World Validation (OWASP ASVS 4.0.3)
+
+The synthetic findings were validated against **OWASP Application Security Verification Standard 4.0.3** — a 71-page security standard with complex tables, 377 hyperlinks, 73 embedded images, and multi-level headings.
+
+### Real-World Conversion Quality
+
+| Metric | Synthetic PDF | Real-World OWASP ASVS |
+|--------|:------------:|:---------------------:|
+| Text extraction | ✅ 5,624 chars | ✅ 180,683 chars |
+| Headings with `#` markers | ⚠️ 0 | ✅ 70 (PDF bookmarks → heading markers) |
+| Hyperlinks (`[text](url)`) | ❌ 0 / 8 source | ❌ 0 / 377 source |
+| Bare URLs in text | 0 | 18 |
+| Table rows (pipe-delimited) | ✅ 31 | ❌ 0 (complex tables rendered as text) |
+| Image refs (`![](...)`) | ❌ 0 | ❌ 0 |
+| PyMuPDF images | 3 (original res) | 73 (original res) |
+
+### Key Real-World Findings
+
+1. **Headings**: ✅ The OWASP ASVS uses proper PDF bookmarks, and MarkItDown converts these to `#` heading markers. This is better than the synthetic PDF (which used reportlab styles that don't create bookmarks). **Real-world PDFs with bookmarks will get proper headings.**
+
+2. **Hyperlinks**: ❌ **CONFIRMED at scale.** 377 hyperlinks in source → 0 extracted. Only 18 bare URLs survive as plain text. This is the most significant gap for KB articles that heavily cross-reference external documentation.
+
+3. **Tables**: ❌ **Worse than synthetic.** The ASVS tables (security controls matrices) are rendered as plain text with no pipe delimiters. This is because the ASVS uses complex table formatting (merged cells, multi-line cells) that MarkItDown's PDF parser cannot handle. Simple tables work in synthetic tests but complex real-world tables do not.
+
+4. **Images**: ❌ **CONFIRMED at scale.** 73 embedded images → 0 in Markdown. PyMuPDF supplementation is essential.
+
+### Verdict
+
+The real-world test **confirms and strengthens** the synthetic findings:
+- PDF hyperlink and image gaps are **more severe** in real documents (377 links lost, 73 images lost)
+- Complex tables are **worse** than synthetic (0 vs 31 rows preserved)
+- Heading extraction is **better** when PDFs have bookmarks (70 headings with markers)
+- The GO recommendation stands — supplementation with PyMuPDF is non-negotiable for production use
+
 ## Limitations & Mitigations
 
 | Limitation | Impact | Mitigation |
 |-----------|--------|------------|
-| PDF headings lack `#` markers | Medium | Post-process with heuristics: detect bold/large text lines and add heading markers |
+| PDF headings lack `#` markers (simple PDFs) | Medium | Post-process with heuristics — or ensure PDFs have bookmarks (real-world PDFs with bookmarks get proper `#` markers) |
 | PDF bullet `(cid:N)` artifacts | Low | Regex replace `(cid:\d+)` → `•` in post-processing |
 | PDF embedded images not referenced | High | Use PyMuPDF (`fitz`) for image extraction — 2-step pipeline |
 | PDF hyperlinks completely lost | **High** | Use PyMuPDF `page.get_links()` to extract URLs + bounding boxes, then match to text |
+| PDF complex tables not extracted | **High** | Simple tables work; complex real-world tables (merged cells, multi-line) render as plain text. Consider pdfplumber for table extraction |
 | PDF styled tables partially break | Medium | Accept for Phase 1; consider pdfplumber table extraction for complex tables |
 | PPTX hyperlinks lost (URLs stripped) | **High** | Use python-pptx `run.hyperlink.address` to extract URLs from slide shapes |
 | PPTX image filenames generic | Low | Use python-pptx for precise image-to-slide mapping if needed |

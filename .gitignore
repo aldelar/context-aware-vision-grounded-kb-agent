@@ -219,3 +219,8 @@ src/spikes/004-pdf-pptx-conversion/samples/*.png
 !src/spikes/004-pdf-pptx-conversion/samples/sample-article.pdf
 !src/spikes/004-pdf-pptx-conversion/samples/sample-presentation.pptx
 !src/spikes/004-pdf-pptx-conversion/samples/sample-document.docx
+# Real-world test documents (public domain)
+!src/spikes/004-pdf-pptx-conversion/samples/real-world/
+!src/spikes/004-pdf-pptx-conversion/samples/real-world/*.pdf
+!src/spikes/004-pdf-pptx-conversion/samples/real-world/*.pptx
+!src/spikes/004-pdf-pptx-conversion/samples/real-world/*.docx
