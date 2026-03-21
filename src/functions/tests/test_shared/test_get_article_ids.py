@@ -39,10 +39,10 @@ class TestGetArticleIdsFallback:
         req.get_json.return_value = {"other_key": "value"}
 
         with patch("shared.blob_storage.list_articles", return_value=["a", "b"]) as mock_list:
-            result = get_article_ids(req, "https://ep.blob.core.windows.net", "staging")
+            result = get_article_ids(req, "https://ep.blob.core.windows.net", "staging", depth=2)
 
         assert result == ["a", "b"]
-        mock_list.assert_called_once_with("https://ep.blob.core.windows.net", "staging")
+        mock_list.assert_called_once_with("https://ep.blob.core.windows.net", "staging", depth=2)
 
     def test_falls_back_to_list_when_article_id_is_empty(self):
         req = MagicMock(spec=func.HttpRequest)
@@ -52,17 +52,27 @@ class TestGetArticleIdsFallback:
             result = get_article_ids(req, "https://ep.blob.core.windows.net", "serving")
 
         assert result == ["x"]
-        mock_list.assert_called_once_with("https://ep.blob.core.windows.net", "serving")
+        mock_list.assert_called_once_with("https://ep.blob.core.windows.net", "serving", depth=1)
 
     def test_falls_back_to_list_when_article_id_is_none(self):
         req = MagicMock(spec=func.HttpRequest)
         req.get_json.return_value = {"article_id": None}
 
         with patch("shared.blob_storage.list_articles", return_value=["z"]) as mock_list:
-            result = get_article_ids(req, "https://ep.blob.core.windows.net", "staging")
+            result = get_article_ids(req, "https://ep.blob.core.windows.net", "staging", depth=2)
 
         assert result == ["z"]
         mock_list.assert_called_once()
+
+    def test_depth_defaults_to_one(self):
+        """Without explicit depth, list_articles is called with depth=1."""
+        req = MagicMock(spec=func.HttpRequest)
+        req.get_json.return_value = {}
+
+        with patch("shared.blob_storage.list_articles", return_value=["art"]) as mock_list:
+            get_article_ids(req, "https://ep.blob.core.windows.net", "serving")
+
+        mock_list.assert_called_once_with("https://ep.blob.core.windows.net", "serving", depth=1)
 
 
 class TestGetArticleIdsInvalidJson:
@@ -73,17 +83,17 @@ class TestGetArticleIdsInvalidJson:
         req.get_json.side_effect = ValueError("No JSON")
 
         with patch("shared.blob_storage.list_articles", return_value=["fallback"]) as mock_list:
-            result = get_article_ids(req, "https://ep.blob.core.windows.net", "staging")
+            result = get_article_ids(req, "https://ep.blob.core.windows.net", "staging", depth=2)
 
         assert result == ["fallback"]
-        mock_list.assert_called_once()
+        mock_list.assert_called_once_with("https://ep.blob.core.windows.net", "staging", depth=2)
 
     def test_falls_back_when_get_json_raises_attribute_error(self):
         req = MagicMock(spec=func.HttpRequest)
         req.get_json.side_effect = AttributeError("oops")
 
         with patch("shared.blob_storage.list_articles", return_value=["fb"]) as mock_list:
-            result = get_article_ids(req, "https://ep.blob.core.windows.net", "staging")
+            result = get_article_ids(req, "https://ep.blob.core.windows.net", "staging", depth=2)
 
         assert result == ["fb"]
         mock_list.assert_called_once()

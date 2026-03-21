@@ -21,8 +21,6 @@ import os
 
 from azure.ai.agentserver.agentframework import from_agent_framework
 
-from agent_framework.observability import enable_instrumentation
-
 # Setup observability — two paths:
 #   1. APPLICATIONINSIGHTS_CONNECTION_STRING set → use Azure Monitor (traces + logs + metrics)
 #   2. OTEL_EXPORTER_OTLP_ENDPOINT set → use generic OTLP exporter (e.g., Aspire Dashboard)
@@ -35,21 +33,29 @@ _appinsights_conn = os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING")
 if _appinsights_conn:
     from azure.monitor.opentelemetry import configure_azure_monitor
 
-    configure_azure_monitor(connection_string=_appinsights_conn)
-    enable_instrumentation()
+    configure_azure_monitor(
+        connection_string=_appinsights_conn,
+        logger_name="agent",        # only export our loggers (agent.*), not agent_framework's
+        logging_level=logging.INFO,  # export INFO+ to App Insights (default is WARNING)
+    )
 else:
     # Fall back to the standard configure_otel_providers which reads OTEL_EXPORTER_OTLP_ENDPOINT
     from agent_framework.observability import configure_otel_providers
 
     configure_otel_providers()
 
-# Setup logging
+# Setup logging — force=True ensures a StreamHandler is added even when
+# configure_azure_monitor() already attached an OTel handler to the root logger.
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)-8s %(name)s — %(message)s",
+    force=True,
 )
 for _name in ("azure.core", "azure.identity", "httpx"):
     logging.getLogger(_name).setLevel(logging.WARNING)
+# agent_framework INFO logs dump full tool call/response payloads (60KB+) which
+# exceed App Insights' 64KB telemetry item limit and block the OTel exporter.
+logging.getLogger("agent_framework").setLevel(logging.WARNING)
 # Suppress noisy OpenTelemetry context-detach errors caused by async context
 # propagation across task boundaries during SSE streaming.  These are harmless
 # (open-telemetry/opentelemetry-python#4253).

@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "18121916158307261251"
+      "templateHash": "2038379406848432318"
     }
   },
   "parameters": {
@@ -1372,7 +1372,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "6560753398749074019"
+              "templateHash": "583909849054850768"
             }
           },
           "parameters": {
@@ -1479,7 +1479,12 @@
                     "transport": "auto",
                     "allowInsecure": false
                   },
-                  "registries": "[if(variables('useAcrImage'), createArray(createObject('server', parameters('acrLoginServer'), 'identity', 'system')), createArray())]"
+                  "registries": [
+                    {
+                      "server": "[parameters('acrLoginServer')]",
+                      "identity": "system"
+                    }
+                  ]
                 },
                 "template": {
                   "containers": [
@@ -1665,7 +1670,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "6560753398749074019"
+              "templateHash": "583909849054850768"
             }
           },
           "parameters": {
@@ -1772,7 +1777,12 @@
                     "transport": "auto",
                     "allowInsecure": false
                   },
-                  "registries": "[if(variables('useAcrImage'), createArray(createObject('server', parameters('acrLoginServer'), 'identity', 'system')), createArray())]"
+                  "registries": [
+                    {
+                      "server": "[parameters('acrLoginServer')]",
+                      "identity": "system"
+                    }
+                  ]
                 },
                 "template": {
                   "containers": [
@@ -1954,7 +1964,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "6560753398749074019"
+              "templateHash": "583909849054850768"
             }
           },
           "parameters": {
@@ -2061,7 +2071,12 @@
                     "transport": "auto",
                     "allowInsecure": false
                   },
-                  "registries": "[if(variables('useAcrImage'), createArray(createObject('server', parameters('acrLoginServer'), 'identity', 'system')), createArray())]"
+                  "registries": [
+                    {
+                      "server": "[parameters('acrLoginServer')]",
+                      "identity": "system"
+                    }
+                  ]
                 },
                 "template": {
                   "containers": [
@@ -2251,7 +2266,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "6560753398749074019"
+              "templateHash": "583909849054850768"
             }
           },
           "parameters": {
@@ -2358,7 +2373,12 @@
                     "transport": "auto",
                     "allowInsecure": false
                   },
-                  "registries": "[if(variables('useAcrImage'), createArray(createObject('server', parameters('acrLoginServer'), 'identity', 'system')), createArray())]"
+                  "registries": [
+                    {
+                      "server": "[parameters('acrLoginServer')]",
+                      "identity": "system"
+                    }
+                  ]
                 },
                 "template": {
                   "containers": [
@@ -2735,7 +2755,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "8732513707182585325"
+              "templateHash": "936120164972204196"
             }
           },
           "parameters": {
@@ -2898,7 +2918,12 @@
                     "transport": "auto",
                     "allowInsecure": false
                   },
-                  "registries": "[if(variables('useAcrImage'), createArray(createObject('server', parameters('acrLoginServer'), 'identity', 'system')), createArray())]"
+                  "registries": [
+                    {
+                      "server": "[parameters('acrLoginServer')]",
+                      "identity": "system"
+                    }
+                  ]
                 },
                 "template": {
                   "containers": [
@@ -2958,7 +2983,7 @@
                     }
                   ],
                   "scale": {
-                    "minReplicas": 0,
+                    "minReplicas": 1,
                     "maxReplicas": 1
                   }
                 }
@@ -3351,7 +3376,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "2036137561180722176"
+              "templateHash": "7653948089167453868"
             }
           },
           "parameters": {
@@ -3504,7 +3529,12 @@
                     "transport": "auto",
                     "allowInsecure": false
                   },
-                  "registries": "[if(variables('useAcrImage'), createArray(createObject('server', parameters('acrLoginServer'), 'identity', 'system')), createArray())]"
+                  "registries": [
+                    {
+                      "server": "[parameters('acrLoginServer')]",
+                      "identity": "system"
+                    }
+                  ]
                 },
                 "template": {
                   "containers": [
@@ -3889,7 +3919,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "3170857097577514367"
+              "templateHash": "9927663241581559672"
             }
           },
           "parameters": {
@@ -3991,6 +4021,111 @@
                     "excludedPaths": [
                       {
                         "path": "/state/*"
+                      },
+                      {
+                        "path": "/\"_etag\"/?"
+                      }
+                    ]
+                  },
+                  "defaultTtl": -1
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', format('cosmos-{0}', parameters('baseName')), parameters('databaseName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers",
+              "apiVersion": "2024-05-15",
+              "name": "[format('{0}/{1}/{2}', format('cosmos-{0}', parameters('baseName')), parameters('databaseName'), 'conversations')]",
+              "properties": {
+                "resource": {
+                  "id": "conversations",
+                  "partitionKey": {
+                    "paths": [
+                      "/userId"
+                    ],
+                    "kind": "Hash"
+                  },
+                  "indexingPolicy": {
+                    "indexingMode": "consistent",
+                    "includedPaths": [
+                      {
+                        "path": "/*"
+                      }
+                    ],
+                    "excludedPaths": [
+                      {
+                        "path": "/\"_etag\"/?"
+                      }
+                    ]
+                  },
+                  "defaultTtl": -1
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', format('cosmos-{0}', parameters('baseName')), parameters('databaseName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers",
+              "apiVersion": "2024-05-15",
+              "name": "[format('{0}/{1}/{2}', format('cosmos-{0}', parameters('baseName')), parameters('databaseName'), 'messages')]",
+              "properties": {
+                "resource": {
+                  "id": "messages",
+                  "partitionKey": {
+                    "paths": [
+                      "/conversationId"
+                    ],
+                    "kind": "Hash"
+                  },
+                  "indexingPolicy": {
+                    "indexingMode": "consistent",
+                    "includedPaths": [
+                      {
+                        "path": "/*"
+                      }
+                    ],
+                    "excludedPaths": [
+                      {
+                        "path": "/content/*"
+                      },
+                      {
+                        "path": "/\"_etag\"/?"
+                      }
+                    ]
+                  },
+                  "defaultTtl": -1
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', format('cosmos-{0}', parameters('baseName')), parameters('databaseName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers",
+              "apiVersion": "2024-05-15",
+              "name": "[format('{0}/{1}/{2}', format('cosmos-{0}', parameters('baseName')), parameters('databaseName'), 'references')]",
+              "properties": {
+                "resource": {
+                  "id": "references",
+                  "partitionKey": {
+                    "paths": [
+                      "/conversationId"
+                    ],
+                    "kind": "Hash"
+                  },
+                  "indexingPolicy": {
+                    "indexingMode": "consistent",
+                    "includedPaths": [
+                      {
+                        "path": "/*"
+                      }
+                    ],
+                    "excludedPaths": [
+                      {
+                        "path": "/content/*"
                       },
                       {
                         "path": "/\"_etag\"/?"

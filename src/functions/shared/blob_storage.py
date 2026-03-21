@@ -32,18 +32,24 @@ def _container_client(blob_endpoint: str, container_name: str) -> ContainerClien
     )
 
 
-def list_articles(blob_endpoint: str, container_name: str) -> list[str]:
-    """List article folder names (top-level virtual directories) in a container.
+def list_articles(
+    blob_endpoint: str, container_name: str, *, depth: int = 1
+) -> list[str]:
+    """List article folder names in a container.
 
-    Returns a deduplicated, sorted list of folder names like
-    ``["content-understanding-html_en-us", "ymr1770823224196_en-us"]``.
+    Parameters
+    ----------
+    depth:
+        Number of path segments that form the article ID.
+        Use ``1`` for the flat serving container (``{article-id}/…``) and
+        ``2`` for the nested staging container (``{dept}/{article-id}/…``).
     """
     client = _container_client(blob_endpoint, container_name)
     folders: set[str] = set()
     for blob in client.list_blobs():
         parts = blob.name.split("/")
-        if len(parts) >= 2:
-            folders.add(parts[0])
+        if len(parts) >= depth + 1:
+            folders.add("/".join(parts[:depth]))
     return sorted(folders)
 
 
@@ -161,12 +167,20 @@ def get_article_ids(
     req: func.HttpRequest,
     blob_endpoint: str,
     container_name: str,
+    *,
+    depth: int = 1,
 ) -> list[str]:
     """Extract article IDs from request body, or list all from blob container.
 
     Checks the JSON request body for an ``article_id`` field.  If present,
     returns a single-element list.  Otherwise falls back to listing all
     article folders in the given blob container.
+
+    Parameters
+    ----------
+    depth:
+        Passed to :func:`list_articles` — ``1`` for flat serving,
+        ``2`` for nested staging.
     """
     try:
         body = req.get_json()
@@ -177,4 +191,4 @@ def get_article_ids(
         pass
 
     # No specific article — list all from blob
-    return list_articles(blob_endpoint, container_name)
+    return list_articles(blob_endpoint, container_name, depth=depth)

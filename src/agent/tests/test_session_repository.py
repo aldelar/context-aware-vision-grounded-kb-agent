@@ -86,11 +86,6 @@ async def test_write_upserts_correct_document_structure(
 ):
     session_data = {"messages": [], "state": {"key": "value"}}
 
-    # No existing doc → read raises 404
-    mock_container.read_item.side_effect = CosmosResourceNotFoundError(
-        status_code=404, message="Not Found"
-    )
-
     await repo_with_container.write_to_storage("conv-456", session_data)
 
     mock_container.upsert_item.assert_awaited_once_with(
@@ -111,28 +106,17 @@ async def test_write_skips_for_empty_conversation_id(
 
 
 @pytest.mark.asyncio
-async def test_write_preserves_existing_fields(
+async def test_write_direct_upsert_no_read(
     repo_with_container, mock_container
 ):
-    """Write must preserve web-app fields (userId, steps, etc.)."""
-    existing_doc = {
-        "id": "conv-789",
-        "userId": "alice",
-        "name": "My Thread",
-        "steps": [{"id": "s1", "type": "user_message"}],
-        "elements": [],
-        "session": {"old": True},
-    }
-    mock_container.read_item.return_value = existing_doc
-
+    """Write must NOT read before writing — agent is sole owner."""
     new_session = {"messages": [{"role": "user", "content": "hi"}]}
     await repo_with_container.write_to_storage("conv-789", new_session)
 
+    # No read_item call — direct upsert only
+    mock_container.read_item.assert_not_awaited()
     upserted = mock_container.upsert_item.call_args[0][0]
-    assert upserted["session"] == new_session
-    assert upserted["userId"] == "alice"
-    assert upserted["name"] == "My Thread"
-    assert upserted["steps"] == [{"id": "s1", "type": "user_message"}]
+    assert upserted == {"id": "conv-789", "session": new_session}
 
 
 @pytest.mark.asyncio
@@ -143,15 +127,10 @@ async def test_roundtrip_write_then_read(repo_with_container, mock_container):
         "state": {"counter": 42},
     }
 
-    # Write — no existing doc
-    mock_container.read_item.side_effect = CosmosResourceNotFoundError(
-        status_code=404, message="Not Found"
-    )
     await repo_with_container.write_to_storage("conv-rt", session_data)
     upserted_doc = mock_container.upsert_item.call_args[0][0]
 
     # Simulate read returning the upserted document
-    mock_container.read_item.side_effect = None
     mock_container.read_item.return_value = upserted_doc
     result = await repo_with_container.read_from_storage("conv-rt")
 
@@ -350,22 +329,17 @@ async def test_write_skips_for_falsy_conversation_ids(
     mock_container.upsert_item.assert_not_awaited()
 
 
-# ── Write read-modify-write failure ──────────────────────────────────────
+# ── Write direct-upsert — no read step ───────────────────────────────────
 
 
 @pytest.mark.asyncio
-async def test_write_propagates_non_404_read_error(
+async def test_write_does_not_read_before_upsert(
     repo_with_container, mock_container
 ):
-    """If the read in read-modify-write fails with a non-404 error, it must
-    propagate (not silently fall back to creating a new doc)."""
-    mock_container.read_item.side_effect = CosmosHttpResponseError(
-        status_code=503, message="Service Unavailable"
-    )
-
-    with pytest.raises(CosmosHttpResponseError):
-        await repo_with_container.write_to_storage("conv-err", {"data": 1})
-    mock_container.upsert_item.assert_not_awaited()
+    """Direct upsert pattern — write must not call read_item."""
+    await repo_with_container.write_to_storage("conv-err", {"data": 1})
+    mock_container.read_item.assert_not_awaited()
+    mock_container.upsert_item.assert_awaited_once()
 
 
 # ── Story 10: conversationId removal — edge cases ───────────────────────
@@ -376,9 +350,6 @@ async def test_new_doc_has_no_conversationId_field(
     repo_with_container, mock_container
 ):
     """New document must only contain 'id' — NO 'conversationId' key."""
-    mock_container.read_item.side_effect = CosmosResourceNotFoundError(
-        status_code=404, message="Not Found"
-    )
     await repo_with_container.write_to_storage("conv-new", {"m": []})
 
     upserted = mock_container.upsert_item.call_args[0][0]
@@ -387,25 +358,17 @@ async def test_new_doc_has_no_conversationId_field(
 
 
 @pytest.mark.asyncio
-async def test_read_modify_write_does_not_inject_conversationId(
+async def test_direct_upsert_does_not_inject_conversationId(
     repo_with_container, mock_container
 ):
-    """Read-modify-write must not add a 'conversationId' key."""
-    existing = {
-        "id": "conv-existing",
-        "userId": "alice",
-        "steps": [],
-        "session": {"old": True},
-    }
-    mock_container.read_item.return_value = existing
-
+    """Direct upsert must not add a 'conversationId' key."""
     await repo_with_container.write_to_storage(
         "conv-existing", {"messages": []}
     )
 
     upserted = mock_container.upsert_item.call_args[0][0]
     assert "conversationId" not in upserted
-    assert upserted["userId"] == "alice"  # preserved
+    assert upserted == {"id": "conv-existing", "session": {"messages": []}}
 
 
 @pytest.mark.asyncio
@@ -414,9 +377,6 @@ async def test_write_with_uuid_conversation_id(
 ):
     """UUID-format conversation_id (typical in production) works correctly."""
     conv_id = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
-    mock_container.read_item.side_effect = CosmosResourceNotFoundError(
-        status_code=404, message="Not Found"
-    )
 
     await repo_with_container.write_to_storage(conv_id, {"state": {}})
 
@@ -467,24 +427,14 @@ async def test_roundtrip_without_conversationId_in_stored_doc(
 
 
 @pytest.mark.asyncio
-async def test_write_preserves_legacy_doc_with_conversationId(
+async def test_write_replaces_entire_document(
     repo_with_container, mock_container
 ):
-    """If a pre-migration doc has conversationId, write preserves it
-    (read-modify-write doesn't strip existing fields)."""
-    legacy_doc = {
-        "id": "conv-legacy",
-        "conversationId": "conv-legacy",
-        "userId": "alice",
-        "session": {"old": True},
-    }
-    mock_container.read_item.return_value = legacy_doc
-
+    """Direct upsert replaces the entire document — no field preservation."""
     await repo_with_container.write_to_storage(
         "conv-legacy", {"messages": []}
     )
 
     upserted = mock_container.upsert_item.call_args[0][0]
-    # The field is preserved because read-modify-write keeps all fields
-    assert upserted["conversationId"] == "conv-legacy"
-    assert upserted["session"] == {"messages": []}
+    # Only id and session — no legacy fields preserved
+    assert upserted == {"id": "conv-legacy", "session": {"messages": []}}

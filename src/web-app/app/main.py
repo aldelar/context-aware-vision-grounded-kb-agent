@@ -236,14 +236,48 @@ def _build_citation_content(cit: Citation, idx: int) -> str:
 # Agent client — plain HTTP (internal Container App or local)
 # ---------------------------------------------------------------------------
 
-def _create_agent_client() -> OpenAI:
+# Placeholder group injected for every authenticated user until a future epic
+# adds a persona-switcher UI.  The agent's simulated group_resolver maps any
+# non-empty group list to departments=["engineering"].
+_DEFAULT_USER_GROUP = "00000000-0000-0000-0000-000000000001"
+
+
+def _get_user_groups() -> list[str]:
+    """Extract the current user's Entra group GUIDs from session metadata.
+
+    When Entra doesn't provide groups (groupMembershipClaims not configured),
+    falls back to a hardcoded placeholder so the security filter pipeline
+    always resolves at least one department.
+    """
+    try:
+        user = cl.user_session.get("user")
+        if user:
+            groups = getattr(user, "metadata", {}).get("groups", []) or []
+            if groups:
+                return groups
+            # Authenticated but no Entra groups — inject default
+            return [_DEFAULT_USER_GROUP]
+    except Exception:
+        pass
+    return []
+
+
+def _create_agent_client(user_groups: list[str] | None = None) -> OpenAI:
     """Create an OpenAI client pointing at the agent endpoint.
 
     - ``http://`` endpoints (local dev, internal FQDN): plain HTTP, no auth
     - ``https://`` endpoints (registered APIM proxy URL): Entra bearer token
       via DefaultAzureCredential with scope ``https://ai.azure.com/.default``
+
+    When *user_groups* is provided, passes them as ``X-User-Groups`` header
+    so the agent can apply department-scoped security filters.
     """
     endpoint = config.agent_endpoint.rstrip("/")
+
+    # Build extra headers for user context propagation
+    extra_headers: dict[str, str] = {}
+    if user_groups:
+        extra_headers["X-User-Groups"] = ",".join(user_groups)
 
     if endpoint.startswith("https://"):
         credential = DefaultAzureCredential()
@@ -251,14 +285,16 @@ def _create_agent_client() -> OpenAI:
         client = OpenAI(
             base_url=endpoint,
             api_key=token.token,
+            default_headers=extra_headers or None,
         )
-        logger.info("Agent client → %s (Entra auth)", endpoint)
+        logger.info("Agent client → %s (Entra auth, groups=%s)", endpoint, user_groups)
     else:
         client = OpenAI(
             base_url=endpoint,
             api_key="local",
+            default_headers=extra_headers or None,
         )
-        logger.info("Agent client → %s (no auth)", endpoint)
+        logger.info("Agent client → %s (no auth, groups=%s)", endpoint, user_groups)
     return client
 
 
@@ -306,6 +342,15 @@ try:
     _app.include_router(_image_router)
     for r in _catchall:
         _app.routes.append(r)
+
+    # Increase Socket.IO ping timeout — the agent can take 60-120s during
+    # tool-calling before the first text token streams back.  The default
+    # 20s causes "Could not reach the server" in the browser.
+    _sio = cl.server.sio
+    if hasattr(_sio, "eio"):
+        _sio.eio.ping_timeout = 120
+        _sio.eio.ping_interval = 30
+        logger.info("Socket.IO ping_timeout set to %ds", _sio.eio.ping_timeout)
 except AttributeError:
     # Chainlit server not initialised — running in test/CLI context.
     pass
@@ -357,12 +402,14 @@ if _is_oauth_configured():
         if provider_id == "azure-ad":
             oid = raw_user_data.get("oid") or raw_user_data.get("sub", "")
             display = raw_user_data.get("name", oid)
+            groups = raw_user_data.get("groups", [])
             return cl.User(
                 identifier=oid,
                 metadata={
                     "provider": "azure-ad",
                     "display_name": display,
                     "email": raw_user_data.get("email", ""),
+                    "groups": groups,
                 },
             )
         return None
@@ -383,20 +430,27 @@ async def header_auth_callback(headers: dict) -> cl.User | None:
     principal = headers.get("x-ms-client-principal-id")
     if principal:
         display = headers.get("x-ms-client-principal-name", principal)
+        groups: list[str] = []
         # Easy Auth encodes claims in X-MS-CLIENT-PRINCIPAL (Base64 JSON).
-        # Extract the friendly "name" claim for the UI display.
+        # Extract the friendly "name" claim and group memberships.
         encoded = headers.get("x-ms-client-principal")
         if encoded:
             try:
                 import base64
                 payload = json.loads(base64.b64decode(encoded))
-                claims = {c["typ"]: c["val"] for c in payload.get("claims", [])}
-                display = claims.get("name", display)
+                raw_claims = payload.get("claims", [])
+                # "groups" is multi-value: each group is a separate entry
+                groups = [c["val"] for c in raw_claims if c.get("typ") == "groups"]
+                claims_map = {c["typ"]: c["val"] for c in raw_claims}
+                display = claims_map.get("name", display)
             except Exception:
                 pass
-        return cl.User(identifier=display, metadata={"provider": "azure-ad", "oid": principal})
+        return cl.User(
+            identifier=display,
+            metadata={"provider": "azure-ad", "oid": principal, "groups": groups},
+        )
     # Local dev — no auth headers, auto-accept as local-user
-    return cl.User(identifier="local-user", metadata={"provider": "header"})
+    return cl.User(identifier="local-user", metadata={"provider": "header", "groups": []})
 
 
 # ---------------------------------------------------------------------------
@@ -456,10 +510,11 @@ async def set_starters() -> list[cl.Starter]:
 @cl.on_chat_start
 async def on_chat_start() -> None:
     """Initialise per-session agent client and conversation history."""
-    client = _create_agent_client()
+    user_groups = _get_user_groups()
+    client = _create_agent_client(user_groups=user_groups)
     cl.user_session.set("client", client)
     cl.user_session.set("user_id", _get_user_id())
-    logger.info("New chat session started (agent endpoint: %s)", config.agent_endpoint)
+    logger.info("New chat session started (agent endpoint: %s, groups=%s)", config.agent_endpoint, user_groups)
 
 
 @cl.on_chat_resume
@@ -474,7 +529,8 @@ async def on_chat_resume(thread: ThreadDict) -> None:
     ephemeral.  Re-hydrate each element by writing its content back to
     the session file store so the frontend can retrieve it.
     """
-    client = _create_agent_client()
+    user_groups = _get_user_groups()
+    client = _create_agent_client(user_groups=user_groups)
     cl.user_session.set("client", client)
     cl.user_session.set("user_id", _get_user_id())
 
@@ -538,9 +594,13 @@ async def on_message(message: cl.Message) -> None:
                 if item and getattr(item, "type", None) == "function_call_output":
                     output_str = getattr(item, "output", "")
                     try:
-                        results = json.loads(output_str)
-                        if isinstance(results, list):
-                            for r in results:
+                        parsed = json.loads(output_str)
+                        # Structured output: {"results": [...], "summary": "..."}
+                        if isinstance(parsed, dict) and "results" in parsed:
+                            for r in parsed["results"]:
+                                raw_citations.append(r)
+                        elif isinstance(parsed, list):
+                            for r in parsed:
                                 raw_citations.append(r)
                     except (json.JSONDecodeError, TypeError):
                         pass
@@ -605,6 +665,6 @@ async def on_message(message: cl.Message) -> None:
         ))
     if elements:
         msg.elements = elements  # type: ignore[assignment]
-        logger.info("Attached %d citation elements to message", len(elements))
+        logger.info("Attached %d citation references to message", len(elements))
 
     await msg.update()

@@ -4,9 +4,9 @@ version = "0.1.0"
 description = "KB Search Agent — hosted agent on Microsoft Foundry with vision-grounded search"
 requires-python = ">=3.11"
 dependencies = [
-    "agent-framework-core>=1.0.0rc3",
-    "agent-framework-azure-ai>=1.0.0rc3",
-    "azure-ai-agentserver-agentframework>=1.0.0b16",
+    "agent-framework-core>=1.0.0rc5",
+    "agent-framework-azure-ai>=1.0.0rc5",
+    "azure-ai-agentserver-agentframework>=1.0.0b17",
     "azure-identity>=1.19.0",
     "azure-search-documents>=11.6.0",
     "azure-ai-inference>=1.0.0b1",
@@ -40,3 +40,9 @@ packages = ["agent"]
 
 [tool.uv]
 prerelease = "allow"
+# Override agentserver's upper-bound pin (<=rc3) — rc5 is backward-compatible
+# for from_agent_framework() and SerializedAgentSessionRepository.
+override-dependencies = [
+    "agent-framework-core>=1.0.0rc5",
+    "agent-framework-azure-ai>=1.0.0rc5",
+]

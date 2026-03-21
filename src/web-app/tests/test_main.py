@@ -7,12 +7,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from app.main import (
+    _DEFAULT_USER_GROUP,
     Citation,  # re-exported from app.main
     _build_citation_content,
     _build_filename_lookup,
     _build_ref_map,
     _create_agent_client,
     _expand_ref_markers,
+    _get_user_groups,
     _get_user_id,
     _is_oauth_configured,
     _normalise_inline_images,
@@ -70,6 +72,36 @@ class TestCreateAgentClient:
         _create_agent_client()
 
         mock_cred.get_token.assert_called_once_with("https://ai.azure.com/.default")
+
+    @patch("app.main.config")
+    def test_local_endpoint_with_user_groups(self, mock_config: MagicMock) -> None:
+        """User groups are sent as X-User-Groups default header."""
+        mock_config.agent_endpoint = "http://localhost:8088"
+
+        client = _create_agent_client(user_groups=["group-a", "group-b"])
+
+        assert client._custom_headers.get("X-User-Groups") == "group-a,group-b"
+
+    @patch("app.main.config")
+    def test_local_endpoint_no_groups_header(self, mock_config: MagicMock) -> None:
+        """When user_groups is empty, no X-User-Groups header is set."""
+        mock_config.agent_endpoint = "http://localhost:8088"
+
+        client = _create_agent_client(user_groups=[])
+
+        assert "X-User-Groups" not in (client._custom_headers or {})
+
+    @patch("app.main.DefaultAzureCredential")
+    @patch("app.main.config")
+    def test_https_endpoint_with_user_groups(self, mock_config: MagicMock, mock_cred_cls: MagicMock) -> None:
+        """HTTPS endpoint sends X-User-Groups header."""
+        mock_config.agent_endpoint = "https://apim.azure-api.net/agent"
+        mock_cred = mock_cred_cls.return_value
+        mock_cred.get_token.return_value = MagicMock(token="tok")
+
+        client = _create_agent_client(user_groups=["guid-1"])
+
+        assert client._custom_headers.get("X-User-Groups") == "guid-1"
 
 
 # ---------------------------------------------------------------------------
@@ -245,3 +277,35 @@ class TestGetUserId:
         with patch("chainlit.user_session") as mock_session:
             mock_session.get.side_effect = RuntimeError("no session")
             assert _get_user_id() == "local-user"
+
+
+# ---------------------------------------------------------------------------
+# User groups extraction
+# ---------------------------------------------------------------------------
+
+class TestGetUserGroups:
+    """Test _get_user_groups extracts groups from user metadata."""
+
+    def test_extracts_groups_from_metadata(self) -> None:
+        mock_user = MagicMock()
+        mock_user.metadata = {"groups": ["guid-1", "guid-2"]}
+        with patch("chainlit.user_session") as mock_session:
+            mock_session.get.return_value = mock_user
+            assert _get_user_groups() == ["guid-1", "guid-2"]
+
+    def test_returns_default_group_when_no_entra_groups(self) -> None:
+        mock_user = MagicMock()
+        mock_user.metadata = {"provider": "header"}
+        with patch("chainlit.user_session") as mock_session:
+            mock_session.get.return_value = mock_user
+            assert _get_user_groups() == [_DEFAULT_USER_GROUP]
+
+    def test_returns_empty_when_no_user(self) -> None:
+        with patch("chainlit.user_session") as mock_session:
+            mock_session.get.return_value = None
+            assert _get_user_groups() == []
+
+    def test_returns_empty_on_exception(self) -> None:
+        with patch("chainlit.user_session") as mock_session:
+            mock_session.get.side_effect = RuntimeError("no session")
+            assert _get_user_groups() == []

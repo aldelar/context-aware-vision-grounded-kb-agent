@@ -3,6 +3,11 @@
 Validates bearer tokens on incoming requests using Microsoft Entra ID
 JWKS (JSON Web Key Set).  Skips auth for health probe endpoints and
 when ``REQUIRE_AUTH`` is ``false`` (local development).
+
+Supports user context propagation via ``X-User-Groups`` header.  When the
+JWT ``groups`` claim is empty (e.g. managed-identity / service tokens),
+the middleware reads comma-separated group GUIDs from the header instead.
+This allows the web app to forward end-user identity through APIM.
 """
 
 from __future__ import annotations
@@ -15,6 +20,8 @@ from jwt import PyJWKClient
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+
+from middleware.request_context import user_claims_var
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +56,19 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         # Skip auth when disabled (local dev)
         require_auth = os.environ.get("REQUIRE_AUTH", "true")
         if require_auth.lower() == "false":
+            # Set default dev claims so tools receive security context.
+            # Honour X-User-Groups header even in dev mode so local testing
+            # of the header propagation path works end-to-end.
+            dev_groups = ["dev-group-guid"]
+            header_groups = request.headers.get("x-user-groups", "")
+            if header_groups:
+                dev_groups = [g.strip() for g in header_groups.split(",") if g.strip()]
+            user_claims_var.set({
+                "user_id": "dev-user",
+                "tenant_id": "dev-tenant",
+                "groups": dev_groups,
+                "roles": ["contributor"],
+            })
             return await call_next(request)
 
         # Skip auth for health probes
@@ -90,6 +110,23 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         except jwt.PyJWTError as exc:
             logger.warning("JWT validation failed: %s", exc)
             return _unauthorized(str(exc))
+
+        # Propagate validated claims to downstream tools via ContextVar.
+        # When the JWT has no groups claim (service-to-service token from
+        # the web app's managed identity), fall back to X-User-Groups header
+        # which the web app sets from the end-user's Easy Auth / OAuth claims.
+        groups = claims.get("groups", [])
+        if not groups:
+            header_groups = request.headers.get("x-user-groups", "")
+            if header_groups:
+                groups = [g.strip() for g in header_groups.split(",") if g.strip()]
+
+        user_claims_var.set({
+            "user_id": claims.get("oid", ""),
+            "tenant_id": claims.get("tid", ""),
+            "groups": groups,
+            "roles": claims.get("roles", []),
+        })
 
         return await call_next(request)
 

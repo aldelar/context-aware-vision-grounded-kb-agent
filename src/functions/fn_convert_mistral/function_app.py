@@ -18,6 +18,9 @@ from shared.config import config
 
 import fn_convert_mistral
 
+_STAGING_CONTAINER = "staging"
+_SERVING_CONTAINER = "serving"
+
 logger = logging.getLogger(__name__)
 
 app = func.FunctionApp()
@@ -34,7 +37,7 @@ def http_convert_mistral(req: func.HttpRequest) -> func.HttpResponse:
     """
     logging.basicConfig(level=logging.INFO)
 
-    article_ids = get_article_ids(req, config.staging_blob_endpoint, "staging")
+    article_ids = get_article_ids(req, config.staging_blob_endpoint, "staging", depth=2)
     if not article_ids:
         return func.HttpResponse(
             json.dumps({"error": "No articles found in staging container"}),
@@ -45,22 +48,33 @@ def http_convert_mistral(req: func.HttpRequest) -> func.HttpResponse:
     results = []
     for article_id in article_ids:
         try:
+            # Staging uses {dept}/{name} structure; serving is flat {name}
+            parts = article_id.split("/", 1)
+            department = parts[0] if len(parts) == 2 else ""
+            article_name = parts[1] if len(parts) == 2 else parts[0]
+
             tmp_root = Path(tempfile.mkdtemp(prefix="kb-convert-mistral-"))
-            staging_dir = tmp_root / article_id
+            staging_dir = tmp_root / article_name
             download_article(
-                config.staging_blob_endpoint, "staging", article_id, staging_dir
+                config.staging_blob_endpoint, _STAGING_CONTAINER, article_id, staging_dir
             )
             out_root = Path(tempfile.mkdtemp(prefix="kb-out-"))
-            serving_dir = out_root / article_id
+            serving_dir = out_root / article_name
             serving_dir.mkdir()
 
             fn_convert_mistral.run(str(staging_dir), str(serving_dir))
 
-            count = upload_article(
-                config.serving_blob_endpoint, "serving", article_id, serving_dir
+            # Write metadata.json so the index function can populate index fields
+            metadata = {"department": department}
+            (serving_dir / "metadata.json").write_text(
+                json.dumps(metadata, indent=2), encoding="utf-8"
             )
 
-            results.append({"article_id": article_id, "status": "ok", "blobs_uploaded": count})
+            count = upload_article(
+                config.serving_blob_endpoint, _SERVING_CONTAINER, article_name, serving_dir
+            )
+
+            results.append({"article_id": article_name, "status": "ok", "blobs_uploaded": count})
 
             shutil.rmtree(tmp_root, ignore_errors=True)
             shutil.rmtree(out_root, ignore_errors=True)

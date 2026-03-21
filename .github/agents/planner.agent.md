@@ -6,6 +6,7 @@ tools:
   - readFile
   - listDirectory
   - editFiles
+  - createFile
   - fetch
   - problems
   - todos

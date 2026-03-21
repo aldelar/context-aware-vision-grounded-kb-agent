@@ -16,7 +16,8 @@ def main() -> None:
         print("Usage: python -m fn_index <article_dir>", file=sys.stderr)
         sys.exit(1)
 
-    run(sys.argv[1])
+    article_dir = sys.argv[1]
+    run(article_dir)
 
 
 if __name__ == "__main__":

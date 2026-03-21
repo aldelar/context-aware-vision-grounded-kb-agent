@@ -17,12 +17,18 @@ from typing import Annotated
 
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 from agent_framework import Agent
+from agent_framework._compaction import (
+    CompactionProvider,
+    SlidingWindowStrategy,
+    ToolResultCompactionStrategy,
+)
 from agent_framework._sessions import InMemoryHistoryProvider
 from agent_framework.azure import AzureOpenAIChatClient
 
 from agent.search_tool import SearchResult, search_kb
 from agent.image_service import get_image_url
 from agent.vision_middleware import VisionImageMiddleware
+from agent.security_middleware import SecurityFilterMiddleware
 from agent.config import config
 
 logger = logging.getLogger(__name__)
@@ -95,6 +101,7 @@ class AgentResponse:
 
 def search_knowledge_base(
     query: Annotated[str, "The search query — use natural language describing what information is needed"],
+    **kwargs,
 ) -> str:
     """Search the knowledge base for articles about Azure services, features, and how-to guides.
 
@@ -102,8 +109,16 @@ def search_knowledge_base(
     """
     logger.info("search_knowledge_base(query='%s')", query[:80])
 
+    # Build OData filter from departments injected by SecurityFilterMiddleware
+    departments = kwargs.get("departments", [])
+    security_filter = None
+    if departments:
+        dept_list = ",".join(departments)
+        security_filter = f"search.in(department, '{dept_list}', ',')"
+        logger.info("Applying security filter: %s", security_filter)
+
     try:
-        results: list[SearchResult] = search_kb(query)
+        results: list[SearchResult] = search_kb(query, security_filter=security_filter)
     except Exception:
         logger.error("search_kb execution failed", exc_info=True)
         return json.dumps({"error": "Search failed. Please try again."})
@@ -117,6 +132,8 @@ def search_knowledge_base(
             "section_header": r.section_header,
             "article_id": r.article_id,
             "chunk_index": r.chunk_index,
+            "summary": r.summary,
+            "indexed_at": r.indexed_at,
             "image_urls": list(r.image_urls),  # raw paths like 'images/foo.png'
             "images": [
                 {"name": url.split("/")[-1], "url": get_image_url(r.article_id, url)}
@@ -124,7 +141,14 @@ def search_knowledge_base(
             ] if r.image_urls else [],
         })
 
-    return json.dumps(result_dicts, ensure_ascii=False)
+    # Build a top-level summary for compaction metadata
+    topics = list(dict.fromkeys(r.title for r in results if r.title))
+    top_summary = f"{len(results)} results covering: {', '.join(topics[:5])}"
+
+    return json.dumps(
+        {"results": result_dicts, "summary": top_summary},
+        ensure_ascii=False,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -168,13 +192,20 @@ def create_agent() -> Agent:
             middleware=[VisionImageMiddleware()],
         )
 
+    history = InMemoryHistoryProvider(skip_excluded=True)
+    compaction = CompactionProvider(
+        before_strategy=SlidingWindowStrategy(keep_last_groups=3),
+        after_strategy=ToolResultCompactionStrategy(keep_last_tool_call_groups=1),
+    )
+
     agent = Agent(
         client=client,
         id=os.environ.get("OTEL_SERVICE_NAME", "kb-agent"),
         name="KBSearchAgent",
         instructions=_SYSTEM_PROMPT,
         tools=[search_knowledge_base],
-        context_providers=[InMemoryHistoryProvider()],
+        middleware=[SecurityFilterMiddleware()],
+        context_providers=[history, compaction],
     )
     logger.info(
         "Created KBSearchAgent (model=%s, endpoint=%s)",

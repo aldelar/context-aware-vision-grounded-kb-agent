@@ -125,7 +125,7 @@ The agent runs as a Starlette ASGI service on port 8088 (built with `from_agent_
 
 #### Agent Components
 
-- **KB Agent** — An `Agent` (from `agent-framework-core` + `agent-framework-azure-ai`) with a single tool: `search_knowledge_base`, and `InMemoryHistoryProvider` as context provider for multi-turn history. The agent uses `gpt-4.1` for reasoning and calls the tool to perform hybrid search (vector + keyword) against the index.
+- **KB Agent** — An `Agent` (from `agent-framework-core` + `agent-framework-azure-ai`) with a single tool: `search_knowledge_base`. Context providers: `InMemoryHistoryProvider` (multi-turn history) and `CompactionProvider` (`SlidingWindowStrategy` + `ToolResultCompactionStrategy`) for bounded context windows. The agent uses `gpt-4.1` for reasoning and calls the tool to perform hybrid search (vector + keyword) against the index.
 - **Session Repository** — `CosmosAgentSessionRepository` (subclass of `SerializedAgentSessionRepository`) persists `AgentSession` to Cosmos DB `agent-sessions` container. Wired via `from_agent_framework(agent, session_repository=...)` which auto-loads/saves sessions per request.
 - **Search Tool** — Embeds the agent's query with `text-embedding-3-small`, performs hybrid search via `azure-search-documents`, and returns ranked chunks with image references.
 - **Vision Middleware** — A `ChatMiddleware` on the Azure OpenAI chat client that intercepts tool results, detects image URLs in the search response JSON, downloads the images from blob storage, and injects them into the LLM conversation as `Content.from_data()` (base64 image payloads). This enables GPT-4.1's vision capabilities — the LLM can **see** the actual images (diagrams, screenshots, architecture charts) and reason about their visual content when composing answers.
@@ -138,7 +138,7 @@ The web app is a Chainlit-based UI that calls the agent via the Responses API. I
 #### Web App Components
 
 - **OpenAI SDK Client** — Calls the agent via `client.responses.create(input=..., stream=True)`. Local dev uses plain HTTP (`http://localhost:8088`). Deployed: routed through registered APIM proxy URL with Entra bearer token.
-- **Cosmos DB Data Layer** — `CosmosDataLayer(BaseDataLayer)` reads from the `agent-sessions` Cosmos container (shared with the agent). The web app reads `session.state.messages` for conversation resume, writes `steps` and `elements` for Chainlit UI fidelity, and queries by `userId` for the sidebar thread list. Auto-title from first user message (80 chars max).
+- **Cosmos DB Data Layer** — `CosmosDataLayer(BaseDataLayer)` uses three dedicated containers: `conversations` (PK `/userId`), `messages` (PK `/conversationId`), and `references` (PK `/conversationId`). The agent exclusively owns the `agent-sessions` container — there is no shared state. The web app writes conversations, messages, and references to their respective containers, and queries `conversations` by `userId` for the sidebar thread list. Auto-title from first user message (80 chars max).
 - **Image Proxy** — A FastAPI endpoint (`/api/images/{article_id}/{image_path}`) that downloads images from the serving blob account on demand. Chainlit renders standard `![alt](/api/images/...)` markdown natively, and the browser fetches images from this same-origin proxy.
 - **Image Normaliser** — Post-processing step that normalises all `![alt](url)` references in the LLM output to clean `/api/images/...` proxy URLs. Handles the variety of URL formats the LLM may generate (hallucinated domains, missing leading slashes, `attachment:` schemes) via pattern matching and filename-to-citation lookup.
 - **Chainlit Chat UI** — Streaming chat interface with real-time token display, native Markdown rendering (including inline images via the proxy), clickable `[Ref #N]` citation links with side-panel detail views, and conversation history panel.
@@ -225,6 +225,7 @@ Despite explicit system prompt instructions, LLMs generate image URLs in many cr
 | 8 | Hybrid search | Best relevance — combines vector similarity and keyword matching. |
 | 9 | Chainlit | Purpose-built chat UI with native streaming, `cl.Text` side panels for citations, and markdown rendering. Single `chainlit run` command. |
 | 10 | AI Gateway (APIM) | Centralised API gateway for agent traffic. Enables Foundry agent registration (requires APIM connection), provides a stable proxy URL, and supports future rate limiting, monitoring, and access control. BasicV2 SKU for dev/test (~$50/month). |
+| 11 | Contextual tool filtering | Out-of-band security context propagation via `ContextVar` → `FunctionMiddleware` → `**kwargs`. JWT claims are extracted at the HTTP boundary, enriched by a middleware that resolves group GUIDs to department names, and forwarded to tools as plain kwargs. Tools build backend-specific OData filters. The LLM never sees the filter context. See [Contextual Tool Filtering spec](contextual-tool-filtering.md). |
 
 For implementation details, see [Epic 002](../epics/002-kb-search-web-app.md) and [Epic 005](../epics/005-hosted-agent-foundry.md).
 
@@ -343,7 +344,7 @@ There are **three interchangeable backend implementations** that share the same 
 | **Mistral Document AI** | `fn_convert_mistral` | HTML → PDF rendering (Playwright) with `[[IMG:filename]]` markers, Mistral OCR for text extraction, GPT-4.1 vision for image descriptions | Yes — both OCR and GPT-4.1 are standard Foundry endpoints |
 | **MarkItDown** | `fn_convert_markitdown` | Local Python HTML → Markdown via [MarkItDown](https://github.com/microsoft/markitdown) library, GPT-4.1 vision for image descriptions | Partial — text extraction is local (no API); GPT-4.1 is a standard Foundry endpoint |
 
-All three backends produce the same output: `article.md` + `images/` folder in the serving layer. `fn-index` is completely unaware of which backend generated the content — the serving layer is the contract boundary.
+All three backends produce the same output: `article.md` + `images/` folder + `metadata.json` in the serving layer. `fn-index` is completely unaware of which backend generated the content — the serving layer is the contract boundary. The `metadata.json` file carries index-level metadata (e.g. `department`) that `fn-convert` extracts from the staging path and `fn-index` reads to populate search index fields.
 
 The backend is selected at runtime via the `analyzer=` Makefile argument:
 ```bash
@@ -564,13 +565,14 @@ staging/
 serving/
   └── {article-id}/
         ├── article.md
+        ├── metadata.json
         └── images/
               ├── image1.png
               ├── image2.png
               └── ...
 ```
 
-The `{article-id}` folder name is preserved from the source and stored as `article_id` in the search index, providing traceability from search result back to source article.
+The `{article-id}` folder name is preserved from the source and stored as `article_id` in the search index, providing traceability from search result back to source article. The serving layer is **flat** — articles are not nested under department folders. Department and other metadata are stored in `metadata.json`.
 
 ---
 
@@ -592,6 +594,7 @@ The `{article-id}` folder name is preserved from the source and stored as `artic
     { "name": "source_url",     "type": "Edm.String",  "filterable": false },
     { "name": "title",          "type": "Edm.String",  "searchable": true },
     { "name": "section_header", "type": "Edm.String",  "filterable": true },
+    { "name": "department",     "type": "Edm.String",  "filterable": true },
     { "name": "key_topics",     "type": "Collection(Edm.String)",
       "filterable": true }
   ]
@@ -609,6 +612,7 @@ The `{article-id}` folder name is preserved from the source and stored as `artic
 | `source_url` | Original HTML article URL if available |
 | `title` | Article title |
 | `section_header` | H2/H3 heading this chunk belongs to |
+| `department` | Department that owns the article. Written by `fn-convert` into `metadata.json` (derived from `kb/staging/{department}/` folder path) and read by `fn-index` to populate this index field. Used for OData security filtering via `SecurityFilterMiddleware`. |
 | `key_topics` | Filterable topic tags for the chunk |
 
 ---

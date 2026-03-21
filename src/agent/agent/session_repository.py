@@ -80,18 +80,12 @@ class CosmosAgentSessionRepository(SerializedAgentSessionRepository):
     ) -> None:
         """Write (upsert) a serialized session to Cosmos DB.
 
-        Uses read-modify-write to preserve fields written by other
-        services (e.g. the web app's userId, steps, elements).
+        The agent is the sole owner of this container — direct upsert,
+        no read-modify-write needed.
         """
         if not conversation_id or not conversation_id.strip():
             return
         container = await self._get_container()
-        try:
-            doc = await container.read_item(
-                item=conversation_id, partition_key=conversation_id
-            )
-        except CosmosResourceNotFoundError:
-            doc = {"id": conversation_id}
-        doc["session"] = serialized_session
+        doc = {"id": conversation_id, "session": serialized_session}
         await container.upsert_item(doc)
         logger.info("Saved session for conversation_id=%s", conversation_id)

@@ -37,10 +37,13 @@ class Config:
     serving_blob_endpoint: str
     serving_container_name: str
 
-    # Cosmos DB — conversation history
+    # Cosmos DB — conversation persistence (4-container model)
     cosmos_endpoint: str
     cosmos_database_name: str
     cosmos_sessions_container: str
+    cosmos_conversations_container: str
+    cosmos_messages_container: str
+    cosmos_references_container: str
 
 
 def _load_config() -> Config:
@@ -70,6 +73,9 @@ def _load_config() -> Config:
         cosmos_endpoint=os.environ.get("COSMOS_ENDPOINT", ""),
         cosmos_database_name=os.environ.get("COSMOS_DATABASE_NAME", "kb-agent"),
         cosmos_sessions_container=os.environ.get("COSMOS_SESSIONS_CONTAINER", "agent-sessions"),
+        cosmos_conversations_container=os.environ.get("COSMOS_CONVERSATIONS_CONTAINER", "conversations"),
+        cosmos_messages_container=os.environ.get("COSMOS_MESSAGES_CONTAINER", "messages"),
+        cosmos_references_container=os.environ.get("COSMOS_REFERENCES_CONTAINER", "references"),
     )
 
 

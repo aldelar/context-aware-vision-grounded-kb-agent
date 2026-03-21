@@ -10,7 +10,7 @@ Enterprise knowledge bases store thousands of technical articles as HTML pages b
 
 ## Core Patterns
 
-This solution demonstrates seven architectural patterns for building production-quality AI agents over enterprise content. Each solves a real problem encountered when moving from prototype to production.
+This solution demonstrates eight architectural patterns for building production-quality AI agents over enterprise content. Each solves a real problem encountered when moving from prototype to production.
 
 ### 1. Pluggable Document Normalization
 
@@ -132,11 +132,9 @@ sequenceDiagram
 
 **Problem:** When the web app owns conversation history (the typical pattern), the agent is stateless and the UI layer must build, serialize, trim, and pass the full conversation context on every request. This couples the UI to the agent's context management strategy.
 
-**Pattern:** The agent owns its own memory, using the [Microsoft Agent Framework](https://learn.microsoft.com/en-us/agent-framework/)'s session persistence model. A custom `CosmosAgentSessionRepository` (subclassing the framework's `SerializedAgentSessionRepository`) persists `AgentSession` state to Cosmos DB between requests. The `from_agent_framework()` adapter auto-loads the session before each request and saves it after.
+**Pattern:** The agent owns its own memory using the [Microsoft Agent Framework](https://learn.microsoft.com/en-us/agent-framework/)'s session persistence and compaction. A custom `CosmosAgentSessionRepository` persists `AgentSession` state to an `agent-sessions` container. The `CompactionProvider` (rc5) applies two strategies: `SlidingWindowStrategy` (keep last 3 turn groups) trims context before the LLM call, and `ToolResultCompactionStrategy` (keep last 1 tool call group) replaces older tool output with summaries after the LLM responds.
 
-The web app becomes a **thin client** — it sends only `conversation_id` via `extra_body` and reads from the same Cosmos container for sidebar listing and conversation resume. Neither service overwrites the other's fields (read-modify-write pattern).
-
-**Compaction** (summarization, sliding window, token budget strategies) is designed but awaiting the Agent Framework's `_compaction` module — tracked in [GitHub Issue #10](https://github.com/aldelar/azure-knowledge-base-ingestion/issues/10).
+The web app owns conversation **display data** in three dedicated containers — `conversations` (sidebar metadata, PK `/userId`), `messages` (one doc per message, PK `/conversationId`), and `references` (one doc per citation, PK `/conversationId`). No shared documents, no read-modify-write races, no dependency on the agent's internal session format.
 
 ```mermaid
 flowchart LR
@@ -144,22 +142,30 @@ flowchart LR
         UI["Chainlit UI"]
     end
 
-    subgraph Agent["KB Agent"]
-        FW["from_agent_framework()"]
-        CA["ChatAgent"]
+    subgraph Agent["KB Agent (Microsoft Agent Framework)"]
+        direction LR
+        AG["Agent<br/><small><i>CosmosAgentSessionRepository</i></small>"]
+        CP["CompactionProvider<br/><small><i>SlidingWindowStrategy</i></small><br/><small><i>ToolResultCompactionStrategy</i></small>"]
+        AG --- CP
     end
 
-    DB[("Cosmos DB<br/>agent-sessions")]
+    Sessions[("agent-sessions")]
+    Conv[("conversations")]
+    Msgs[("conversation<br/>messages")]
+    Refs[("message<br/>references")]
 
-    UI -->|"conversation_id<br/>via extra_body"| FW
-    FW -->|"Load session"| DB
-    FW --> CA
-    CA -->|"Save session"| DB
-    UI -->|"Read for sidebar<br/>& resume"| DB
+    UI -->|"conversation_id<br/>via extra_body"| AG
+    AG -->|"Read/write session"| Sessions
+    UI -->|"Sidebar list"| Conv
+    UI -->|"Append messages"| Msgs
+    UI -->|"Write/read refs"| Refs
 
     style WebApp fill:#455a64,stroke:#546e7a,color:#ffffff
     style Agent fill:#3949ab,stroke:#5c6bc0,color:#ffffff
-    style DB fill:#616161,stroke:#757575,color:#ffffff
+    style Sessions fill:#616161,stroke:#757575,color:#ffffff
+    style Conv fill:#616161,stroke:#757575,color:#ffffff
+    style Msgs fill:#616161,stroke:#757575,color:#ffffff
+    style Refs fill:#616161,stroke:#757575,color:#ffffff
 ```
 
 ---
@@ -262,6 +268,35 @@ flowchart LR
 ![Agent trace in Azure Monitor — tool calls, model invocations, and session lifecycle as OpenTelemetry spans](docs/assets/trace.png)
 
 *Traces are stored in Application Insights and visualized here in the Microsoft Foundry portal — available when the agent is registered to Foundry via `make azure-register-agent`.*
+
+---
+
+### 8. Contextual Tool Filtering
+
+**Problem:** Agent tools query backends (AI Search, databases) but have no way to apply per-user security filters without leaking identity context into the LLM prompt. Injecting department or role into the system prompt exposes sensitive authorization logic to the model and creates prompt injection risks.
+
+**Pattern:** Three-layer out-of-band propagation using [`ContextVar`](https://docs.python.org/3/library/contextvars.html) → [`FunctionMiddleware`](https://learn.microsoft.com/en-us/agent-framework/) → `**kwargs`. JWT claims are extracted at the HTTP boundary and stored in a `ContextVar`. A `SecurityFilterMiddleware` (Agent Framework `FunctionMiddleware`) resolves Entra group GUIDs to department names and writes enriched values into `context.kwargs`. Tools receive departments, roles, and tenant ID as plain `**kwargs` and build backend-specific filters (OData for AI Search, SQL WHERE clauses for databases). The LLM never sees the filter context. Tools are testable in isolation by passing kwargs directly.
+
+**Index metadata pipeline:** The `department` field in the AI Search index is populated via a `metadata.json` contract between the convert and index stages. `fn-convert` reads articles from `staging/{department}/{article-id}/`, writes the processed output to flat `serving/{article-id}/`, and generates a `metadata.json` file containing `{"department": "engineering"}` (and any future index fields). `fn-index` reads `metadata.json` from each article folder and uses its fields directly as AI Search index fields — no knowledge of the staging folder structure is needed. This makes the metadata extensible: adding a new index dimension only requires `fn-convert` to write an additional field to `metadata.json`.
+
+```mermaid
+flowchart LR
+    A["HTTP Request<br/>(Bearer token)"] --> B["JWT Middleware<br/>validates token,<br/>sets ContextVar"]
+    B --> C["Agent Framework<br/>agent.run()"]
+    C --> D["SecurityFilterMiddleware<br/>resolves groups,<br/>writes to kwargs"]
+    D -->|"1 call"| G["Graph API<br/>(simulated)"]
+    D --> E["search_knowledge_base<br/>builds OData from **kwargs"]
+
+    H["Unit Test"] -.->|"departments=[...]"| E
+
+    style B fill:#2e7d32,color:#fff
+    style D fill:#e65100,color:#fff
+    style E fill:#1565c0,color:#fff
+    style G fill:#b71c1c,color:#fff
+    style H fill:#6a1b9a,color:#fff
+```
+
+> See [docs/specs/contextual-tool-filtering.md](docs/specs/contextual-tool-filtering.md) for the full architecture comparison and implementation details.
 
 ---
 

@@ -46,6 +46,9 @@ All resources follow the pattern `{prefix}-{projectName}-{env}` (e.g., `func-{pr
 | Cosmos DB (NoSQL) | `cosmos-db.bicep` | `cosmos-{project}-{env}` | Serverless |
 | → Database | `cosmos-db.bicep` | `kb-agent` | — |
 | → Container | `cosmos-db.bicep` | `agent-sessions` | Partition key `/id` |
+| → Container | `cosmos-db.bicep` | `conversations` | Partition key `/userId` |
+| → Container | `cosmos-db.bicep` | `messages` | Partition key `/conversationId` |
+| → Container | `cosmos-db.bicep` | `references` | Partition key `/conversationId` |
 | Entra App Registration | Pre-provision hook | `webapp-{project}-{env}` | — |
 
 > `{project}` is the `PROJECT_NAME` (default `{project}`). `{env}` is the `AZURE_ENV_NAME` (e.g., `dev`, `staging`, `prod`).
@@ -64,7 +67,7 @@ infra/
     ├── ai-services.bicep           # AI Services account + model deployments + RBAC
     ├── search.bicep                # AI Search service + RBAC
     ├── foundry-project.bicep       # Foundry project (tracing + registration only — no ACR connection or capability host)
-    ├── cosmos-db.bicep             # Cosmos DB NoSQL (serverless) — database + agent-sessions container
+    ├── cosmos-db.bicep             # Cosmos DB NoSQL (serverless) — database + 4 containers
     ├── cosmos-db-role.bicep        # Cosmos DB Built-in Data Contributor role assignment
     ├── function-app.bicep          # Reusable Functions Container App module (called 4×, one per function)
     ├── container-registry.bicep    # Azure Container Registry (Basic) + AcrPull RBAC
@@ -249,7 +252,7 @@ The project also has an APIM connection resource (`apim-connection`) linking it 
 
 ### Cosmos DB (`cosmos-db.bicep`)
 
-Serverless NoSQL database for agent session persistence. The agent writes session state (conversation history); the web app reads sessions for the sidebar and writes steps/elements for UI fidelity. See [Agent Memory](agent-memory.md) for the full schema.
+Serverless NoSQL database for conversation persistence using a 4-container model with clean ownership boundaries. The agent exclusively owns `agent-sessions`; the web app exclusively owns `conversations`, `messages`, and `references`. See [Agent Memory](agent-memory.md) for the full schema.
 
 | Setting | Value |
 |---------|-------|
@@ -257,7 +260,7 @@ Serverless NoSQL database for agent session persistence. The agent writes sessio
 | Capability | `EnableServerless` |
 | Consistency | Session |
 | Database | `kb-agent` |
-| Container | `agent-sessions` (partition key: `/id`) |
+| Containers | `agent-sessions` (PK `/id`), `conversations` (PK `/userId`), `messages` (PK `/conversationId`), `references` (PK `/conversationId`) |
 | Public Network | Enabled |
 
 The `cosmos-db-role.bicep` module assigns the **Cosmos DB Built-in Data Contributor** role (role ID `00000000-0000-0000-0000-000000000002`) to a specified principal. Called twice: once for the web app Container App identity and once for the agent Container App identity.

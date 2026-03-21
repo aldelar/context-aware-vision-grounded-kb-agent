@@ -43,13 +43,18 @@ mkdir -p "$SERVING_DIR"
 
 echo "Using analyzer: $ANALYZER (module: $MODULE)"
 
-for article_dir in "$STAGING_DIR"/*/; do
-    article_id="$(basename "$article_dir")"
-    echo ""
-    echo "=== fn-convert ($ANALYZER): $article_id ==="
-    output_dir="$SERVING_DIR/$article_id"
-    mkdir -p "$output_dir"
-    (cd "$REPO_ROOT/src/functions" && uv run python -m "$MODULE" "$article_dir" "$output_dir")
+for dept_dir in "$STAGING_DIR"/*/; do
+    department="$(basename "$dept_dir")"
+    for article_dir in "$dept_dir"*/; do
+        article_id="$(basename "$article_dir")"
+        echo ""
+        echo "=== fn-convert ($ANALYZER): $department/$article_id ==="
+        output_dir="$SERVING_DIR/$article_id"
+        mkdir -p "$output_dir"
+        (cd "$REPO_ROOT/src/functions" && uv run python -m "$MODULE" "$article_dir" "$output_dir")
+        # Write metadata.json with department (and any future fields)
+        echo "{\"department\": \"$department\"}" > "$output_dir/metadata.json"
+    done
 done
 
 echo ""

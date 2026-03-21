@@ -5,7 +5,7 @@
 # Run 'make help' for all available targets.
 # ==============================================================================
 
-analyzer ?= mistral-doc-ai
+analyzer ?= markitdown
 
 .DEFAULT_GOAL := help
 
@@ -244,6 +244,7 @@ grant-dev-roles: ## Grant Cosmos DB native RBAC to current developer
 clean-kb: _check-env ## Clean local serving output + delete search index
 	@echo "Cleaning kb/serving/ article outputs..."
 	@find kb/serving -name "article.md" -delete 2>/dev/null || true
+	@find kb/serving -name "metadata.json" -delete 2>/dev/null || true
 	@find kb/serving -name "*.png" -delete 2>/dev/null || true
 	@echo "Deleting search index..."
 	@cd src/functions && uv run python -c "\
@@ -266,7 +267,7 @@ upload-serving: _check-env ## Upload kb/serving/ images to Azure serving blob
 	@ACCOUNT=$$(grep '^SERVING_STORAGE_ACCOUNT=' src/functions/.env | cut -d= -f2 | tr -d '"') && \
 	for dir in kb/serving/*/; do \
 		ARTICLE=$$(basename "$$dir") && \
-		echo "  ↑ $$ARTICLE" && \
+		echo "  \u2191 $$ARTICLE" && \
 		az storage blob upload-batch \
 			--destination serving \
 			--source "$$dir" \
@@ -344,17 +345,20 @@ azure-setup-auth: ## Configure Entra redirect URIs (idempotent)
 azure-upload-staging: ## Upload kb/staging → Azure staging blob
 	@echo "Uploading kb/staging/ to Azure staging blob container..."
 	@ACCOUNT=$$(azd env get-value STAGING_STORAGE_ACCOUNT) && \
-	for dir in kb/staging/*/; do \
-		ARTICLE=$$(basename "$$dir") && \
-		echo "  ↑ $$ARTICLE" && \
-		az storage blob upload-batch \
-			--destination staging \
-			--source "$$dir" \
-			--destination-path "$$ARTICLE" \
-			--account-name "$$ACCOUNT" \
-			--auth-mode login \
-			--overwrite \
-			--only-show-errors; \
+	for dept_dir in kb/staging/*/; do \
+		DEPT=$$(basename "$$dept_dir") && \
+		for dir in $$dept_dir*/; do \
+			ARTICLE=$$(basename "$$dir") && \
+			echo "  \u2191 $$DEPT/$$ARTICLE" && \
+			az storage blob upload-batch \
+				--destination staging \
+				--source "$$dir" \
+				--destination-path "$$DEPT/$$ARTICLE" \
+				--account-name "$$ACCOUNT" \
+				--auth-mode login \
+				--overwrite \
+				--only-show-errors; \
+		done; \
 	done
 	@echo "Done."
 

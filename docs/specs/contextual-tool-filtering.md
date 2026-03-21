@@ -448,3 +448,25 @@ def test_search_graph_with_filter():
 - `azure.ai.agentserver.core.tools.runtime._starlette.py` — `UserInfoContextMiddleware`
 - `azure.ai.agentserver.core.tools.runtime._user.py` — `ContextVarUserProvider`, `UserInfo`
 - [Azure AI Search — Security filters](https://learn.microsoft.com/en-us/azure/search/search-security-trimming-for-azure-search)
+
+---
+
+## Implementation Status
+
+**Epic 011** implemented **Architecture 3** (ContextVar + FunctionMiddleware + `**kwargs`):
+
+| Component | File | Status |
+|-----------|------|--------|
+| ContextVar definitions | `src/agent/middleware/request_context.py` | ✅ Done |
+| JWT claims extraction | `src/agent/middleware/jwt_auth.py` | ✅ Done |
+| Group resolver (simulated) | `src/agent/agent/group_resolver.py` | ✅ Done |
+| SecurityFilterMiddleware | `src/agent/agent/security_middleware.py` | ✅ Done |
+| Tool with `**kwargs` | `src/agent/agent/kb_agent.py` | ✅ Done |
+| search_kb `security_filter` | `src/agent/agent/search_tool.py` | ✅ Done |
+| Index `department` field | `src/functions/fn_index/indexer.py` | ✅ Done |
+| KB by department | `kb/staging/engineering/` | ✅ Done |
+
+**Key decisions:**
+- Group resolver returns `["engineering"]` for any non-empty group list (simulated — replace with real Graph API in a future epic)
+- OData filter uses `search.in(department, 'dept1,dept2', ',')` syntax for multi-value matching
+- Dev mode (`REQUIRE_AUTH=false`) sets default claims with `groups: ["dev-group-guid"]`, which resolves to `["engineering"]`

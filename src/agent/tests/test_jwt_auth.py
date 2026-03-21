@@ -507,3 +507,234 @@ class TestAgentAppUri:
 
         assert resp.status_code == 401
         assert "audience" in resp.json()["detail"].lower()
+
+
+# ===========================================================================
+# 11. ContextVar propagation — claims are set on request context
+# ===========================================================================
+
+
+async def _claims_endpoint(request: Request) -> JSONResponse:
+    """Return the current user_claims_var value."""
+    from middleware.request_context import user_claims_var
+
+    return JSONResponse(user_claims_var.get())
+
+
+def _build_claims_app() -> Starlette:
+    """App with an endpoint that returns the ContextVar claims."""
+    from middleware.jwt_auth import JWTAuthMiddleware
+
+    app = Starlette(
+        routes=[
+            Route("/claims", _claims_endpoint),
+        ],
+    )
+    app.add_middleware(JWTAuthMiddleware)
+    return app
+
+
+class TestContextVarPropagation:
+    """JWT middleware populates user_claims_var for downstream use."""
+
+    def test_dev_claims_set_when_auth_disabled(self, monkeypatch):
+        monkeypatch.setenv("REQUIRE_AUTH", "false")
+        app = _build_claims_app()
+        client = TestClient(app, raise_server_exceptions=False)
+
+        resp = client.get("/claims")
+        assert resp.status_code == 200
+        claims = resp.json()
+        assert claims["user_id"] == "dev-user"
+        assert claims["tenant_id"] == "dev-tenant"
+        assert claims["groups"] == ["dev-group-guid"]
+        assert claims["roles"] == ["contributor"]
+
+    def test_jwt_claims_set_on_valid_token(self, monkeypatch):
+        monkeypatch.setenv("REQUIRE_AUTH", "true")
+        monkeypatch.delenv("AGENT_APP_URI", raising=False)
+        jwks_patcher, _ = _mock_jwks()
+
+        token = _encode_token(
+            _valid_claims(
+                oid="user-object-id",
+                tid="tenant-123",
+                groups=["group-a", "group-b"],
+                roles=["reader"],
+            ),
+        )
+
+        with jwks_patcher:
+            app = _build_claims_app()
+            client = TestClient(app, raise_server_exceptions=False)
+
+            resp = client.get(
+                "/claims",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+
+        assert resp.status_code == 200
+        claims = resp.json()
+        assert claims["user_id"] == "user-object-id"
+        assert claims["tenant_id"] == "tenant-123"
+        assert claims["groups"] == ["group-a", "group-b"]
+        assert claims["roles"] == ["reader"]
+
+    def test_claims_default_empty_when_missing(self, monkeypatch):
+        """Claims fields default to empty when absent from JWT."""
+        monkeypatch.setenv("REQUIRE_AUTH", "true")
+        monkeypatch.delenv("AGENT_APP_URI", raising=False)
+        jwks_patcher, _ = _mock_jwks()
+
+        # Token with no oid, tid, groups, or roles
+        token = _encode_token(_valid_claims())
+
+        with jwks_patcher:
+            app = _build_claims_app()
+            client = TestClient(app, raise_server_exceptions=False)
+
+            resp = client.get(
+                "/claims",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+
+        assert resp.status_code == 200
+        claims = resp.json()
+        assert claims["user_id"] == ""
+        assert claims["tenant_id"] == ""
+        assert claims["groups"] == []
+        assert claims["roles"] == []
+
+
+# ===========================================================================
+# 12. X-User-Groups header propagation
+# ===========================================================================
+
+
+class TestUserGroupsHeader:
+    """X-User-Groups header is used when JWT has no groups claim."""
+
+    def test_header_groups_used_when_jwt_has_no_groups(self, monkeypatch):
+        """Service token (no groups) + X-User-Groups header → groups populated."""
+        monkeypatch.setenv("REQUIRE_AUTH", "true")
+        monkeypatch.delenv("AGENT_APP_URI", raising=False)
+        jwks_patcher, _ = _mock_jwks()
+
+        # Token with NO groups claim
+        token = _encode_token(_valid_claims(oid="svc-principal"))
+
+        with jwks_patcher:
+            app = _build_claims_app()
+            client = TestClient(app, raise_server_exceptions=False)
+
+            resp = client.get(
+                "/claims",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "X-User-Groups": "guid-1,guid-2",
+                },
+            )
+
+        assert resp.status_code == 200
+        claims = resp.json()
+        assert claims["groups"] == ["guid-1", "guid-2"]
+
+    def test_jwt_groups_take_precedence_over_header(self, monkeypatch):
+        """When JWT has groups, the header is ignored."""
+        monkeypatch.setenv("REQUIRE_AUTH", "true")
+        monkeypatch.delenv("AGENT_APP_URI", raising=False)
+        jwks_patcher, _ = _mock_jwks()
+
+        token = _encode_token(
+            _valid_claims(groups=["jwt-group"]),
+        )
+
+        with jwks_patcher:
+            app = _build_claims_app()
+            client = TestClient(app, raise_server_exceptions=False)
+
+            resp = client.get(
+                "/claims",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "X-User-Groups": "header-group",
+                },
+            )
+
+        assert resp.status_code == 200
+        claims = resp.json()
+        assert claims["groups"] == ["jwt-group"]
+
+    def test_header_groups_whitespace_trimmed(self, monkeypatch):
+        """Whitespace around group GUIDs in header is trimmed."""
+        monkeypatch.setenv("REQUIRE_AUTH", "true")
+        monkeypatch.delenv("AGENT_APP_URI", raising=False)
+        jwks_patcher, _ = _mock_jwks()
+
+        token = _encode_token(_valid_claims())
+
+        with jwks_patcher:
+            app = _build_claims_app()
+            client = TestClient(app, raise_server_exceptions=False)
+
+            resp = client.get(
+                "/claims",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "X-User-Groups": " guid-1 , guid-2 , ",
+                },
+            )
+
+        assert resp.status_code == 200
+        claims = resp.json()
+        assert claims["groups"] == ["guid-1", "guid-2"]
+
+    def test_empty_header_no_groups(self, monkeypatch):
+        """Empty X-User-Groups header results in empty groups."""
+        monkeypatch.setenv("REQUIRE_AUTH", "true")
+        monkeypatch.delenv("AGENT_APP_URI", raising=False)
+        jwks_patcher, _ = _mock_jwks()
+
+        token = _encode_token(_valid_claims())
+
+        with jwks_patcher:
+            app = _build_claims_app()
+            client = TestClient(app, raise_server_exceptions=False)
+
+            resp = client.get(
+                "/claims",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "X-User-Groups": "",
+                },
+            )
+
+        assert resp.status_code == 200
+        assert resp.json()["groups"] == []
+
+    def test_dev_mode_honours_header_groups(self, monkeypatch):
+        """In dev mode (REQUIRE_AUTH=false), X-User-Groups overrides defaults."""
+        monkeypatch.setenv("REQUIRE_AUTH", "false")
+        app = _build_claims_app()
+        client = TestClient(app, raise_server_exceptions=False)
+
+        resp = client.get(
+            "/claims",
+            headers={"X-User-Groups": "custom-guid"},
+        )
+
+        assert resp.status_code == 200
+        claims = resp.json()
+        assert claims["groups"] == ["custom-guid"]
+
+    def test_dev_mode_default_groups_without_header(self, monkeypatch):
+        """In dev mode without header, default dev groups are used."""
+        monkeypatch.setenv("REQUIRE_AUTH", "false")
+        app = _build_claims_app()
+        client = TestClient(app, raise_server_exceptions=False)
+
+        resp = client.get("/claims")
+
+        assert resp.status_code == 200
+        claims = resp.json()
+        assert claims["groups"] == ["dev-group-guid"]

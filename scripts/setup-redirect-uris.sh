@@ -42,10 +42,7 @@ echo "  2) $CHAINLIT_URI"
 # ---------------------------------------------------------------------------
 # Read current redirect URIs
 # ---------------------------------------------------------------------------
-CURRENT_URIS=$(az ad app show --id "$CLIENT_ID" --query "web.redirectUris" -o json 2>&1)
-RC=$?
-
-if [ $RC -ne 0 ]; then
+if ! CURRENT_URIS=$(az ad app show --id "$CLIENT_ID" --query "web.redirectUris" -o json 2>&1); then
   echo "ERROR: Could not read app registration. 'az ad' output:" >&2
   echo "$CURRENT_URIS" >&2
   echo "" >&2

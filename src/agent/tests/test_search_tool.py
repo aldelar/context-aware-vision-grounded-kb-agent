@@ -23,6 +23,7 @@ class TestSearchResult:
         )
         assert result.image_urls == []
         assert result.score == 0.0
+        assert result.department == ""
 
     def test_with_images(self) -> None:
         result = SearchResult(
@@ -61,6 +62,7 @@ class TestSearchKb:
             "title": "What is Content Understanding?",
             "section_header": "Overview",
             "image_urls": ["images/framework.png"],
+            "department": "engineering",
             "@search.score": 0.87,
         }
         mock_client.search.return_value = [mock_result]
@@ -77,6 +79,7 @@ class TestSearchKb:
         assert r.section_header == "Overview"
         assert r.image_urls == ["images/framework.png"]
         assert r.score == 0.87
+        assert r.department == "engineering"
 
     @patch("agent.search_tool._search_client")
     @patch("agent.search_tool._embed_query")
