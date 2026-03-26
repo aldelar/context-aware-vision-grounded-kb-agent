@@ -20,16 +20,20 @@ infra/
 ├── main.bicep                  # Orchestration — wires all modules + role assignments
 ├── main.parameters.json        # AZD parameter file (env name, location, search SKU)
 └── modules/
+    ├── apim.bicep               # API Management — AI Gateway (BasicV2)
+    ├── apim-agent-api.bicep     # APIM agent API definition + backend
     ├── monitoring.bicep         # Log Analytics + Application Insights
     ├── storage.bicep            # Reusable storage account with containers + RBAC
     ├── ai-services.bicep        # AI Services account + model deployments + RBAC
     ├── search.bicep             # AI Search service + RBAC
-    ├── foundry-project.bicep    # Foundry project (child of AI Services)
-    ├── cosmos-db.bicep          # Cosmos DB NoSQL (serverless)
+    ├── foundry-project.bicep    # Foundry project (tracing + registration)
+    ├── cosmos-db.bicep          # Cosmos DB NoSQL (serverless) — database + 4 containers
     ├── cosmos-db-role.bicep     # Cosmos DB Built-in Data Contributor role
-    ├── function-app.bicep       # Functions on Container Apps (custom Docker)
-    ├── container-registry.bicep # Azure Container Registry (Basic)
-    └── container-app.bicep      # Container Apps Environment + web app + Easy Auth
+    ├── function-app.bicep       # Functions on Container Apps (called 4×, one per function)
+    ├── container-registry.bicep # Azure Container Registry (Basic) + AcrPull RBAC
+    ├── container-apps-env.bicep # Container Apps Environment (shared)
+    ├── container-app.bicep      # Web App Container App + Easy Auth
+    └── agent-container-app.bicep # Agent Container App (HTTPS ingress + JWT auth, port 8088)
 ```
 
 ## Conventions
