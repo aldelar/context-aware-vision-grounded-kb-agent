@@ -10,22 +10,22 @@ The current setup blurs local and Azure workflows:
 - There is no docker-compose; each service runs manually via `uv run`.
 - No local emulators are used — everything talks to Azure even during development.
 - The Makefile mixes "Local" and "Azure" in ways that don't cleanly map to a dev/prod model.
-- Test taxonomy is inconsistent: most service-backed tests use `integration`, web UI tests use `uitest`, and some files still use `e2e` terminology in names/docstrings.
+- Tests are categorized as unit, integration, and e2e, but the e2e label adds confusion (they are really integration tests).
 
 ## 2. Target Environments
 
 | Environment | Infra Location | Services Run As | LLM / Embeddings Source | Purpose |
 |-------------|---------------|-----------------|------------------------|--------|
-| **Dev** (local) | Docker containers only — **zero Azure cloud dependency** | Docker containers (our code + emulators + Ollama) | Ollama (local): `phi4-mini` for chat, `mxbai-embed-large` for embeddings, `moondream` for vision/images | Daily development, fast iteration, unit + integration tests |
-| **Prod** | Azure RG (`rg-{project}-prod`) | Azure Container Apps | Azure AI Services (GPT-4.1, text-embedding-3-small, GPT-4.1 vision) | Production |
+| **Dev** (local) | Docker containers only — **zero Azure dependency** | Docker containers (our code + emulators + Ollama) | Ollama (local): `phi4-mini` for chat, `mxbai-embed-large` for embeddings, `moondream` for vision/images | Daily development, fast iteration, unit + integration tests |
+| **Prod** | Azure RG (`rg-{project}-prod`) | Azure Container Apps | Azure AI Services (GPT-4.1, text-embedding-3-large, GPT-4.1 vision) | Production |
 
 > **Note:** Staging is intentionally omitted from this reference repo. A staging environment would be a clone of prod infra with a different AZD env name (e.g., `rg-{project}-staging`). It can be added later when CI/CD pipelines are set up.
 
-> **Key design decision:** Dev has **no Azure cloud dependency**. All runtime infrastructure runs in Docker and Bicep/IaC exists only for prod. The workflow may still use AZD locally as a parameter store for `PROJECT_NAME` and `CONVERTER`, but dev does not require an Azure subscription, `az login`, or Azure spend.
+> **Key design decision:** Dev has **no Azure dependency whatsoever**. All infrastructure runs in Docker. Bicep/IaC exists only for prod. This means no `az login`, no Azure subscription, and no Azure cost for local development.
 
 ## 3. Project-Level Parameters
 
-Two parameters are set once per project and stored in AZD env. `PROJECT_NAME` is shared across environment workflows, while `CONVERTER` is consumed by prod deploy and pipeline targets.
+Two parameters are set once per project and stored in AZD env. All Makefile targets read them automatically — no per-invocation overrides needed.
 
 | Parameter | AZD Env Key | Values | Default | Set via |
 |-----------|-------------|--------|---------|--------|
@@ -34,17 +34,15 @@ Two parameters are set once per project and stored in AZD env. `PROJECT_NAME` is
 
 **How `CONVERTER` works:**
 
-- In **dev**: local Docker always runs `fn_convert_markitdown/Dockerfile`. `CONVERTER` does not change the local converter.
-- In **prod**: the Makefile treats one of the existing Azure converter services as the operationally selected converter for deploy and pipeline targets.
-- This epic **does not** collapse the current prod topology in `azure.yaml` / `infra/main.bicep`; converter selection in prod is an operational convention unless and until infra is made conditional.
-- In other words, the selected converter is the one deploy/pipeline targets use by default, not an exclusivity guarantee enforced by Azure today.
-- `dev-pipeline-convert` always routes to the local MarkItDown converter.
-- `prod-pipeline-convert` routes to the converter selected by `make set-converter converter=X`.
-- Changing the converter is a `make set-converter converter=X` plus redeploying the selected prod service when needed.
+- Determines which `fn-convert` variant is built and deployed — only one at a time.
+- In **dev**: `docker-compose.dev-services.yml` builds the Dockerfile for the selected converter.
+- In **prod**: `azd deploy` deploys only the selected converter's container to Azure Container Apps.
+- The `dev-convert` and `prod-convert` targets route to the correct function automatically.
+- Changing the converter is a `make set-converter converter=X` + rebuild (`dev-services-up` or `prod-services-up`).
 
-**Prod mapping:**
+**Mapping:**
 
-| `CONVERTER` value | Dockerfile | Existing AZD service / Function App (prod) | Azure route |
+| `CONVERTER` value | Dockerfile | Function App (prod) | Azure route |
 |-------------------|-----------|--------------------|-----------|
 | `markitdown` | `fn_convert_markitdown/Dockerfile` | `func-cvt-mit-{project}-{env}` | `/api/convert-markitdown` |
 | `content-understanding` | `fn_convert_cu/Dockerfile` | `func-cvt-cu-{project}-{env}` | `/api/convert` |
@@ -69,7 +67,7 @@ Two parameters are set once per project and stored in AZD env. `PROJECT_NAME` is
 | **Azure Blob Storage** | Azurite | `mcr.microsoft.com/azure-storage/azurite:latest` | **Excellent** | Full Blob/Queue/Table emulation. Port 10000 (Blob), 10001 (Queue), 10002 (Table). Well-known connection string. DefaultAzureCredential won't work — use connection string or well-known key locally. |
 | **Azure AI Search** | Azure AI Search Simulator | `ghcr.io/ellerbach/azure-ai-search-simulator:latest` | **Good** | Community-built simulator ([GitHub](https://github.com/Ellerbach/azure-ai-search-simulator)). Supports full-text search, vector search (cosine), hybrid search, filtering, facets, sorting, highlighting, autocomplete, suggestions, scoring profiles, synonym maps. Uses Lucene.NET internally. Compatible with the official `azure-search-documents` Python SDK. API-key auth (not AAD). HTTPS on port 7250, HTTP on port 5250. Does **not** support semantic search or AI built-in skills — acceptable for our push-model usage (we only push pre-embedded chunks). |
 | **AI Services (LLM)** | Ollama — `phi4-mini` | `ollama/ollama` (with `--gpus=all`) | **Good** | Microsoft Phi-4-mini-instruct (3.8B params, 2.5 GB). OpenAI-compatible API at `http://localhost:11434/v1/`. Supports `/v1/chat/completions` with tool calling, streaming, structured output. 128K context. MIT license. Fits entirely in 4 GB VRAM for fast GPU inference. Strong reasoning for its size (math, logic). Quality is below GPT-4.1 but sufficient for dev/test data-flow validation. |
-| **AI Services (Embeddings)** | Ollama — `mxbai-embed-large` | (same `ollama/ollama` container) | **Excellent** | 335M param model (670 MB). Supports `/v1/embeddings` endpoint. MTEB SOTA for BERT-large class. Generates 1024-dim vectors, so local vector dimensions must be configurable instead of hard-coded to Azure's current 1536-dim shape. |
+| **AI Services (Embeddings)** | Ollama — `mxbai-embed-large` | (same `ollama/ollama` container) | **Excellent** | 335M param model (670 MB). Supports `/v1/embeddings` endpoint. MTEB SOTA for BERT-large class — outperforms OpenAI `text-embedding-3-large`. 512-token context. Generates 1024-dim vectors. |
 | **AI Services (Vision/OCR)** | Ollama — `moondream` | (same `ollama/ollama` container) | **Good** | moondream2 (1.8B params, 1.7 GB). Tiny vision language model designed for edge devices. Supports image+text input via `/v1/chat/completions` with `image_url` content. Fits GPU alongside phi4-mini. Used by fn-convert (MarkItDown) for image analysis in dev. CU and Mistral converters still require Azure — but MarkItDown is the default for dev. |
 | **Foundry Project** | Not needed for dev | N/A | **Not required** | Agent registration is a prod concern. In dev, the agent runs directly as a local HTTP service without Foundry registration. |
 
@@ -91,28 +89,10 @@ Two parameters are set once per project and stored in AZD env. `PROJECT_NAME` is
 | Model | Role | Size | Fits 4 GB VRAM? | Notes |
 |-------|------|------|-----------------|-------|
 | `phi4-mini` | Chat / reasoning (agent) | 2.5 GB | **Yes** | Microsoft Phi-4-mini-instruct. 3.8B params, 128K context, tool calling support. Strong reasoning (math, logic). Text-only — no vision. Best quality-per-GB for small VRAM. |
-| `mxbai-embed-large` | Embeddings (fn-index) | 670 MB | **Yes** | MTEB SOTA for BERT-large class. 335M params, 1024-dim vectors. Dev-only replacement for Azure `text-embedding-3-small`; requires env-driven vector dimensions. |
+| `mxbai-embed-large` | Embeddings (fn-index) | 670 MB | **Yes** | MTEB SOTA for BERT-large class. 335M params, 1024-dim vectors. Replaces Azure `text-embedding-3-large`. |
 | `moondream` | Vision / image analysis (fn-convert) | 1.7 GB | **Yes** | moondream2. 1.8B params, image+text input. Used by MarkItDown converter for image description. phi4-mini is text-only, so moondream handles vision tasks. |
 
 > **Quality caveat:** `phi4-mini` (3.8B) is substantially smaller than Azure GPT-4.1. Integration tests should validate **data flow and connectivity**, not response quality. Quality evaluation must use prod models (see eval-driven-dev skill).
-
-### 4.1.1 Embedding Dimension Strategy
-
-The repo is currently hard-coded to **1536-dimension** embeddings (`text-embedding-3-small`) in the search index schema, search tool, and tests. Dev will use `mxbai-embed-large`, which returns **1024-dimension** vectors.
-
-That means the implementation must make vector dimensions **environment-driven**, not constant:
-
-| Environment | Embedding model | Vector dimensions |
-|------------|-----------------|-------------------|
-| **Dev** | `mxbai-embed-large` | `1024` |
-| **Prod** | `text-embedding-3-small` | `1536` |
-
-Required code change:
-
-- Add `EMBEDDING_VECTOR_DIMENSIONS` config/env support.
-- Make `fn-index` index creation read dimensions from config instead of `VECTOR_DIMENSIONS = 1536`.
-- Make `agent.search_tool` validate/query using the configured dimension instead of a constant.
-- Update integration and unit tests to assert the configured dimension for each environment.
 
 ### 4.2 API Compatibility — Two-Layer Architecture
 
@@ -164,10 +144,10 @@ Aspire Dashboard provides a rich development-time UI for traces, structured logs
 
 ## 5. Dev Environment Architecture
 
-### 5.1 Docker Compose Topology — `docker-compose.dev-infra.yml` + `docker-compose.dev-services.yml`
+### 5.1 Docker Compose Topology — Zero Azure Dependency
 
 ```
-┌─ docker-compose.dev-infra.yml + docker-compose.dev-services.yml ───────────┐
+┌─ docker-compose.dev.yml ──────────────────────────────────────┐
 │                                                                │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐ │
 │  │ cosmosdb-emu │  │   azurite    │  │  search-simulator    │ │
@@ -236,7 +216,7 @@ This means the application code needs a thin config layer that switches between:
 ### 6.1 Dev (Local) Targets
 
 ```makefile
-# === Dev (Local) — zero Azure cloud dependency ===
+# === Dev (Local) — zero Azure dependency ===
 dev-setup                      # Install tools (Docker, uv) + Python deps for all services
 dev-infra-up                   # Pull images, start infra containers, pull Ollama models, init emulator resources
 dev-infra-down                 # Stop and remove all dev infra containers
@@ -246,12 +226,11 @@ dev-services-down              # Stop all app service containers
   dev-services-app-up          # Build & start web-app only
   dev-services-agents-up       # Build & start agent only
 dev-test                       # Run unit + integration tests
-  dev-test-ui                    # Run optional browser-based UI tests
 dev-ui                         # Open browser to http://localhost:8080
 
 # Pipeline triggers (dev)
 dev-pipeline                   # Run full KB pipeline locally (convert + index)
-dev-pipeline-convert           # Run fn-convert only (MarkItDown in dev)
+dev-pipeline-convert           # Run fn-convert only
 dev-pipeline-index             # Run fn-index only
 ```
 
@@ -280,7 +259,7 @@ prod-pipeline-index            # Trigger fn-index in Azure
 # === Shared ===
 help                           # Show all targets grouped by environment
 set-project                    # Set PROJECT_NAME in AZD env (2-8 chars)
-set-converter                  # Set CONVERTER in AZD env for prod targets (markitdown | content-understanding | mistral-doc-ai)
+set-converter                  # Set CONVERTER in AZD env (markitdown | content-understanding | mistral-doc-ai)
 ```
 
 ### 6.4 Targets Removed
@@ -291,25 +270,23 @@ set-converter                  # Set CONVERTER in AZD env for prod targets (mark
 | `azure-kb` | `prod-pipeline` |
 | `azure-test` | Merged into `dev-test` with `@pytest.mark.integration` |
 | `azure-app-url` | `prod-ui-url` |
-| `test-ui` / `test-ui-auto` | `dev-test-ui` |
+| `test-ui` / `test-ui-auto` | Dropped — no e2e tests in the new model |
 | `setup-azure` | `prod-infra-up` (Azure only exists for prod) |
 | `setup` | `dev-setup` (no alias needed) |
 | `test` | `dev-test` (no alias needed) |
 
 ## 7. Test Strategy
 
-### 7.1 Three practical tiers
+### 7.1 Two tiers only
 
 | Tier | Marker | What it tests | Infrastructure needed | When to run |
 |------|--------|---------------|----------------------|-------------|
 | **Unit** | (default, no marker) | Business logic, pure functions, mocked externals | None | Always, `make dev-test` |
 | **Integration** | `@pytest.mark.integration` | Real service calls — search queries, Cosmos reads, blob access, LLM calls | Dev Docker infra running (`make dev-infra-up`) | `make dev-test` (with infra up) |
-| **UI** | `@pytest.mark.uitest` | Browser-based flows against running agent + web-app | Dev infra + app services + browser tooling | `make dev-test-ui` |
 
 ### 7.2 Changes
 
-- **Remove `e2e` terminology as a testing category** — there is no repo-level `e2e` marker today, but some test files and docstrings still use that label.
-- **Keep `uitest` as an optional browser tier** — do not fold browser tests into default `dev-test`.
+- **Remove `e2e` marker** — current "e2e" tests are actually integration tests that call deployed endpoints. Fold them into `integration`.
 - **Integration tests run against local Docker infra** (emulators) when possible.
 - **All integration tests run fully locally** — no Azure dependency. LLM calls go to Ollama, search to the simulator, storage to emulators.
 
@@ -322,7 +299,7 @@ Integration tests must not pollute the dev working environment. All emulated sto
 - **Cosmos DB database/container names:** most characters including hyphens allowed. Max 256 chars.
 - **AI Search index names:** lowercase letters, digits, and hyphens only. 2-128 chars.
 
-All test resources use the `-test` suffix (hyphens, not underscores) for consistency. This is valid for Azure Blob container names such as `staging-test`; storage account names are a different rule set and remain lowercase alphanumeric only.
+All test resources use the `-test` suffix (hyphens, not underscores) for consistency and Azure compatibility.
 
 #### Actual resource names (validated against codebase):
 
@@ -369,7 +346,7 @@ All test resources use the `-test` suffix (hyphens, not underscores) for consist
    - Seeds test data
    - Cleans up after itself (delete documents, or drop and recreate)
 
-4. **Config** — integration tests set `COSMOS_DATABASE_NAME=kb-agent-test`, `SEARCH_INDEX_NAME=kb-articles-test`, etc. via environment or fixture override. Additional code changes are still required for the current hard-coded resource names in converter entry points (`staging` / `serving`) and the agent session repository default container (`agent-sessions`).
+4. **Config** — integration tests set `COSMOS_DATABASE_NAME=kb-agent-test`, `SEARCH_INDEX_NAME=kb-articles-test`, etc. via environment or fixture override. The application config modules already read these from env vars, so no code changes needed — just different env values for test runs.
 
 ## 8. Docker Compose Design
 
@@ -457,15 +434,16 @@ volumes:
 
 ### 8.2 `docker-compose.dev-services.yml` — Our Services
 
-The local `fn-convert` service always builds `fn_convert_markitdown/Dockerfile`. CU and Mistral remain Azure-only for this environment model.
+The `fn-convert` service builds the Dockerfile selected by the `CONVERTER` project parameter. The Makefile resolves the Dockerfile path before invoking `docker-compose`.
 
 ```yaml
 # Application services (built from local Dockerfiles)
+# CONVERTER_DOCKERFILE is set by Makefile based on AZD env CONVERTER value
 services:
   fn-convert:
     build:
       context: ./src/functions
-      dockerfile: fn_convert_markitdown/Dockerfile
+      dockerfile: ${CONVERTER_DOCKERFILE:-fn_convert_markitdown/Dockerfile}
     ports:
       - "7071:80"
     env_file: .env.dev
@@ -515,14 +493,8 @@ ENVIRONMENT=dev
 COSMOS_ENDPOINT=https://localhost:8081
 COSMOS_KEY=C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==
 COSMOS_DATABASE_NAME=kb-agent
-COSMOS_SESSIONS_CONTAINER=agent-sessions
-COSMOS_CONVERSATIONS_CONTAINER=conversations
-COSMOS_MESSAGES_CONTAINER=messages
-COSMOS_REFERENCES_CONTAINER=references
 STAGING_BLOB_ENDPOINT=http://localhost:10000/devstoreaccount1
 SERVING_BLOB_ENDPOINT=http://localhost:10000/devstoreaccount1
-STAGING_CONTAINER_NAME=staging
-SERVING_CONTAINER_NAME=serving
 AZURITE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://localhost:10000/devstoreaccount1;
 SEARCH_ENDPOINT=https://localhost:7250
 SEARCH_ADMIN_KEY=dev-admin-key
@@ -533,7 +505,6 @@ OLLAMA_ENDPOINT=http://localhost:11434/v1
 OLLAMA_CHAT_MODEL=phi4-mini
 OLLAMA_EMBEDDING_MODEL=mxbai-embed-large
 OLLAMA_VISION_MODEL=moondream
-EMBEDDING_VECTOR_DIMENSIONS=1024
 
 # === Model deployment overrides (point at Ollama models) ===
 AGENT_MODEL_DEPLOYMENT_NAME=phi4-mini
@@ -552,7 +523,7 @@ OTEL_EXPORTER_OTLP_PROTOCOL=grpc
 
 ### 9.1 Config Module Updates
 
-`src/functions/shared/config.py`, `src/agent/agent/config.py`, and `src/web-app/app/config.py` need:
+Both `src/functions/shared/config.py` and `src/agent/agent/config.py` need:
 
 1. **Read `ENVIRONMENT` env var** (default: `prod`).
 2. **When `ENVIRONMENT=dev`:**
@@ -561,12 +532,9 @@ OTEL_EXPORTER_OTLP_PROTOCOL=grpc
    - AI Search: use `AzureKeyCredential(SEARCH_ADMIN_KEY)` + `SEARCH_ENDPOINT` (API key auth, skip TLS verify for self-signed cert).
    - LLM (chat): use OpenAI SDK pointing at Ollama (`OLLAMA_ENDPOINT`, model `OLLAMA_CHAT_MODEL`).
    - Embeddings: use OpenAI SDK pointing at Ollama (`OLLAMA_ENDPOINT`, model `OLLAMA_EMBEDDING_MODEL`).
-  - Vector dimensions: use `EMBEDDING_VECTOR_DIMENSIONS=1024`.
-  - Container names: read `STAGING_CONTAINER_NAME`, `SERVING_CONTAINER_NAME`, and Cosmos container env vars instead of hard-coding defaults in entry points.
 3. **When `ENVIRONMENT=prod` (default):**
    - All services: use `DefaultAzureCredential` (RBAC, managed identity).
-  - LLM + embeddings: use Azure AI Services endpoint.
-  - Vector dimensions: use `EMBEDDING_VECTOR_DIMENSIONS=1536`.
+   - LLM + embeddings: use Azure AI Services endpoint.
 
 ### 9.2 Client Factory Pattern
 
@@ -656,21 +624,10 @@ For full zero-Azure dev, **every** `DefaultAzureCredential` / Azure SDK call sit
 | File | Reason |
 |------|--------|
 | `src/web-app/app/main.py` (`_create_agent_client`) | Uses `OpenAI(base_url=http://agent:8088)` for HTTP endpoints — already works with dev |
+| `src/agent/main.py` (`from_agent_framework`) | Local HTTP server adapter — no Foundry dependency |
 | `src/agent/middleware/jwt_auth.py` | `REQUIRE_AUTH=false` bypasses JWT validation in dev |
 
 **Summary:** 11 files need dev-mode factories (4 LLM/embedding/vision + 7 storage/data). All changes are config-driven via `ENVIRONMENT=dev`.
-
-**Additional configuration and wiring changes needed:**
-
-| File | Why |
-|------|-----|
-| `src/web-app/app/config.py` | Web-app storage/Cosmos settings must understand the dev/prod split |
-| `src/agent/main.py` | Must pass configurable Cosmos session container name into `CosmosAgentSessionRepository` |
-| `src/functions/fn_convert_cu/function_app.py` | Must stop hard-coding `staging` / `serving` for test isolation |
-| `src/functions/fn_convert_mistral/function_app.py` | Must stop hard-coding `staging` / `serving` for test isolation |
-| `src/functions/fn_convert_markitdown/function_app.py` | Must stop hard-coding `staging` / `serving` for test isolation |
-| `src/functions/fn_index/indexer.py` | Must stop hard-coding vector dimensions to 1536 |
-| `src/agent/agent/search_tool.py` | Must stop hard-coding vector dimensions to 1536 |
 
 **Additional dev-mode env vars needed:**
 
@@ -680,8 +637,6 @@ For full zero-Azure dev, **every** `DefaultAzureCredential` / Azure SDK call sit
 | `SUMMARY_DEPLOYMENT_NAME=phi4-mini` | Override summarizer model for Ollama | `src/functions/fn_index/summarizer.py` |
 | `EMBEDDING_DEPLOYMENT_NAME=mxbai-embed-large` | Override embedding model for Ollama | `src/functions/fn_index/embedder.py` (via `shared/config.py`) |
 | `AGENT_MODEL_DEPLOYMENT_NAME=phi4-mini` | Override agent model for Ollama | `src/agent/agent/config.py` |
-| `EMBEDDING_VECTOR_DIMENSIONS=1024` | Keep local index schema and query code aligned with Ollama embeddings | `src/functions/fn_index/indexer.py`, `src/agent/agent/search_tool.py`, tests |
-| `STAGING_CONTAINER_NAME` / `SERVING_CONTAINER_NAME` | Make converter entry points and image services testable without hard-coded container names | Convert entry points, image services |
 
 ### 9.4 Cosmos DB Emulator TLS
 
@@ -710,7 +665,7 @@ Can use `az storage container create` with Azurite connection string, or a small
 
 ## 10. Infra — Prod Only (No Dev Bicep)
 
-Since dev has **zero Azure cloud dependency**, there is no `infra/dev/` directory. Bicep exists only for prod.
+Since dev has **zero Azure dependency**, there is no `infra/dev/` directory. Bicep exists only for prod.
 
 ### 10.1 `infra/main.bicep` — Production (unchanged)
 
@@ -720,24 +675,14 @@ Since dev has **zero Azure cloud dependency**, there is no `infra/dev/` director
 
 Dev infrastructure is 100% Docker-based. No Azure resources, no Bicep for dev.
 
-### 10.3 Converter Topology in Prod (Retained)
-
-This epic keeps the current prod converter topology intact:
-
-- `azure.yaml` continues to define `func-convert-cu`, `func-convert-markitdown`, and `func-convert-mistral` as separate services.
-- `infra/main.bicep` continues to provision three converter container apps.
-- `CONVERTER` selects which of those existing services the Makefile deploys or triggers by default.
-
-Collapsing prod to a single converter service/app is deferred to a separate refactor because it would require coordinated `azure.yaml` and Bicep changes beyond the environment-optimization scope.
-
 ## 11. Migration Steps (Implementation Order)
 
 ### Phase 1: Foundation
 1. [ ] Create `docker-compose.dev-infra.yml` with Cosmos emulator + Azurite + AI Search Simulator + Ollama + Aspire Dashboard
 2. [ ] Create `.env.dev.template` with emulator + Ollama connection details
 3. [ ] Create `scripts/dev-init-emulators.sh` — init dev + `-test` resources (Cosmos DBs + containers, blob containers) + pull Ollama models (`phi4-mini`, `mxbai-embed-large`, `moondream`)
-4. [ ] Add `ENVIRONMENT`, container-name, and vector-dimension config to `shared/config.py`, `agent/config.py`, and `web-app/app/config.py`
-5. [ ] Create client factory functions for Cosmos DB, Blob Storage, Search, and OpenAI/Ollama in each service where needed
+4. [ ] Add `ENVIRONMENT` env var to config modules (`shared/config.py`, `agent/config.py`)
+5. [ ] Create client factory functions for Cosmos DB, Blob Storage, Search, and OpenAI/Ollama
 6. [ ] Add dev-mode factories for **all 11 Azure SDK call sites** (see Section 9.3 audit):
    - **LLM/embedding/vision (4 files):**
      - `src/agent/agent/kb_agent.py` — `AzureOpenAIChatClient` → `OpenAIChatClient` (Ollama)
@@ -752,29 +697,26 @@ Collapsing prod to a single converter service/app is deferred to a separate refa
      - `src/agent/agent/search_tool.py` — `SearchClient` → simulator API key
      - `src/functions/shared/blob_storage.py` — `BlobServiceClient` → Azurite
      - `src/functions/fn_index/indexer.py` — `SearchClient` + `SearchIndexClient` → simulator API key
-  7. [ ] Make vector dimensions environment-driven (`1024` dev, `1536` prod) across index creation, search query code, and tests
-  8. [ ] Make converter entry points and agent session persistence read configurable container names for test isolation
-  9. [ ] Verify web-app and agent work against local emulators + Ollama
+7. [ ] Verify web-app and agent work against local emulators + Ollama
 
 ### Phase 2: Makefile + Services
-  10. [ ] Create `docker-compose.dev-services.yml` for our application containers
-  11. [ ] Rewrite Makefile with `dev-*` and `prod-*` target structure + `set-converter`
-  12. [ ] Keep current prod converter topology, but map `CONVERTER` to existing AZD service names in deploy/pipeline targets
+8. [ ] Create `docker-compose.dev-services.yml` for our application containers
+9. [ ] Rewrite Makefile with `dev-*` and `prod-*` target structure + `set-converter`
 
 ### Phase 3: Test Consolidation
-  13. [ ] Normalize test taxonomy: keep `integration`, keep optional `uitest`, remove `e2e` terminology from docs/file names where practical
-  14. [ ] Create shared test fixtures for `-test` resources (conftest.py per service)
-  15. [ ] Update existing Azure-bound integration tests to use local emulators, local vector dimensions, and Ollama
-  16. [ ] Ensure `make dev-test` runs unit tests + integration, and `make dev-test-ui` runs browser tests separately
+10. [ ] Remove `e2e` test marker — merge into `integration`
+11. [ ] Create shared test fixtures for `-test` resources (conftest.py per service)
+12. [ ] Update integration tests to use `-test` resources, local emulators, and Ollama
+13. [ ] Ensure `make dev-test` runs unit tests (always) + integration (when infra is up)
 
 ### Phase 4: Cleanup
-  17. [ ] Update `docs/setup-and-makefile.md` with new workflow
-  18. [ ] Update `docs/specs/infrastructure.md` — remove dev infra references
-  19. [ ] Remove old Makefile targets (`azure-up`, `setup-azure`, etc.)
+14. [ ] Update `docs/setup-and-makefile.md` with new workflow
+15. [ ] Update `docs/specs/infrastructure.md` — remove dev infra references
+16. [ ] Remove old Makefile targets (`azure-up`, `setup-azure`, etc.)
 
 ## 12. Open Questions
 
-1. **fn-convert variants in dev/prod:** ~~Do we run all 3 converters everywhere?~~ → **Resolved.** Dev always runs MarkItDown locally. Prod keeps the current 3-service Azure topology, and Makefile deploy/pipeline targets treat one of those services as the operationally selected converter based on `CONVERTER`; Azure does not enforce exclusivity yet.
+1. **fn-convert variants in dev:** ~~Do we run all 3 converters?~~ → **Resolved.** Only the converter selected by `CONVERTER` project parameter is built/deployed. One converter at a time, set via `make set-converter converter=<value>`. Default is `markitdown`.
 
 2. **AI Search in dev:** ~~Should we use the Free tier in dev RG?~~ → **Resolved.** Use the [Azure AI Search Simulator](https://github.com/Ellerbach/azure-ai-search-simulator) Docker container locally. Supports full-text, vector, and hybrid search with the official Python SDK. No Azure instance needed for dev at all.
 
@@ -784,7 +726,7 @@ Collapsing prod to a single converter service/app is deferred to a separate refa
 
 | Metric | Current | After |
 |--------|---------|-------|
-| Azure resources needed for dev | ~15 (full RG) | **0** — zero Azure cloud dependency |
+| Azure resources needed for dev | ~15 (full RG) | **0** — zero Azure dependency |
 | Monthly dev Azure cost | ~$50-100 (all resources) | **$0** |
 | Azure subscription required for dev | Yes | **No** |
 | Time to start dev environment | 5-10 min (Azure provision) | ~60 sec (Docker up) + first-time model pull |
