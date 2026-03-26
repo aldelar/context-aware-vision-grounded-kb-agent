@@ -12,7 +12,7 @@ Verify that the KB Agent service-based architecture is respected. Each service i
 ```
 ┌─────────────────────────────────────────────────┐
 │  src/agent/          (KB Agent)                  │
-│  - FastAPI + Microsoft Agent Framework           │
+│  - Starlette + Microsoft Agent Framework         │
 │  - Hosted on Foundry / Container App             │
 │  - Own pyproject.toml + .env                     │
 ├─────────────────────────────────────────────────┤

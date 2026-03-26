@@ -1,6 +1,6 @@
 ---
 name: 'Python Standards'
-description: 'Python 3.11+, uv, Azure SDK, and code style conventions for all backend services'
+description: 'Python 3.12+, uv, Azure SDK, and code style conventions for all backend services'
 applyTo: "src/**/*.py"
 ---
 
@@ -8,7 +8,7 @@ applyTo: "src/**/*.py"
 
 ## Runtime & Tooling
 
-- Python 3.11+ required
+- Python 3.12+ required
 - **uv** for dependency management — never use `pip install` directly
 - **hatchling** build backend for all packages
 - Each service is an independent package with its own `pyproject.toml`:

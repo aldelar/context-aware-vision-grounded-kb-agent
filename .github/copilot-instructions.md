@@ -4,14 +4,14 @@
 
 **Context Aware & Vision Grounded KB Agent** — an Azure-hosted two-stage pipeline that transforms HTML knowledge base articles into an AI-searchable index with image support, fronted by a conversational agent.
 
-- **Stack:** Python 3.11+, Azure (Bicep + AZD), pytest, uv
+- **Stack:** Python 3.12+, Azure (Bicep + AZD), pytest, uv
 - **Architecture:** See `docs/specs/architecture.md`
 - **Infrastructure:** See `docs/specs/infrastructure.md`
 - **Setup & Automation:** See `docs/setup-and-makefile.md` or run `make help`
 
 ## Solution Structure
 
-- `src/agent/` — Foundry hosted KB Agent (FastAPI + Agent Framework)
+- `src/agent/` — Foundry hosted KB Agent (Starlette + Agent Framework)
 - `src/functions/` — Azure Functions: `fn-convert` (HTML→Markdown) + `fn-index` (Markdown→AI Search)
 - `src/web-app/` — Chainlit thin client (OpenAI SDK + Cosmos DB data layer)
 - `infra/` — Bicep modules for all Azure resources
@@ -56,6 +56,19 @@ Domain-specific knowledge loaded on demand by agents:
 - `epic-workflow` — Epic/story lifecycle management with project-specific make targets
 - `azure-infra-review` — Bicep module review (naming, RBAC, wiring, doc sync)
 - `refactoring` — Safe refactoring across the service-based architecture
+- `agent-governance` — Governance patterns using Microsoft Foundry + APIM AI Gateway (rate limiting, content safety, audit)
+- `eval-driven-dev` — Evaluation-driven development using Microsoft Evaluations SDK + Foundry
+- `microsoft-agent-framework` — Microsoft Agent Framework guidance for Python agent development
+- `context-map` — Pre-change codebase analysis and impact mapping template
+- `cloud-design-patterns` — 42 cloud design patterns for distributed systems architecture
+- `technical-spike-research` — Systematic research methodology for technical spikes
+- `github-actions` — GitHub Actions CI/CD workflow design with security-first practices
+- `cosmosdb-datamodeling` — Cosmos DB NoSQL data modeling (access patterns, aggregates, partition strategies)
+- `azure-deployment-preflight` — Bicep deployment preflight validation (syntax, what-if, permissions)
+- `pytest-coverage` — pytest coverage analysis and improvement workflow
+- `conventional-commit` — Conventional Commits message generation workflow
+- `github-issues` — GitHub issue management using MCP tools and `gh api`
+- `secret-scanning` — GitHub secret scanning, push protection, and alert management
 
 ### Instructions (`.github/instructions/`)
 
@@ -66,13 +79,17 @@ Composable rules auto-applied by file pattern:
 - [epic-tracking.instructions.md](instructions/epic-tracking.instructions.md) — Epic lifecycle and doc-code consistency (`docs/epics/**`)
 - [azure-infra.instructions.md](instructions/azure-infra.instructions.md) — Bicep modules and AZD deployment (`infra/**`)
 - [shared-scratchpad.instructions.md](instructions/shared-scratchpad.instructions.md) — Cross-agent scratchpad protocol (`shared-scratchpads/**`)
+- [docker.instructions.md](instructions/docker.instructions.md) — Docker best practices for building optimized, secure container images (`**/Dockerfile,**/Dockerfile.*,**/*.dockerfile`)
+- [shell-scripting.instructions.md](instructions/shell-scripting.instructions.md) — Shell scripting best practices for bash scripts (`**/*.sh`)
+- [makefile.instructions.md](instructions/makefile.instructions.md) — Best practices for authoring GNU Make Makefiles (`**/Makefile,**/makefile,**/*.mk`)
+- [secure-coding-owasp.instructions.md](instructions/secure-coding-owasp.instructions.md) — Comprehensive secure coding based on OWASP Top 10 (`**`)
+- [context-engineering.instructions.md](instructions/context-engineering.instructions.md) — Guidelines for structuring code to maximize Copilot effectiveness (`**`)
 
 ### Prompts (`.github/prompts/`)
 
 Reusable workflows for common development tasks:
 - `deliver-epic` / `deliver-story` — End-to-end story and epic delivery via handoff workflow
 - `write-epic` / `write-story` — Collaborative epic/story authoring
-- `write-tests` — Test generation for a module
-- `pre-commit-check` — Pre-commit quality validation
-- `deploy-check` / `post-deploy-verify` — Deployment readiness and post-deploy health
 - `test-e2e-local` / `test-e2e-azure` — Full end-to-end validation (local and Azure)
+- `pr` — Create a pull request from the current branch to main
+- `merge-pr` — Merge the open PR for the current branch, switch to main, and pull
