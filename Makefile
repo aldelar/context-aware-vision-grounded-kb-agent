@@ -10,40 +10,59 @@ CONVERTER ?= $(shell azd env get-value CONVERTER 2>/dev/null || echo markitdown)
 .PHONY: help
 help:
 	@echo ""
-	@echo "Dev"
-	@echo "  make dev-setup                Install tools and Python dependencies as your normal user"
-	@echo "  sudo make dev-setup-gpu       Configure Docker GPU support for a local Linux Docker engine"
-	@echo "  make dev-infra-up             Start local emulators and initialize resources"
-	@echo "  make dev-infra-down           Stop local emulators"
-	@echo "  make dev-services-up          Build and start the full local application stack"
-	@echo "  make dev-services-down        Stop local application services"
-	@echo "  make dev-services-pipeline-up Build and start fn-convert + fn-index"
-	@echo "  make dev-services-app-up      Build and start the web app"
-	@echo "  make dev-services-agents-up   Build and start the agent"
-	@echo "  make dev-seed-kb              Sync kb/staging into local Azurite staging"
-	@echo "  make dev-test                 Run unit + integration tests"
-	@echo "  make dev-test-ui              Run optional browser UI tests"
-	@echo "  make dev-ui                   Print the local UI URL"
-	@echo "  make dev-pipeline             Run local convert + index pipeline"
-	@echo "  make dev-pipeline-convert     Trigger local MarkItDown convert"
-	@echo "  make dev-pipeline-index       Trigger local indexing"
+	@echo "━━━ Shared Setup ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo ""
-	@echo "Prod"
-	@echo "  make prod-infra-up            Provision Azure infrastructure with AZD"
-	@echo "  make prod-infra-down          Delete Azure infrastructure with confirmation"
-	@echo "  make prod-services-up         Deploy app, agent, fn-index, and selected converter"
-	@echo "  make prod-services-down       Print scale-down guidance for deployed services"
-	@echo "  make prod-services-pipeline-up Deploy pipeline services only"
-	@echo "  make prod-services-app-up     Deploy the web app only"
-	@echo "  make prod-services-agents-up  Deploy the agent only"
-	@echo "  make prod-ui-url              Print the production web app URL"
-	@echo "  make prod-pipeline            Run Azure convert + index pipeline"
-	@echo "  make prod-pipeline-convert    Trigger the selected Azure converter"
-	@echo "  make prod-pipeline-index      Trigger Azure indexing"
+	@echo "  make set-project name=<id>        Set PROJECT_NAME in the active AZD environment"
+	@echo "  make set-converter name=<name>    Set CONVERTER to cu, markitdown, or mistral"
 	@echo ""
-	@echo "Shared"
-	@echo "  make set-project name=<id>    Set PROJECT_NAME in the active AZD environment"
-	@echo "  make set-converter name=<name> Set CONVERTER to cu, markitdown, or mistral"
+	@echo "━━━ Dev ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo ""
+	@echo "  ── Key Flow ──"
+	@echo "    make dev-setup                  Install tools and Python dependencies"
+	@echo "    sudo make dev-setup-gpu         Configure Docker GPU for local LLM support (Linux only)"
+	@echo "    make dev-infra-up               Start local emulators and initialize resources"
+	@echo "    make dev-services-up            Build and start the full local stack (runs targets below)"
+	@echo "      make dev-services-pipeline-up   fn-convert + fn-index only"
+	@echo "      make dev-services-app-up        web app only"
+	@echo "      make dev-services-agents-up     agent only"
+	@echo "    make dev-seed-kb                Sync kb/staging into local Azurite"
+	@echo "    make dev-test                   Run unit + integration tests"
+	@echo "    make dev-test-ui                Run browser UI tests"
+	@echo "    make dev-pipeline               Run local convert + index pipeline (runs targets below)"
+	@echo "      make dev-pipeline-convert       Trigger local MarkItDown convert"
+	@echo "      make dev-pipeline-index         Trigger local indexing"
+	@echo "    make dev-ui                     Print the local UI URL"
+	@echo ""
+	@echo "  ── Clean up / Reset ──"
+	@echo "    make dev-clean-storage          Clean staging + serving blob containers"
+	@echo "    make dev-clean-cosmos           Clean Cosmos DB conversation data"
+	@echo "    make dev-clean-index            Clean all documents from the AI Search index"
+	@echo ""
+	@echo "  ── Tear Down ──"
+	@echo "    make dev-services-down          Stop local application services"
+	@echo "    make dev-infra-down             Stop local emulators"
+	@echo ""
+	@echo "━━━ Prod ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo ""
+	@echo "  ── Key Flow ──"
+	@echo "    make prod-infra-up              Provision Azure infrastructure with AZD"
+	@echo "    make prod-services-up           Deploy app, agent, fn-index, and selected converter (runs targets below)"
+	@echo "      make prod-services-pipeline-up  Pipeline services only"
+	@echo "      make prod-services-app-up       Web app only"
+	@echo "      make prod-services-agents-up    Agent only"
+	@echo "    make prod-pipeline              Run Azure convert + index pipeline (runs targets below)"
+	@echo "      make prod-pipeline-convert      Trigger the selected Azure converter"
+	@echo "      make prod-pipeline-index        Trigger Azure indexing"
+	@echo "    make prod-ui-url                Print the production web app URL"
+	@echo ""
+	@echo "  ── Clean up / Reset ──"
+	@echo "    make prod-clean-storage         Clean staging + serving blob containers"
+	@echo "    make prod-clean-cosmos          Clean Cosmos DB conversation data"
+	@echo "    make prod-clean-index           Clean all documents from the AI Search index"
+	@echo ""
+	@echo "  ── Tear Down ──"
+	@echo "    make prod-services-down         Print scale-down guidance for deployed services"
+	@echo "    make prod-infra-down            Delete Azure infrastructure with confirmation"
 
 .PHONY: dev-setup
 dev-setup:
@@ -130,6 +149,18 @@ dev-pipeline-convert:
 dev-pipeline-index:
 	@curl -fsS -X POST http://localhost:7072/api/index -H 'Content-Type: application/json' -d '{}'
 
+.PHONY: dev-clean-storage
+dev-clean-storage:
+	@bash scripts/dev-clean-data.sh storage
+
+.PHONY: dev-clean-cosmos
+dev-clean-cosmos:
+	@bash scripts/dev-clean-data.sh cosmos
+
+.PHONY: dev-clean-index
+dev-clean-index:
+	@bash scripts/dev-clean-data.sh index
+
 .PHONY: prod-infra-up
 prod-infra-up:
 	@azd provision
@@ -183,6 +214,55 @@ prod-pipeline-convert:
 .PHONY: prod-pipeline-index
 prod-pipeline-index:
 	@curl -fsS -X POST "$$(azd env get-value SERVICE_FUNC_INDEX_ENDPOINT)/api/index" -H 'Content-Type: application/json' -d '{}'
+
+.PHONY: prod-clean-storage
+prod-clean-storage:
+	@echo "Clearing staging container..."
+	@az storage blob delete-batch \
+		--account-name $$(azd env get-value STAGING_STORAGE_ACCOUNT) \
+		--source staging \
+		--auth-mode login
+	@echo "Clearing serving container..."
+	@az storage blob delete-batch \
+		--account-name $$(azd env get-value SERVING_STORAGE_ACCOUNT) \
+		--source serving \
+		--auth-mode login
+	@echo "Done."
+
+.PHONY: prod-clean-cosmos
+prod-clean-cosmos:
+	@echo "Clearing Cosmos DB containers..."
+	@cd src/web-app && uv run python -c "\
+import os; from azure.cosmos import CosmosClient; from azure.identity import DefaultAzureCredential; \
+client = CosmosClient(os.environ['COSMOS_ENDPOINT'], DefaultAzureCredential()); \
+db = client.get_database_client(os.environ.get('COSMOS_DATABASE_NAME', 'kb-agent')); \
+containers = { \
+    os.environ.get('COSMOS_SESSIONS_CONTAINER', 'agent-sessions'): '/id', \
+    os.environ.get('COSMOS_CONVERSATIONS_CONTAINER', 'conversations'): '/userId', \
+    os.environ.get('COSMOS_MESSAGES_CONTAINER', 'messages'): '/conversationId', \
+    os.environ.get('COSMOS_REFERENCES_CONTAINER', 'references'): '/conversationId', \
+}; \
+[( \
+    c := db.get_container_client(name), \
+    items := list(c.read_all_items()), \
+    [c.delete_item(i['id'], partition_key=i[pk.lstrip('/')]) for i in items], \
+    print(f'  Cleared {len(items)} item(s) from {name}'), \
+) for name, pk in containers.items()]"
+	@echo "Done."
+
+.PHONY: prod-clean-index
+prod-clean-index:
+	@echo "Clearing AI Search index documents..."
+	@cd src/web-app && uv run python -c "\
+import os; \
+from azure.search.documents import SearchClient; \
+from azure.identity import DefaultAzureCredential; \
+idx = os.environ.get('SEARCH_INDEX_NAME', 'kb-articles'); \
+c = SearchClient(os.environ['SEARCH_ENDPOINT'], idx, DefaultAzureCredential()); \
+docs = list(c.search('*', select=['id'])); \
+if docs: \
+    c.delete_documents(documents=[{'id': d['id']} for d in docs]); \
+print(f'  Cleared {len(docs)} document(s) from {idx}.')"
 
 .PHONY: set-project
 set-project:
