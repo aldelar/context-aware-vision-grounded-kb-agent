@@ -182,7 +182,7 @@ make prod-infra-up
 # Deploy services
 make prod-services-up
 
-# Run the Azure pipeline
+# Seed Azure staging storage and run the Azure pipeline
 make prod-pipeline
 
 # Print the deployed web app URL
@@ -193,6 +193,9 @@ make prod-ui-url
 
 - `CONVERTER` selects which existing Azure converter service is deployed or triggered for the current workflow: `cu`, `markitdown`, or `mistral`.
 - The Azure topology still retains all three converter services defined in `azure.yaml`.
+- `make prod-services-up` now reattaches the provisioned Container Apps to the active Azure Container Registry with system-assigned identity before running `azd deploy`.
+- `make prod-services-up` also corrects the web app and agent ingress target ports after deployment so they switch from the placeholder bootstrap port to their real container ports.
+- `make prod-pipeline` now uploads repo content from `kb/staging/` into the Azure staging container before triggering convert and index.
 - `make prod-services-down` currently prints scale-down guidance instead of performing an environment-wide shutdown automatically.
 
 ## Target Reference

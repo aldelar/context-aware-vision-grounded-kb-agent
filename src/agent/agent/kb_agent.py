@@ -34,7 +34,17 @@ from agent.security_middleware import SecurityFilterMiddleware
 from agent.config import config
 
 logger = logging.getLogger(__name__)
-_SYSTEM_PROMPT_PATH = Path(__file__).with_name("prompts") / "system_prompt.md"
+_PROMPTS_DIR = Path(__file__).with_name("prompts")
+
+
+def _resolve_prompt_environment(environment: str | None = None) -> str:
+    normalized = (environment or config.environment or "prod").strip().lower()
+    return "dev" if normalized == "dev" else "prod"
+
+
+def _get_system_prompt_path(environment: str | None = None) -> Path:
+    prompt_environment = _resolve_prompt_environment(environment)
+    return _PROMPTS_DIR / f"system_prompt-{prompt_environment}.md"
 
 
 def _coerce_search_query(value: Any) -> str:
@@ -44,20 +54,22 @@ def _coerce_search_query(value: Any) -> str:
     return normalized
 
 
-@lru_cache(maxsize=1)
-def _load_system_prompt() -> str:
+@lru_cache(maxsize=2)
+def _load_system_prompt(environment: str | None = None) -> str:
     """Load the agent system prompt from the external prompt file."""
+    system_prompt_path = _get_system_prompt_path(environment)
     try:
-        prompt = _SYSTEM_PROMPT_PATH.read_text(encoding="utf-8").strip()
+        prompt = system_prompt_path.read_text(encoding="utf-8").strip()
     except OSError as exc:
-        raise RuntimeError(f"Unable to load system prompt from {_SYSTEM_PROMPT_PATH}") from exc
+        raise RuntimeError(f"Unable to load system prompt from {system_prompt_path}") from exc
 
     if not prompt:
-        raise RuntimeError(f"System prompt file is empty: {_SYSTEM_PROMPT_PATH}")
+        raise RuntimeError(f"System prompt file is empty: {system_prompt_path}")
 
     return prompt
 
 
+_SYSTEM_PROMPT_PATH = _get_system_prompt_path()
 _SYSTEM_PROMPT = _load_system_prompt()
 
 

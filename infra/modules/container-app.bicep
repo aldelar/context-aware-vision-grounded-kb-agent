@@ -26,9 +26,11 @@ param acrResourceId string
 @description('Docker image name and tag (e.g., webapp-{project}:latest). Leave empty for initial provisioning.')
 param imageName string = ''
 
-// Use a public placeholder image on first deploy (before AZD pushes the real image)
+// Use a public placeholder image on first deploy (before AZD pushes the real image).
+// The placeholder listens on port 80, so provision with that port and switch to 8080 on the real deploy.
 var useAcrImage = !empty(imageName)
 var containerImage = useAcrImage ? '${acrLoginServer}/${imageName}' : 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
+var targetPort = useAcrImage ? 8080 : 80
 
 // --- Application settings ---
 @description('Azure AI Services endpoint')
@@ -62,6 +64,12 @@ param cosmosEndpoint string = ''
 
 @description('Cosmos DB database name')
 param cosmosDatabaseName string = 'kb-agent'
+
+@description('Chainlit auth secret used to sign JWT session cookies')
+@secure()
+param chainlitAuthSecret string = ''
+
+var defaultChainlitAuthSecret = '${uniqueString(resourceGroup().id, 'chainlit-auth-secret-a')}${uniqueString(resourceGroup().id, 'chainlit-auth-secret-b')}${uniqueString(resourceGroup().id, 'chainlit-auth-secret-c')}'
 
 // --- Chainlit OAuth (Azure AD) ---
 // --- Easy Auth ---
@@ -99,20 +107,18 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
       ] : []
       ingress: {
         external: true
-        targetPort: 8080
+        targetPort: targetPort
         transport: 'auto'
         allowInsecure: false
       }
-      // Always configure ACR registry so azd deploy can pull images
-      // immediately after provision without needing a second provision cycle.
-      // The placeholder MCR image doesn't need ACR auth, but having the
-      // registry entry is harmless and avoids UNAUTHORIZED on first deploy.
-      registries: [
+      // Only attach ACR registry config when the deployed image actually lives in ACR.
+      // The placeholder MCR image does not need registry auth during provision.
+      registries: useAcrImage ? [
         {
           server: acrLoginServer
           identity: 'system'
         }
-      ]
+      ] : []
     }
     template: {
       containers: [
@@ -134,7 +140,7 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'AGENT_ENDPOINT', value: agentEndpoint }
             { name: 'COSMOS_ENDPOINT', value: cosmosEndpoint }
             { name: 'COSMOS_DATABASE_NAME', value: cosmosDatabaseName }
-            { name: 'CHAINLIT_AUTH_SECRET', value: uniqueString(resourceGroup().id, 'chainlit-auth-secret') }
+            { name: 'CHAINLIT_AUTH_SECRET', value: !empty(chainlitAuthSecret) ? chainlitAuthSecret : defaultChainlitAuthSecret }
           ]
         }
       ]

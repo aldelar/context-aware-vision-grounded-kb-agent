@@ -41,9 +41,11 @@ param containerAppsEnvId string
 @description('Docker image name and tag. Leave empty for initial provisioning.')
 param imageName string = ''
 
-// Use a public placeholder image on first deploy (before AZD pushes the real image)
+// Use a public placeholder image on first deploy (before AZD pushes the real image).
+// The Functions base image does not start a healthy revision without mounted app code,
+// so use a simple HTTP placeholder until azd deploy swaps in the real image.
 var useAcrImage = !empty(imageName)
-var containerImage = useAcrImage ? '${acrLoginServer}/${imageName}' : 'mcr.microsoft.com/azure-functions/python:4-python3.11'
+var containerImage = useAcrImage ? '${acrLoginServer}/${imageName}' : 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
 
 // When functionName is empty, produce the same name as before: func-{baseName}
 var containerAppName = empty(functionName) ? 'func-${baseName}' : 'func-${functionName}-${baseName}'
@@ -78,16 +80,14 @@ resource functionApp 'Microsoft.App/containerApps@2024-03-01' = {
         transport: 'auto'
         allowInsecure: false
       }
-      // Always configure ACR registry so azd deploy can pull images
-      // immediately after provision without needing a second provision cycle.
-      // The placeholder MCR image doesn't need ACR auth, but having the
-      // registry entry is harmless and avoids UNAUTHORIZED on first deploy.
-      registries: [
+      // Only attach ACR registry config when the deployed image actually lives in ACR.
+      // The placeholder MCR image does not need registry auth during provision.
+      registries: useAcrImage ? [
         {
           server: acrLoginServer
           identity: 'system'
         }
-      ]
+      ] : []
     }
     template: {
       containers: [

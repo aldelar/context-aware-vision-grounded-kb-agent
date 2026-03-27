@@ -47,6 +47,10 @@ param entraClientId string = ''
 @secure()
 param entraClientSecret string = ''
 
+@description('Chainlit auth secret used by the web app for JWT session signing')
+@secure()
+param chainlitAuthSecret string = ''
+
 // ---------------------------------------------------------------------------
 // Variables
 // ---------------------------------------------------------------------------
@@ -280,8 +284,9 @@ module containerAppsEnv 'modules/container-apps-env.bicep' = {
   }
 }
 
-// Agent endpoint via APIM registered agent API path for Foundry tracing
-var agentApimEndpoint = '${apim.outputs.apimGatewayUrl}/kb-agent'
+// Agent endpoint via APIM gateway root. The APIM KB Agent API is published
+// at the gateway root, so the web app should call {gateway}/responses.
+var agentApimEndpoint = apim.outputs.apimGatewayUrl
 
 // ---------------------------------------------------------------------------
 // Module: Container App (Context Aware & Vision Grounded KB Agent)
@@ -304,6 +309,7 @@ module containerApp 'modules/container-app.bicep' = {
     agentEndpoint: agentApimEndpoint
     cosmosEndpoint: cosmosDb.outputs.cosmosEndpoint
     cosmosDatabaseName: cosmosDb.outputs.cosmosDatabaseName
+    chainlitAuthSecret: chainlitAuthSecret
   }
 }
 

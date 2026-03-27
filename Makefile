@@ -172,13 +172,22 @@ prod-infra-down:
 
 .PHONY: prod-services-up
 prod-services-up: prod-services-app-up prod-services-agents-up prod-services-pipeline-up
+	@$(MAKE) prod-configure-target-ports
+
+.PHONY: prod-configure-registries
+prod-configure-registries:
+	@bash scripts/configure-containerapp-registries.sh
+
+.PHONY: prod-configure-target-ports
+prod-configure-target-ports:
+	@bash scripts/configure-containerapp-target-ports.sh
 
 .PHONY: prod-services-down
 prod-services-down:
 	@echo "Scale-down remains environment-specific. Use Azure CLI or the portal to reduce replicas to zero for deployed Container Apps."
 
 .PHONY: prod-services-pipeline-up
-prod-services-pipeline-up:
+prod-services-pipeline-up: prod-configure-registries
 	@azd deploy --service func-index
 	@case "$(CONVERTER)" in \
 		cu) azd deploy --service func-convert-cu ;; \
@@ -188,32 +197,44 @@ prod-services-pipeline-up:
 	 esac
 
 .PHONY: prod-services-app-up
-prod-services-app-up:
+prod-services-app-up: prod-configure-registries
 	@azd deploy --service web-app
+	@$(MAKE) prod-configure-target-ports
 
 .PHONY: prod-services-agents-up
-prod-services-agents-up:
+prod-services-agents-up: prod-configure-registries
 	@azd deploy --service agent
+	@$(MAKE) prod-configure-target-ports
 
 .PHONY: prod-ui-url
 prod-ui-url:
 	@azd env get-value WEBAPP_URL
 
+.PHONY: prod-seed-kb
+prod-seed-kb:
+	@test -d kb/staging || (echo "Missing kb/staging." >&2; exit 1)
+	@az storage blob upload-batch \
+		--account-name $$(azd env get-value STAGING_STORAGE_ACCOUNT) \
+		--destination staging \
+		--source kb/staging \
+		--auth-mode login \
+		--overwrite
+
 .PHONY: prod-pipeline
-prod-pipeline: prod-pipeline-convert prod-pipeline-index
+prod-pipeline: prod-seed-kb prod-pipeline-convert prod-pipeline-index
 
 .PHONY: prod-pipeline-convert
 prod-pipeline-convert:
 	@case "$(CONVERTER)" in \
-		cu) curl -fsS -X POST "$$(azd env get-value SERVICE_FUNC_CONVERT_CU_ENDPOINT)/api/convert" -H 'Content-Type: application/json' -d '{}' ;; \
-		mistral) curl -fsS -X POST "$$(azd env get-value SERVICE_FUNC_CONVERT_MISTRAL_ENDPOINT)/api/convert-mistral" -H 'Content-Type: application/json' -d '{}' ;; \
-		markitdown) curl -fsS -X POST "$$(azd env get-value SERVICE_FUNC_CONVERT_MARKITDOWN_ENDPOINT)/api/convert-markitdown" -H 'Content-Type: application/json' -d '{}' ;; \
+		cu) curl -fsS -X POST "$$(azd env get-value FUNC_CONVERT_CU_URL)/api/convert" -H 'Content-Type: application/json' -d '{}' ;; \
+		mistral) curl -fsS -X POST "$$(azd env get-value FUNC_CONVERT_MISTRAL_URL)/api/convert-mistral" -H 'Content-Type: application/json' -d '{}' ;; \
+		markitdown) curl -fsS -X POST "$$(azd env get-value FUNC_CONVERT_MARKITDOWN_URL)/api/convert-markitdown" -H 'Content-Type: application/json' -d '{}' ;; \
 		*) echo "Unsupported CONVERTER=$(CONVERTER). Use cu, markitdown, or mistral." >&2; exit 1 ;; \
 	 esac
 
 .PHONY: prod-pipeline-index
 prod-pipeline-index:
-	@curl -fsS -X POST "$$(azd env get-value SERVICE_FUNC_INDEX_ENDPOINT)/api/index" -H 'Content-Type: application/json' -d '{}'
+	@curl -fsS -X POST "$$(azd env get-value FUNC_INDEX_URL)/api/index" -H 'Content-Type: application/json' -d '{}'
 
 .PHONY: prod-clean-storage
 prod-clean-storage:

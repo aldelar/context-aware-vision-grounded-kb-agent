@@ -13,6 +13,7 @@ from agent.kb_agent import (
     Citation,
     _SYSTEM_PROMPT,
     _SYSTEM_PROMPT_PATH,
+    _get_system_prompt_path,
     _load_system_prompt,
     _normalize_search_query,
     create_agent,
@@ -72,10 +73,21 @@ class TestSystemPrompt:
 
     def test_prompt_file_exists(self) -> None:
         assert _SYSTEM_PROMPT_PATH.exists()
-        assert _SYSTEM_PROMPT_PATH == Path("/home/aldelar/Code/context-aware-vision-grounded-kb-agent/src/agent/agent/prompts/system_prompt.md")
+        assert _SYSTEM_PROMPT_PATH == Path("/home/aldelar/Code/context-aware-vision-grounded-kb-agent/src/agent/agent/prompts/system_prompt-dev.md")
+
+    def test_prod_prompt_file_exists(self) -> None:
+        prod_prompt_path = _get_system_prompt_path("prod")
+
+        assert prod_prompt_path.exists()
+        assert prod_prompt_path == Path("/home/aldelar/Code/context-aware-vision-grounded-kb-agent/src/agent/agent/prompts/system_prompt-prod.md")
 
     def test_loaded_prompt_matches_file(self) -> None:
-        assert _load_system_prompt() == _SYSTEM_PROMPT_PATH.read_text(encoding="utf-8").strip()
+        assert _load_system_prompt("dev") == _SYSTEM_PROMPT_PATH.read_text(encoding="utf-8").strip()
+
+    def test_loaded_prod_prompt_matches_file(self) -> None:
+        prod_prompt_path = _get_system_prompt_path("prod")
+
+        assert _load_system_prompt("prod") == prod_prompt_path.read_text(encoding="utf-8").strip()
 
     def test_prompt_mentions_search_tool(self) -> None:
         assert "search_knowledge_base" in _SYSTEM_PROMPT
@@ -131,6 +143,13 @@ class TestSystemPrompt:
             in _SYSTEM_PROMPT
         )
         assert "This diagram is helpful because it shows the request flow" in _SYSTEM_PROMPT
+
+    def test_prod_prompt_restores_compact_instructions(self) -> None:
+        prod_prompt = _load_system_prompt("prod")
+
+        assert "Ground your answers in the search results" in prod_prompt
+        assert "Do NOT say things like \"let's search\"" not in prod_prompt
+        assert "Example 1" not in prod_prompt
 
 
 # ---------------------------------------------------------------------------

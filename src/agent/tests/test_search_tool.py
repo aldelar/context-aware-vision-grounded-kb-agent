@@ -118,6 +118,7 @@ class TestSearchKb:
 
         call_kwargs = mock_client.search.call_args
         assert call_kwargs.kwargs["top"] == 3
+        assert call_kwargs.kwargs["vector_queries"][0].k == 3
 
 
 class TestLocalFilterNormalization:

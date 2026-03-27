@@ -62,10 +62,12 @@ param cosmosEndpoint string = ''
 @description('Cosmos DB database name')
 param cosmosDatabaseName string = 'kb-agent'
 
-// Use a public placeholder image on first deploy (before AZD pushes the real image)
+// Use a public placeholder image on first deploy (before AZD pushes the real image).
+// The placeholder listens on port 80, so provision with that port and switch to 8088 on the real deploy.
 var useAcrImage = !empty(imageName)
 var containerImage = useAcrImage ? '${acrLoginServer}/${imageName}' : 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
 var appName = 'agent-${baseName}'
+var targetPort = useAcrImage ? 8088 : 80
 
 // ---------------------------------------------------------------------------
 // Container App — KB Agent (internal-only)
@@ -85,20 +87,18 @@ resource agentApp 'Microsoft.App/containerApps@2024-03-01' = {
       activeRevisionsMode: 'Single'
       ingress: {
         external: true
-        targetPort: 8088
+        targetPort: targetPort
         transport: 'auto'
         allowInsecure: false
       }
-      // Always configure ACR registry so azd deploy can pull images
-      // immediately after provision without needing a second provision cycle.
-      // The placeholder MCR image doesn't need ACR auth, but having the
-      // registry entry is harmless and avoids UNAUTHORIZED on first deploy.
-      registries: [
+      // Only attach ACR registry config when the deployed image actually lives in ACR.
+      // The placeholder MCR image does not need registry auth during provision.
+      registries: useAcrImage ? [
         {
           server: acrLoginServer
           identity: 'system'
         }
-      ]
+      ] : []
     }
     template: {
       containers: [

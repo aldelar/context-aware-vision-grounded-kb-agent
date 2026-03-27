@@ -121,7 +121,7 @@ def search_kb(query: str, top: int = 5, *, security_filter: str | None = None) -
 
     vector_query = VectorizedQuery(
         vector=query_vector,
-        k_nearest_neighbors=top,
+        k=top,
         fields="content_vector",
     )
 

@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "2038379406848432318"
+      "templateHash": "5570546631684332947"
     }
   },
   "parameters": {
@@ -70,6 +70,13 @@
       "defaultValue": "",
       "metadata": {
         "description": "Entra App Registration client secret for web app Easy Auth"
+      }
+    },
+    "chainlitAuthSecret": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Chainlit auth secret used by the web app for JWT session signing"
       }
     }
   },
@@ -1372,7 +1379,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "583909849054850768"
+              "templateHash": "1970507983986624567"
             }
           },
           "parameters": {
@@ -1454,7 +1461,7 @@
           },
           "variables": {
             "useAcrImage": "[not(empty(parameters('imageName')))]",
-            "containerImage": "[if(variables('useAcrImage'), format('{0}/{1}', parameters('acrLoginServer'), parameters('imageName')), 'mcr.microsoft.com/azure-functions/python:4-python3.11')]",
+            "containerImage": "[if(variables('useAcrImage'), format('{0}/{1}', parameters('acrLoginServer'), parameters('imageName')), 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest')]",
             "containerAppName": "[if(empty(parameters('functionName')), format('func-{0}', parameters('baseName')), format('func-{0}-{1}', parameters('functionName'), parameters('baseName')))]",
             "acrPullRoleId": "7f951dda-4ed3-4680-a7ca-43fe172d538d",
             "storageBlobDataOwnerRoleId": "b7e6dc6d-f1e8-4753-8033-0f276bb0955b"
@@ -1479,12 +1486,7 @@
                     "transport": "auto",
                     "allowInsecure": false
                   },
-                  "registries": [
-                    {
-                      "server": "[parameters('acrLoginServer')]",
-                      "identity": "system"
-                    }
-                  ]
+                  "registries": "[if(variables('useAcrImage'), createArray(createObject('server', parameters('acrLoginServer'), 'identity', 'system')), createArray())]"
                 },
                 "template": {
                   "containers": [
@@ -1670,7 +1672,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "583909849054850768"
+              "templateHash": "1970507983986624567"
             }
           },
           "parameters": {
@@ -1752,7 +1754,7 @@
           },
           "variables": {
             "useAcrImage": "[not(empty(parameters('imageName')))]",
-            "containerImage": "[if(variables('useAcrImage'), format('{0}/{1}', parameters('acrLoginServer'), parameters('imageName')), 'mcr.microsoft.com/azure-functions/python:4-python3.11')]",
+            "containerImage": "[if(variables('useAcrImage'), format('{0}/{1}', parameters('acrLoginServer'), parameters('imageName')), 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest')]",
             "containerAppName": "[if(empty(parameters('functionName')), format('func-{0}', parameters('baseName')), format('func-{0}-{1}', parameters('functionName'), parameters('baseName')))]",
             "acrPullRoleId": "7f951dda-4ed3-4680-a7ca-43fe172d538d",
             "storageBlobDataOwnerRoleId": "b7e6dc6d-f1e8-4753-8033-0f276bb0955b"
@@ -1777,12 +1779,7 @@
                     "transport": "auto",
                     "allowInsecure": false
                   },
-                  "registries": [
-                    {
-                      "server": "[parameters('acrLoginServer')]",
-                      "identity": "system"
-                    }
-                  ]
+                  "registries": "[if(variables('useAcrImage'), createArray(createObject('server', parameters('acrLoginServer'), 'identity', 'system')), createArray())]"
                 },
                 "template": {
                   "containers": [
@@ -1964,7 +1961,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "583909849054850768"
+              "templateHash": "1970507983986624567"
             }
           },
           "parameters": {
@@ -2046,7 +2043,7 @@
           },
           "variables": {
             "useAcrImage": "[not(empty(parameters('imageName')))]",
-            "containerImage": "[if(variables('useAcrImage'), format('{0}/{1}', parameters('acrLoginServer'), parameters('imageName')), 'mcr.microsoft.com/azure-functions/python:4-python3.11')]",
+            "containerImage": "[if(variables('useAcrImage'), format('{0}/{1}', parameters('acrLoginServer'), parameters('imageName')), 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest')]",
             "containerAppName": "[if(empty(parameters('functionName')), format('func-{0}', parameters('baseName')), format('func-{0}-{1}', parameters('functionName'), parameters('baseName')))]",
             "acrPullRoleId": "7f951dda-4ed3-4680-a7ca-43fe172d538d",
             "storageBlobDataOwnerRoleId": "b7e6dc6d-f1e8-4753-8033-0f276bb0955b"
@@ -2071,12 +2068,7 @@
                     "transport": "auto",
                     "allowInsecure": false
                   },
-                  "registries": [
-                    {
-                      "server": "[parameters('acrLoginServer')]",
-                      "identity": "system"
-                    }
-                  ]
+                  "registries": "[if(variables('useAcrImage'), createArray(createObject('server', parameters('acrLoginServer'), 'identity', 'system')), createArray())]"
                 },
                 "template": {
                   "containers": [
@@ -2266,7 +2258,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "583909849054850768"
+              "templateHash": "1970507983986624567"
             }
           },
           "parameters": {
@@ -2348,7 +2340,7 @@
           },
           "variables": {
             "useAcrImage": "[not(empty(parameters('imageName')))]",
-            "containerImage": "[if(variables('useAcrImage'), format('{0}/{1}', parameters('acrLoginServer'), parameters('imageName')), 'mcr.microsoft.com/azure-functions/python:4-python3.11')]",
+            "containerImage": "[if(variables('useAcrImage'), format('{0}/{1}', parameters('acrLoginServer'), parameters('imageName')), 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest')]",
             "containerAppName": "[if(empty(parameters('functionName')), format('func-{0}', parameters('baseName')), format('func-{0}-{1}', parameters('functionName'), parameters('baseName')))]",
             "acrPullRoleId": "7f951dda-4ed3-4680-a7ca-43fe172d538d",
             "storageBlobDataOwnerRoleId": "b7e6dc6d-f1e8-4753-8033-0f276bb0955b"
@@ -2373,12 +2365,7 @@
                     "transport": "auto",
                     "allowInsecure": false
                   },
-                  "registries": [
-                    {
-                      "server": "[parameters('acrLoginServer')]",
-                      "identity": "system"
-                    }
-                  ]
+                  "registries": "[if(variables('useAcrImage'), createArray(createObject('server', parameters('acrLoginServer'), 'identity', 'system')), createArray())]"
                 },
                 "template": {
                   "containers": [
@@ -2739,13 +2726,16 @@
             "value": "[parameters('entraClientSecret')]"
           },
           "agentEndpoint": {
-            "value": "[format('{0}/kb-agent', reference(resourceId('Microsoft.Resources/deployments', 'apim'), '2025-04-01').outputs.apimGatewayUrl.value)]"
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'apim'), '2025-04-01').outputs.apimGatewayUrl.value]"
           },
           "cosmosEndpoint": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'cosmos-db'), '2025-04-01').outputs.cosmosEndpoint.value]"
           },
           "cosmosDatabaseName": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'cosmos-db'), '2025-04-01').outputs.cosmosDatabaseName.value]"
+          },
+          "chainlitAuthSecret": {
+            "value": "[parameters('chainlitAuthSecret')]"
           }
         },
         "template": {
@@ -2755,7 +2745,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "936120164972204196"
+              "templateHash": "2643093426724171979"
             }
           },
           "parameters": {
@@ -2870,6 +2860,13 @@
                 "description": "Cosmos DB database name"
               }
             },
+            "chainlitAuthSecret": {
+              "type": "securestring",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Chainlit auth secret used to sign JWT session cookies"
+              }
+            },
             "entraClientId": {
               "type": "string",
               "defaultValue": "",
@@ -2895,6 +2892,8 @@
           "variables": {
             "useAcrImage": "[not(empty(parameters('imageName')))]",
             "containerImage": "[if(variables('useAcrImage'), format('{0}/{1}', parameters('acrLoginServer'), parameters('imageName')), 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest')]",
+            "targetPort": "[if(variables('useAcrImage'), 8080, 80)]",
+            "defaultChainlitAuthSecret": "[format('{0}{1}{2}', uniqueString(resourceGroup().id, 'chainlit-auth-secret-a'), uniqueString(resourceGroup().id, 'chainlit-auth-secret-b'), uniqueString(resourceGroup().id, 'chainlit-auth-secret-c'))]",
             "acrPullRoleId": "7f951dda-4ed3-4680-a7ca-43fe172d538d"
           },
           "resources": [
@@ -2914,16 +2913,11 @@
                   "secrets": "[if(not(empty(parameters('entraClientSecret'))), createArray(createObject('name', 'microsoft-provider-authentication-secret', 'value', parameters('entraClientSecret'))), createArray())]",
                   "ingress": {
                     "external": true,
-                    "targetPort": 8080,
+                    "targetPort": "[variables('targetPort')]",
                     "transport": "auto",
                     "allowInsecure": false
                   },
-                  "registries": [
-                    {
-                      "server": "[parameters('acrLoginServer')]",
-                      "identity": "system"
-                    }
-                  ]
+                  "registries": "[if(variables('useAcrImage'), createArray(createObject('server', parameters('acrLoginServer'), 'identity', 'system')), createArray())]"
                 },
                 "template": {
                   "containers": [
@@ -2977,7 +2971,7 @@
                         },
                         {
                           "name": "CHAINLIT_AUTH_SECRET",
-                          "value": "[uniqueString(resourceGroup().id, 'chainlit-auth-secret')]"
+                          "value": "[if(not(empty(parameters('chainlitAuthSecret'))), parameters('chainlitAuthSecret'), variables('defaultChainlitAuthSecret'))]"
                         }
                       ]
                     }
@@ -3376,7 +3370,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "7653948089167453868"
+              "templateHash": "15143160019384504377"
             }
           },
           "parameters": {
@@ -3507,6 +3501,7 @@
             "useAcrImage": "[not(empty(parameters('imageName')))]",
             "containerImage": "[if(variables('useAcrImage'), format('{0}/{1}', parameters('acrLoginServer'), parameters('imageName')), 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest')]",
             "appName": "[format('agent-{0}', parameters('baseName'))]",
+            "targetPort": "[if(variables('useAcrImage'), 8088, 80)]",
             "acrPullRoleId": "7f951dda-4ed3-4680-a7ca-43fe172d538d"
           },
           "resources": [
@@ -3525,16 +3520,11 @@
                   "activeRevisionsMode": "Single",
                   "ingress": {
                     "external": true,
-                    "targetPort": 8088,
+                    "targetPort": "[variables('targetPort')]",
                     "transport": "auto",
                     "allowInsecure": false
                   },
-                  "registries": [
-                    {
-                      "server": "[parameters('acrLoginServer')]",
-                      "identity": "system"
-                    }
-                  ]
+                  "registries": "[if(variables('useAcrImage'), createArray(createObject('server', parameters('acrLoginServer'), 'identity', 'system')), createArray())]"
                 },
                 "template": {
                   "containers": [
