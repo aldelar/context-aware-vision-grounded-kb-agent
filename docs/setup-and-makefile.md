@@ -1,223 +1,104 @@
 # Setup & Makefile Guide
 
-## Overview
+The repo exposes two workflows — `dev-*` for a fully local Docker-based environment and `prod-*` for the Azure environment managed by AZD. Run `make help` for the quick reference; this document provides additional detail.
 
-The repo now has two explicit workflows:
+---
 
-- `dev-*` targets run a zero-Azure local environment backed by Docker emulators and Ollama.
-- `prod-*` targets provision and deploy the retained Azure topology with AZD.
+## Shared
 
-`PROJECT_NAME` and `CONVERTER` remain AZD-backed settings for production workflows. Local development does not require Azure credentials.
-
-## Prerequisites
-
-### Dev
-
-- Docker Engine with Compose support
-- Python 3.11+
-- `uv`
-- Optional: an NVIDIA GPU for faster Ollama inference
-
-### Prod
-
-- Azure CLI (`az`)
-- Azure Developer CLI (`azd`)
-- An Azure subscription with access to the services defined in [docs/specs/infrastructure.md](./specs/infrastructure.md)
-
-## Dev Quick Start
-
-```bash
-# 1. Install local dependencies and create/update .env.dev
-make dev-setup
-
-# 2. Start local emulators and initialize databases, containers, and Ollama models
-make dev-infra-up
-
-# 3. Build and start all application services
-make dev-services-up
-
-# 4. Run the local KB pipeline
-make dev-pipeline
-
-# 5. Run tests
-make dev-test
-
-# 6. Open the UI
-make dev-ui
+```
+make set-converter name=<name>      Set CONVERTER to cu, markitdown, or mistral
 ```
 
-The local UI is served at `http://localhost:8080`.
+`CONVERTER` selects which converter backend the pipeline uses: `cu`, `markitdown`, or `mistral`. It applies to both local and Azure workflows.
 
-### What `dev-setup` now does
+---
 
-- Installs Azure CLI, Azure Developer CLI, `uv`, Azure Functions Core Tools, and the Playwright Chromium browser.
-- Creates `.env.dev` from `.env.dev.template` if it does not exist.
-- Detects the first NVIDIA GPU UUID from `nvidia-smi -L` and writes `OLLAMA_GPU_DEVICE=<uuid>` into `.env.dev`.
-- If no NVIDIA GPU is detected, removes `OLLAMA_GPU_DEVICE` from `.env.dev` so Ollama is not pinned to a specific device.
-- Detects whether it is running on native Linux, WSL with a local Docker Engine, or WSL with Docker Desktop integration.
-- If an NVIDIA GPU is visible and Docker is local to Linux, installs and configures `nvidia-container-toolkit`, generates the CDI spec, restarts Docker, and validates `docker run --gpus all`.
-- If it detects WSL backed by Docker Desktop, it skips Linux-side toolkit installation and only validates whether Docker Desktop GPU passthrough is already working.
+## Dev
 
-### GPU Setup Notes
+The local workflow is Docker-first and does not require Azure cloud resources, Azure credentials, Azure CLI, AZD, or Entra auth. Local auth is bypassed with `REQUIRE_AUTH=false`. It uses smaller local Ollama-hosted models, so it is cheap and self-contained, but answer quality is below the Azure-hosted production path.
 
-- Native Linux and WSL with a local `dockerd` use the same Linux-side NVIDIA container toolkit flow.
-- WSL with Docker Desktop is different: GPU support is managed on the Windows side by Docker Desktop plus the Windows NVIDIA driver.
-- GPU acceleration is optional. If no NVIDIA GPU is visible, Ollama still runs on CPU.
-- To skip GPU setup explicitly, run `DEV_SETUP_SKIP_GPU=1 make dev-setup`.
-- `dev-setup` pins Ollama to the first detected NVIDIA GPU UUID. If no GPU is detected, it leaves `OLLAMA_GPU_DEVICE` unset.
+### Dev targets
 
-### What `dev-infra-up` starts
+```
+sudo make dev-setup-gpu             Configure Docker GPU for local LLM support (Linux only)
 
-- Cosmos DB Linux emulator
-- Azurite
-# Setup & Makefile Guide
+make dev-up                         Full local bring-up (calls targets below)
+  make dev-setup                      Install local tools and Python dependencies
+  make dev-infra-up                   Start local emulators and initialize resources
+  make dev-services-up                Build and start the full local stack
+    make dev-services-pipeline-up       fn-convert + fn-index only
+    make dev-services-app-up            web app only
+    make dev-services-agents-up         agent only
+  make dev-pipeline                   Run local convert + index pipeline
+    make dev-pipeline-convert           Trigger local MarkItDown convert
+      make dev-seed-kb                   Sync kb/staging into local Azurite
+    make dev-pipeline-index             Trigger local indexing
+  make dev-ui                         Print the local UI URL
 
-## Overview
+make dev-test                       Run unit + integration tests
+make dev-test-ui                    Run browser UI tests
 
-The repo now has two explicit workflows:
+── Clean up / Reset ──
+make dev-clean                      Clean all local data (calls targets below)
+  make dev-clean-storage              Clean staging + serving blob containers
+  make dev-clean-cosmos               Clean Cosmos DB conversation data
+  make dev-clean-index                Clean all documents from the AI Search index
 
-- `dev-*` targets run a zero-Azure local environment backed by Docker emulators and Ollama.
-- `prod-*` targets provision and deploy the retained Azure topology with AZD.
-
-`PROJECT_NAME` and `CONVERTER` remain AZD-backed settings for production workflows. Local development does not require Azure credentials.
-
-## Prerequisites
-
-### Dev
-
-- Docker Engine with Compose support
-- Python 3.11+
-- `uv`
-- Optional: an NVIDIA GPU for faster Ollama inference
-
-### Prod
-
-- Azure CLI (`az`)
-- Azure Developer CLI (`azd`)
-- An Azure subscription with access to the services defined in [docs/specs/infrastructure.md](./specs/infrastructure.md)
-
-## Dev Quick Start
-
-```bash
-# 1. Install local dependencies as your normal user and create/update .env.dev
-make dev-setup
-
-# 2. If dev-setup tells you Docker GPU support is missing and you use
-#    a local Linux/WSL Docker engine with an NVIDIA GPU, configure it once
-sudo make dev-setup-gpu
-
-# 3. Start local emulators and initialize databases, containers, and Ollama models
-make dev-infra-up
-
-# 4. Build and start all application services
-make dev-services-up
-
-# 5. Run the local KB pipeline
-make dev-pipeline
-
-# 6. Run tests
-make dev-test
-
-# 7. Open the UI
-make dev-ui
+── Tear Down ──
+make dev-down                       Stop everything local (calls targets below)
+  make dev-services-down              Stop local application services
+  make dev-infra-down                 Stop local emulators
 ```
 
-The local UI is served at `http://localhost:8080`.
+### Dev notes
 
-### What `dev-setup` does
+- `dev-setup-gpu` is only needed if you use an NVIDIA GPU with a native Linux Docker engine or local-WSL Docker engine (not Docker Desktop). It installs and configures the NVIDIA container toolkit. Run it once with `sudo`.
+- `dev-setup` must be run as your normal user, not with `sudo`. It installs `uv`, Azure Functions Core Tools, Playwright Chromium, and creates `.env.dev` from the template if it does not exist.
+- `.env.dev.template` uses Docker Compose service hostnames (`ollama`, `agent`, `azurite`, `cosmos-emulator`). If you call services from the host instead of inside Compose, use `localhost` equivalents.
+- `dev-test` runs all non-UI tests across agent, functions, and web-app. Integration tests expect local infra to be running.
+- `dev-test-ui` runs browser-based UI tests separately.
 
-- Installs Azure CLI, Azure Developer CLI, `uv`, Azure Functions Core Tools, and the Playwright Chromium browser.
-- Must be run as your normal user, not via `sudo`.
-- Creates `.env.dev` from `.env.dev.template` if needed.
-- Detects the first NVIDIA GPU UUID from `nvidia-smi -L` and writes it to `OLLAMA_GPU_DEVICE` in `.env.dev`.
-- If no NVIDIA GPU is detected, removes `OLLAMA_GPU_DEVICE` from `.env.dev` so Ollama is not pinned.
-- Detects whether it is running on native Linux, WSL with a local Docker Engine, or WSL with Docker Desktop integration.
-- Validates whether Docker GPU support is already working and, when it is missing on a local Linux engine, tells you to run `sudo make dev-setup-gpu`.
+---
 
-### What `dev-setup-gpu` does
+## Prod
 
-- Runs only as `root` and is intended to be invoked with `sudo make dev-setup-gpu`.
-- On native Linux and WSL with a local `dockerd`, installs and configures `nvidia-container-toolkit`, generates the CDI spec, restarts Docker, and validates `docker run --gpus all`.
-- On WSL backed by Docker Desktop, it does not try to install Linux-side GPU tooling and instead reports whether Docker Desktop GPU passthrough is already working.
+The prod workflow provisions and deploys the Azure topology with AZD. It requires an Azure subscription and authentication via `az login` / `azd auth login`.
 
-### GPU Setup Notes
+### Prod targets
 
-- Native Linux and WSL with a local `dockerd` use the same Linux-side NVIDIA container toolkit flow.
-- WSL with Docker Desktop is different: GPU support is managed on the Windows side by Docker Desktop plus the Windows NVIDIA driver.
-- GPU acceleration is optional. If no NVIDIA GPU is visible, Ollama still runs on CPU.
-- `dev-setup` pins Ollama to the first detected NVIDIA GPU UUID. If no GPU is detected, it leaves `OLLAMA_GPU_DEVICE` unset.
+```
+make set-project name=<id>          Set PROJECT_NAME in the active AZD environment
 
-### What `dev-infra-up` starts
+make prod-up                        Full Azure bring-up (calls targets below)
+  make prod-setup                     Install Azure CLI and AZD if missing
+  make prod-infra-up                  Provision Azure infrastructure with AZD
+  make prod-services-up               Deploy all services
+    make prod-services-pipeline-up      Pipeline services (fn-index + selected converter)
+    make prod-services-app-up           Web app only
+    make prod-services-agents-up        Agent only
+  make prod-pipeline                  Run Azure convert + index pipeline
+    make prod-seed-kb                   Upload kb/staging to Azure blob
+    make prod-pipeline-convert          Trigger the selected Azure converter
+    make prod-pipeline-index            Trigger Azure indexing
+  make prod-ui-url                    Print the production web app URL
 
-- Cosmos DB Linux emulator
-- Azurite
-- Azure AI Search Simulator
-- Ollama
-- Aspire Dashboard
+── Clean up / Reset ──
+make prod-clean                     Clean all Azure data (calls targets below)
+  make prod-clean-storage             Clean staging + serving blob containers
+  make prod-clean-cosmos              Clean Cosmos DB conversation data
+  make prod-clean-index               Clean all documents from the AI Search index
 
-### What `dev-services-up` starts
-
-- `fn-convert` from `src/functions/fn_convert_markitdown/Dockerfile`
-- `fn-index`
-- `agent`
-- `web-app`
-
-### Dev Notes
-
-- `.env.dev.template` uses Docker Compose service hostnames such as `ollama`, `agent`, `azurite`, and `cosmos-emulator`.
-- If you run tools from the host machine instead of inside Compose, override those endpoints to `localhost` equivalents.
-- `make dev-test` runs all non-UI tests. Integration tests still expect the local infra to be up.
-- `make dev-test-ui` is intentionally separate and only runs the browser tier.
-
-## Prod Workflow
-
-```bash
-# Set AZD-backed workflow parameters
-make set-project name=myproj
-make set-converter name=markitdown
-
-# Provision Azure infrastructure
-make prod-infra-up
-
-# Deploy services
-make prod-services-up
-
-# Seed Azure staging storage and run the Azure pipeline
-make prod-pipeline
-
-# Print the deployed web app URL
-make prod-ui-url
+── Tear Down ──
+make prod-down                      Tear down Azure environment (calls targets below)
+  make prod-services-down             Print scale-down guidance for deployed services
+  make prod-infra-down                Delete Azure infrastructure with confirmation
 ```
 
-### Prod Notes
+### Prod notes
 
-- `CONVERTER` selects which existing Azure converter service is deployed or triggered for the current workflow: `cu`, `markitdown`, or `mistral`.
-- The Azure topology still retains all three converter services defined in `azure.yaml`.
-- `make prod-services-up` now reattaches the provisioned Container Apps to the active Azure Container Registry with system-assigned identity before running `azd deploy`.
-- `make prod-services-up` also corrects the web app and agent ingress target ports after deployment so they switch from the placeholder bootstrap port to their real container ports.
-- `make prod-pipeline` now uploads repo content from `kb/staging/` into the Azure staging container before triggering convert and index.
-- `make prod-services-down` currently prints scale-down guidance instead of performing an environment-wide shutdown automatically.
-
-## Target Reference
-
-### Dev Targets
-
-| Target | Description |
-|---|---|
-| `make dev-setup` | Install local tooling and Python dependencies as your normal user |
-| `sudo make dev-setup-gpu` | Configure Docker GPU support for a local Linux Docker engine |
-| `make dev-infra-up` | Start local emulators and run `scripts/dev-init-emulators.sh` |
-| `make dev-infra-down` | Stop local emulator containers |
-| `make dev-services-up` | Build and start the full local application stack |
-| `make dev-services-down` | Stop local application services |
-| `make dev-services-pipeline-up` | Start `fn-convert` and `fn-index` only |
-| `make dev-services-app-up` | Start the web app only |
-| `make dev-services-agents-up` | Start the agent only |
-| `make dev-test` | Run unit and integration tests except `uitest` |
-| `make dev-test-ui` | Run browser-based UI tests |
-| `make dev-ui` | Print the local UI URL |
-| `make dev-pipeline` | Trigger local convert then local index |
-| `make dev-pipeline-convert` | Trigger local MarkItDown convert |
-| `make dev-pipeline-index` | Trigger local indexing |
-
-### Prod Targets
+- `set-project` must be run once before the first `prod-up`. It stores `PROJECT_NAME` in the active AZD environment, which drives Azure resource naming.
+- `prod-setup` installs Azure CLI and AZD if they are missing. It is called automatically by `prod-up`, but can be run standalone.
+- `prod-services-up` reattaches provisioned Container Apps to the active Azure Container Registry with system-assigned identity before deploying, and corrects ingress target ports after deploy.
+- `prod-services-down` is intentionally non-destructive; it prints scale-down guidance rather than tearing down resources.
+- `prod-down` calls `prod-services-down` then `prod-infra-down`, which deletes the Azure environment after confirmation.

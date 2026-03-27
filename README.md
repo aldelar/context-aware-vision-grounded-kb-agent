@@ -6,41 +6,46 @@ Enterprise knowledge bases store thousands of technical articles as HTML pages b
 
 ![Context Aware & Vision Grounded KB Agent — using an image from a search chunk to support its answer](docs/assets/app.png)
 
-## Quick Start
+## Getting Started
 
-### Local Dev
+### Shared
 
-The default local workflow is Docker-first and does not require Azure credentials.
+Set the converter backend used by the pipeline (applies to both local and Azure workflows):
 
 ```bash
-cp .env.dev.template .env.dev
-make dev-setup
-sudo make dev-setup-gpu  # only if dev-setup tells you GPU runtime is missing
-make dev-infra-up
-make dev-services-up
-make dev-pipeline
-make dev-test
-make dev-ui
+make set-converter name=markitdown   # or: cu (Content Understanding), mistral (Mistral Document AI)
 ```
 
-This starts local Cosmos, Azurite, Azure AI Search Simulator, Ollama, and Aspire Dashboard, then runs the app stack on top.
+### Local / Dev
 
-`make dev-setup` should be run as your normal user. If it detects an NVIDIA GPU but Docker GPU support is missing on a native Linux or local-WSL Docker engine, it will tell you to run `sudo make dev-setup-gpu` once. On WSL with Docker Desktop integration, GPU support remains a Docker Desktop and Windows driver concern.
+The local workflow is Docker-first and does not require Azure cloud resources, Azure credentials, or Entra auth. It uses smaller local Ollama-hosted models (`qwen2.5:3b`, `mxbai-embed-large`, `moondream`), so it is self-contained and cheap to run, but answer quality is below the Azure-hosted production path.
 
-### Production
+If you use an NVIDIA GPU with a native Linux or local-WSL Docker engine (not Docker Desktop), run the GPU setup once first:
 
-Azure workflows are now namespaced under `prod-*` targets.
+```bash
+sudo make dev-setup-gpu
+```
+
+Then bring everything up:
+
+```bash
+make dev-up
+```
+
+`dev-up` installs local dependencies, starts emulators, builds all services, runs the pipeline, and prints the local UI URL.
+
+### Azure / Prod
+
+Set the project name, then bring everything up:
 
 ```bash
 make set-project name=myproj
-make set-converter name=markitdown
-make prod-infra-up
-make prod-services-up
-make prod-pipeline
-make prod-ui-url
+make prod-up
 ```
 
-See [docs/setup-and-makefile.md](docs/setup-and-makefile.md) for the full command reference.
+`prod-up` installs Azure CLI and AZD if missing, provisions infrastructure, deploys services, runs the pipeline, and prints the deployed web app URL.
+
+See [docs/setup-and-makefile.md](docs/setup-and-makefile.md) for the full target reference.
 
 ---
 
@@ -401,55 +406,6 @@ flowchart LR
 ├── Makefile             Developer workflow — local + Azure targets
 └── azure.yaml           AZD service definitions
 ```
-
----
-
-## Getting Started
-
-### Prerequisites
-
-- [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli) (`az`) authenticated via `az login`
-- [Azure Developer CLI](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd) (`azd`)
-- An Azure subscription with access to AI Services, AI Search, and model deployments
-
-### Local Development
-
-```bash
-# 1. Install tools + Python dependencies
-make setup
-
-# 2. Set project name (2-8 chars — used in all Azure resource names)
-make set-project name=myproj
-
-# 3. Provision Azure + configure local env
-make setup-azure
-
-# 4. Run the ingestion pipeline (convert + index)
-make kb
-
-# 5. Start the agent (terminal 1) and web app (terminal 2)
-make agent
-make app
-
-# Open http://localhost:8080
-```
-
-### Deploy to Azure
-
-```bash
-# Full deploy: provision + deploy + register + configure auth
-make azure-up
-
-# Run the KB pipeline in Azure
-make azure-kb
-
-# Get the deployed web app URL
-make azure-app-url
-```
-
-For the complete Makefile reference, local/Azure workflows, resource naming, and deployment details, see [Setup & Makefile Guide](docs/setup-and-makefile.md).
-
----
 
 ## Documentation
 

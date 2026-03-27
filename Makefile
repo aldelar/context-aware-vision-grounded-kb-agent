@@ -10,59 +10,68 @@ CONVERTER ?= $(shell azd env get-value CONVERTER 2>/dev/null || echo markitdown)
 .PHONY: help
 help:
 	@echo ""
-	@echo "━━━ Shared Setup ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo "━━━ Shared ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo ""
-	@echo "  make set-project name=<id>        Set PROJECT_NAME in the active AZD environment"
-	@echo "  make set-converter name=<name>    Set CONVERTER to cu, markitdown, or mistral"
+	@echo "  make set-converter name=<name>      Set CONVERTER to cu, markitdown, or mistral"
 	@echo ""
 	@echo "━━━ Dev ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo ""
-	@echo "  ── Key Flow ──"
-	@echo "    make dev-setup                  Install tools and Python dependencies"
-	@echo "    sudo make dev-setup-gpu         Configure Docker GPU for local LLM support (Linux only)"
-	@echo "    make dev-infra-up               Start local emulators and initialize resources"
-	@echo "    make dev-services-up            Build and start the full local stack (runs targets below)"
-	@echo "      make dev-services-pipeline-up   fn-convert + fn-index only"
-	@echo "      make dev-services-app-up        web app only"
-	@echo "      make dev-services-agents-up     agent only"
-	@echo "    make dev-seed-kb                Sync kb/staging into local Azurite"
-	@echo "    make dev-test                   Run unit + integration tests"
-	@echo "    make dev-test-ui                Run browser UI tests"
-	@echo "    make dev-pipeline               Run local convert + index pipeline (runs targets below)"
-	@echo "      make dev-pipeline-convert       Trigger local MarkItDown convert"
-	@echo "      make dev-pipeline-index         Trigger local indexing"
-	@echo "    make dev-ui                     Print the local UI URL"
+	@echo "  sudo make dev-setup-gpu             Configure Docker GPU for local LLM support (Linux only)"
+	@echo ""
+	@echo "  make dev-up                         Full local bring-up (calls targets below)"
+	@echo "    make dev-setup                      Install local tools and Python dependencies"
+	@echo "    make dev-infra-up                   Start local emulators and initialize resources"
+	@echo "    make dev-services-up                Build and start the full local stack"
+	@echo "      make dev-services-pipeline-up       fn-convert + fn-index only"
+	@echo "      make dev-services-app-up            web app only"
+	@echo "      make dev-services-agents-up         agent only"
+	@echo "    make dev-pipeline                   Run local convert + index pipeline"
+	@echo "      make dev-pipeline-convert           Trigger local MarkItDown convert"
+	@echo "        make dev-seed-kb                   Sync kb/staging into local Azurite"
+	@echo "      make dev-pipeline-index             Trigger local indexing"
+	@echo "    make dev-ui                         Print the local UI URL"
+	@echo ""
+	@echo "  make dev-test                       Run unit + integration tests"
+	@echo "  make dev-test-ui                    Run browser UI tests"
 	@echo ""
 	@echo "  ── Clean up / Reset ──"
-	@echo "    make dev-clean-storage          Clean staging + serving blob containers"
-	@echo "    make dev-clean-cosmos           Clean Cosmos DB conversation data"
-	@echo "    make dev-clean-index            Clean all documents from the AI Search index"
+	@echo "  make dev-clean                      Clean all local data (calls targets below)"
+	@echo "    make dev-clean-storage              Clean staging + serving blob containers"
+	@echo "    make dev-clean-cosmos               Clean Cosmos DB conversation data"
+	@echo "    make dev-clean-index                Clean all documents from the AI Search index"
 	@echo ""
 	@echo "  ── Tear Down ──"
-	@echo "    make dev-services-down          Stop local application services"
-	@echo "    make dev-infra-down             Stop local emulators"
+	@echo "  make dev-down                       Stop everything local (calls targets below)"
+	@echo "    make dev-services-down              Stop local application services"
+	@echo "    make dev-infra-down                 Stop local emulators"
 	@echo ""
 	@echo "━━━ Prod ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo ""
-	@echo "  ── Key Flow ──"
-	@echo "    make prod-infra-up              Provision Azure infrastructure with AZD"
-	@echo "    make prod-services-up           Deploy app, agent, fn-index, and selected converter (runs targets below)"
-	@echo "      make prod-services-pipeline-up  Pipeline services only"
-	@echo "      make prod-services-app-up       Web app only"
-	@echo "      make prod-services-agents-up    Agent only"
-	@echo "    make prod-pipeline              Run Azure convert + index pipeline (runs targets below)"
-	@echo "      make prod-pipeline-convert      Trigger the selected Azure converter"
-	@echo "      make prod-pipeline-index        Trigger Azure indexing"
-	@echo "    make prod-ui-url                Print the production web app URL"
+	@echo "  make set-project name=<id>          Set PROJECT_NAME in the active AZD environment"
+	@echo ""
+	@echo "  make prod-up                        Full Azure bring-up (calls targets below)"
+	@echo "    make prod-setup                     Install Azure CLI and AZD if missing"
+	@echo "    make prod-infra-up                  Provision Azure infrastructure with AZD"
+	@echo "    make prod-services-up               Deploy all services"
+	@echo "      make prod-services-pipeline-up      Pipeline services (fn-index + selected converter)"
+	@echo "      make prod-services-app-up           Web app only"
+	@echo "      make prod-services-agents-up        Agent only"
+	@echo "    make prod-pipeline                  Run Azure convert + index pipeline"
+	@echo "      make prod-seed-kb                   Upload kb/staging to Azure blob"
+	@echo "      make prod-pipeline-convert           Trigger the selected Azure converter"
+	@echo "      make prod-pipeline-index             Trigger Azure indexing"
+	@echo "    make prod-ui-url                    Print the production web app URL"
 	@echo ""
 	@echo "  ── Clean up / Reset ──"
-	@echo "    make prod-clean-storage         Clean staging + serving blob containers"
-	@echo "    make prod-clean-cosmos          Clean Cosmos DB conversation data"
-	@echo "    make prod-clean-index           Clean all documents from the AI Search index"
+	@echo "  make prod-clean                     Clean all Azure data (calls targets below)"
+	@echo "    make prod-clean-storage             Clean staging + serving blob containers"
+	@echo "    make prod-clean-cosmos              Clean Cosmos DB conversation data"
+	@echo "    make prod-clean-index               Clean all documents from the AI Search index"
 	@echo ""
 	@echo "  ── Tear Down ──"
-	@echo "    make prod-services-down         Print scale-down guidance for deployed services"
-	@echo "    make prod-infra-down            Delete Azure infrastructure with confirmation"
+	@echo "  make prod-down                      Tear down Azure environment (calls targets below)"
+	@echo "    make prod-services-down             Print scale-down guidance for deployed services"
+	@echo "    make prod-infra-down                Delete Azure infrastructure with confirmation"
 
 .PHONY: dev-setup
 dev-setup:
@@ -84,6 +93,17 @@ dev-setup-gpu:
 		exit 1; \
 	fi
 	@bash scripts/dev-setup-gpu.sh
+
+.PHONY: prod-setup
+prod-setup:
+	@bash scripts/prod-setup.sh
+
+.PHONY: dev-up
+dev-up: dev-setup dev-infra-up dev-services-up dev-pipeline
+	@$(MAKE) dev-ui
+
+.PHONY: dev-down
+dev-down: dev-services-down dev-infra-down
 
 .PHONY: dev-infra-up
 dev-infra-up:
@@ -149,6 +169,9 @@ dev-pipeline-convert:
 dev-pipeline-index:
 	@curl -fsS -X POST http://localhost:7072/api/index -H 'Content-Type: application/json' -d '{}'
 
+.PHONY: dev-clean
+dev-clean: dev-clean-storage dev-clean-cosmos dev-clean-index
+
 .PHONY: dev-clean-storage
 dev-clean-storage:
 	@bash scripts/dev-clean-data.sh storage
@@ -161,6 +184,9 @@ dev-clean-cosmos:
 dev-clean-index:
 	@bash scripts/dev-clean-data.sh index
 
+.PHONY: prod-down
+prod-down: prod-services-down prod-infra-down
+
 .PHONY: prod-infra-up
 prod-infra-up:
 	@azd provision
@@ -169,6 +195,10 @@ prod-infra-up:
 prod-infra-down:
 	@printf "Delete the active Azure environment? [y/N] " && read answer && [ "$$answer" = "y" ]
 	@azd down --force --purge
+
+.PHONY: prod-up
+prod-up: prod-setup prod-infra-up prod-services-up prod-pipeline
+	@$(MAKE) prod-ui-url
 
 .PHONY: prod-services-up
 prod-services-up: prod-services-app-up prod-services-agents-up prod-services-pipeline-up
@@ -235,6 +265,9 @@ prod-pipeline-convert:
 .PHONY: prod-pipeline-index
 prod-pipeline-index:
 	@curl -fsS -X POST "$$(azd env get-value FUNC_INDEX_URL)/api/index" -H 'Content-Type: application/json' -d '{}'
+
+.PHONY: prod-clean
+prod-clean: prod-clean-storage prod-clean-cosmos prod-clean-index
 
 .PHONY: prod-clean-storage
 prod-clean-storage:
