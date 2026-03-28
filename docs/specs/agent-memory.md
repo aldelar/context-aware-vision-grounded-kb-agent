@@ -1,35 +1,35 @@
 # Agent Memory — Conversation Persistence
 
-> **Status:** Sections 1–8 describe the target architecture (Epic 011, Story 7).
-> The current implementation (Epic 010) uses a single shared `agent-sessions` container.
-> Story 7 splits this into four containers with clean ownership boundaries.
+> **Status:** Current implementation reflects Epic 016.
+> The agent owns full turn history in `agent-sessions`, while the web app owns only lightweight conversation metadata in `conversations`.
+> The legacy `messages` and `references` containers remain provisioned for backward compatibility but are no longer written by the web app.
 
 ## 1. Overview
 
-The application separates **agent session state** from **conversation display data** using four Cosmos DB containers with distinct ownership:
+The application separates **agent session state** from **conversation metadata** using two active Cosmos DB containers with clear ownership boundaries:
 
 - **`agent-sessions`** — owned exclusively by the agent. Stores LLM session state (message history with compaction). The agent reads and writes freely without risk of overwriting web app data.
 - **`conversations`** — owned exclusively by the web app. One document per conversation (lightweight metadata: id, name, userId, timestamps). Powers the sidebar conversation list with a single-partition query — no cross-partition DISTINCT needed.
-- **`messages`** — owned exclusively by the web app. One document per message (insert-only). The web app appends each user or assistant message as it streams.
-- **`references`** — owned exclusively by the web app. One document per chunk reference (formerly "elements"). Written when the search tool returns results; read on demand when a user clicks a `[Ref #N]` tag.
+- **`messages`** — deprecated. Provisioned only for backward compatibility with historical Chainlit-era data.
+- **`references`** — deprecated. Provisioned only for backward compatibility with historical Chainlit-era data.
 
 ```mermaid
 flowchart LR
-    Browser["Browser<br/>(Chainlit)"] <-->|HTTP| WebApp["Web App<br/>(Chainlit)"]
-    WebApp -->|OpenAI Resp. API| Agent["KB Agent<br/>(Starlette +<br/>Agent Fwk)"]
+    Browser["Browser<br/>(Next.js + CopilotKit)"] <-->|HTTP| WebApp["Web App<br/>(Next.js BFF)"]
+    WebApp -->|AG-UI via Copilot Runtime| Agent["KB Agent<br/>(Starlette +<br/>Agent Fwk)"]
     Agent <-->|read/write session| Sessions["agent-sessions<br/>container"]
     WebApp -->|create/read| Conversations["conversations<br/>container"]
-    WebApp -->|append messages| Messages["messages<br/>container"]
-    WebApp -->|write/read refs| References["references<br/>container"]
+    Legacy["Deprecated legacy consumers"] -. historical only .-> Messages["messages<br/>container"]
+    Legacy -. historical only .-> References["references<br/>container"]
 ```
 
 **Key design decisions:**
 
 - The **agent owns its session exclusively** — it persists and reloads session state via `CosmosAgentSessionRepository`, with compaction strategies that freely trim and exclude messages. No read-modify-write needed.
-- The **web app owns conversation display data** — conversation metadata, messages (formerly "steps"), and references (formerly "elements") live in their own containers. No coupling to the agent's internal session format.
+- The **web app owns only conversation metadata** — sidebar names, timestamps, and ownership data live in `conversations`. Full turn history remains agent-owned.
 - **No shared documents** — each container has a single owner. Eliminates read-modify-write races and simplifies both services.
 - **Sidebar is a single-partition read** — the `conversations` container is partitioned by `/userId`, so listing a user's conversations requires no cross-partition query.
-- The **web app is a thin client** — it passes `conversation_id` via `extra_body` and does not build or trim conversation context.
+- The **web app is a thin client** — it passes `threadId`/conversation identity to the agent and hydrates display history from `agent-sessions` via a read-only API route.
 
 ---
 
@@ -109,16 +109,16 @@ One document per conversation. Lightweight metadata only — no message content.
 - **List (sidebar):** Single-partition query by `userId`, ordered by `updatedAt` DESC. No cross-partition DISTINCT needed.
 - **Delete:** Point delete by `{userId, conversationId}`.
 
-### 2.3 `messages` Container
+### 2.3 `messages` Container (Deprecated)
 
 | Setting | Value |
 |---|---|
 | Container name | `messages` |
 | Partition key | `/conversationId` |
 | TTL | `-1` (no expiry) |
-| Owner | Web app (`CosmosDataLayer`) |
+| Owner | None — retained for backward compatibility |
 
-One document per message. Insert-only — the web app never updates a message document after writing it.
+This container is no longer written by the Next.js web app. It remains provisioned so historical Chainlit-era data is not lost during the migration.
 
 ```json
 {
@@ -144,16 +144,16 @@ One document per message. Insert-only — the web app never updates a message do
 - **Write:** Insert one document per message as it streams. No read-before-write.
 - **Load conversation:** Single-partition query by `conversationId`, ordered by `createdAt` ASC.
 
-### 2.4 `references` Container
+### 2.4 `references` Container (Deprecated)
 
 | Setting | Value |
 |---|---|
 | Container name | `references` |
 | Partition key | `/conversationId` |
 | TTL | `-1` (no expiry) |
-| Owner | Web app (`CosmosDataLayer`) |
+| Owner | None — retained for backward compatibility |
 
-One document per chunk reference. Stored when the search tool returns results. Contains the full chunk content at write time — no lazy loading or external cache needed.
+This container is no longer written by the Next.js web app. Citation rendering in the CopilotKit client is driven directly from structured `search_knowledge_base` tool output.
 
 ```json
 {
@@ -479,14 +479,14 @@ def _get_cosmos_client() -> CosmosClient | None:
 | **Agent session persistence** | Agent writes to `agent-sessions` container via `CosmosAgentSessionRepository` — sole owner, no shared fields |
 | **Session compaction** | `CompactionProvider` with `SlidingWindowStrategy` (5 groups) + `ToolResultCompactionStrategy` (1 group) |
 | **Conversation metadata** | Web app writes to `conversations` container — one doc per conversation (id, name, userId, timestamps) |
-| **Conversation messages** | Web app writes to `messages` container — one doc per message, insert-only |
-| **Chunk references** | Web app writes to `references` container — one doc per chunk, full content at write time |
-| **Cosmos containers** | 4 containers: `agent-sessions` (PK `/id`), `conversations` (PK `/userId`), `messages` (PK `/conversationId`), `references` (PK `/conversationId`) |
+| **Conversation messages** | No dedicated web-app message storage — the agent remains the source of truth in `agent-sessions` |
+| **Chunk references** | No dedicated reference storage in the active path — citations render from structured tool output |
+| **Cosmos containers** | 2 active containers: `agent-sessions` (PK `/id`), `conversations` (PK `/userId`); `messages` and `references` remain deprecated infrastructure only |
 | **Sidebar** | Single-partition query on `conversations` by `userId` — no cross-partition DISTINCT |
 | **Multi-turn support** | Agent Framework auto-loads/saves via `from_agent_framework(session_repository=...)` |
-| **Conversation ID passing** | Web app sends `extra_body={"conversation": {"id": thread_id}}` |
-| **Resuming** | `on_chat_resume()` re-creates client; web app loads messages from `messages`; agent loads compacted session from `agent-sessions` |
-| **Reference display** | User clicks `[Ref #N]` → point read on `references` by `{conversationId, messageId-ref-N}` — no AI Search dependency |
+| **Conversation ID passing** | Web app sends `threadId` through CopilotKit/AG-UI so the agent reuses the same session |
+| **Resuming** | The web app reads `session.state["messages"]` from `agent-sessions` through `/api/conversations/[threadId]/messages`, then hydrates CopilotKit chat state |
+| **Reference display** | `Ref #N` markers link to citation cards rendered from `search_knowledge_base` tool output |
 | **Auth** | Azure Easy Auth headers or `"local-user"` fallback |
 | **Degradation** | Both agent and web app run without persistence if Cosmos DB is unavailable |
 
@@ -498,13 +498,13 @@ The previous design (Epic 010) used a single `agent-sessions` container with a s
 
 | Aspect | Before (Epic 010) | After (Story 7) |
 |--------|-------------------|-----------------|
-| Containers | 1 (`agent-sessions`) | 4 (`agent-sessions`, `conversations`, `messages`, `references`) |
-| Document model | One doc per conversation with mixed ownership (`session` + `steps` + `elements`) | Separate docs per concern — agent session, conversation metadata, message, reference |
+| Containers | 1 (`agent-sessions`) | 2 active (`agent-sessions`, `conversations`) + 2 deprecated (`messages`, `references`) |
+| Document model | One doc per conversation with mixed ownership (`session` + `steps` + `elements`) | Separate ownership: agent session + conversation metadata; deprecated containers remain read-only historical artifacts |
 | Agent writes | Read-modify-write to preserve web app fields | Direct upsert — agent is sole owner |
-| Web app writes | Append to `steps`/`elements` arrays in shared doc (upsert) | Insert new document per message/reference (create) |
-| Terminology | steps, elements | messages, references |
+| Web app writes | Append to `steps`/`elements` arrays in shared doc (upsert) | Upsert lightweight conversation metadata only |
+| Terminology | steps, elements | conversation metadata + agent-owned session history |
 | Sidebar | Cross-partition query with `userId` filter on shared container | Single-partition query on `conversations` (PK `/userId`) |
 | Concurrency | Read-modify-write races possible on shared document | No races — each container has a single writer |
-| Session message synthesis | Fallback synthesizes steps from `session.state.messages` | Not needed — web app reads its own `messages` container |
+| Session message synthesis | Fallback synthesizes steps from `session.state.messages` | Web app hydrates directly from `agent-sessions.session.state.messages` |
 | Compaction | None — full history replayed to LLM every turn | `SlidingWindowStrategy` + `ToolResultCompactionStrategy` bound context |
-| Reference loading | Full content embedded in `elements` array | Point read on `references` container by `{conversationId, messageId-ref-N}` — message-scoped, no collisions |
+| Reference loading | Full content embedded in `elements` array | Citation cards render from structured search tool results — no active `references` container dependency |

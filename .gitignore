@@ -213,6 +213,20 @@ shared-scratchpads/
 .cursorignore
 .cursorindexingignore
 
+# Node / frontend build artifacts
+node_modules/
+.next/
+out/
+.turbo/
+.vercel/
+.parcel-cache/
+coverage/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
 # Marimo
 marimo/_static/
 marimo/_lsp/

@@ -255,7 +255,7 @@ The project also has an APIM connection resource (`apim-connection`) linking it 
 
 ### Cosmos DB (`cosmos-db.bicep`)
 
-Serverless NoSQL database for conversation persistence using a 4-container model with clean ownership boundaries. The agent exclusively owns `agent-sessions`; the web app exclusively owns `conversations`, `messages`, and `references`. See [Agent Memory](agent-memory.md) for the full schema.
+Serverless NoSQL database for conversation persistence. The active runtime uses an agent-owned `agent-sessions` container for full turn history and a web-app-owned `conversations` container for sidebar metadata. The `messages` and `references` containers remain provisioned only as deprecated compatibility artifacts. See [Agent Memory](agent-memory.md) for the full schema.
 
 | Setting | Value |
 |---------|-------|
@@ -263,7 +263,7 @@ Serverless NoSQL database for conversation persistence using a 4-container model
 | Capability | `EnableServerless` |
 | Consistency | Session |
 | Database | `kb-agent` |
-| Containers | `agent-sessions` (PK `/id`), `conversations` (PK `/userId`), `messages` (PK `/conversationId`), `references` (PK `/conversationId`) |
+| Containers | Active: `agent-sessions` (PK `/id`), `conversations` (PK `/userId`); Deprecated: `messages` (PK `/conversationId`), `references` (PK `/conversationId`) |
 | Public Network | Enabled |
 
 The `cosmos-db-role.bicep` module assigns the **Cosmos DB Built-in Data Contributor** role (role ID `00000000-0000-0000-0000-000000000002`) to a specified principal. Called twice: once for the web app Container App identity and once for the agent Container App identity.
@@ -279,7 +279,7 @@ Shared environment for the web app, agent, and all function Container Apps.
 
 ### Web App Container App (`container-app.bicep`)
 
-Hosts the web app as a containerized Chainlit application with Entra ID Easy Auth.
+Hosts the web app as a containerized Next.js application with CopilotKit and Entra ID Easy Auth.
 
 #### Container App
 
@@ -288,31 +288,26 @@ Hosts the web app as a containerized Chainlit application with Entra ID Easy Aut
 | Identity | System-assigned managed identity |
 | Container | Single container from ACR |
 | CPU / Memory | 0.5 vCPU / 1 GiB |
-| Ingress | External, port 8080, HTTPS-only |
+| Ingress | External, port 3000, HTTPS-only |
 | Scale | Min 0, Max 1 (scale-to-zero for cost savings) |
 
 **Application Settings:**
 
 | Setting | Source | Purpose |
 |---------|--------|---------|
-| `AGENT_ENDPOINT` | Agent Container App internal FQDN | Agent Responses API base URL |
-| `AI_SERVICES_ENDPOINT` | AI Services endpoint | Microsoft Foundry (token auth) |
+| `AGENT_ENDPOINT` | Agent APIM proxy URL | AG-UI agent endpoint used by the CopilotKit runtime |
 | `SERVING_BLOB_ENDPOINT` | Serving storage blob endpoint | Article images for proxy |
 | `SERVING_CONTAINER_NAME` | `serving` | Blob container name |
 | `COSMOS_ENDPOINT` | Cosmos DB endpoint | Conversation persistence |
 | `COSMOS_DATABASE_NAME` | `kb-agent` | Cosmos DB database name |
-| `OAUTH_AZURE_AD_CLIENT_ID` | Entra App Registration client ID | Chainlit OAuth — Azure AD login |
-| `OAUTH_AZURE_AD_CLIENT_SECRET` | Entra App Registration client secret | Chainlit OAuth — token exchange |
-| `OAUTH_AZURE_AD_TENANT_ID` | Azure AD tenant ID | Chainlit OAuth — tenant scope |
-| `CHAINLIT_AUTH_SECRET` | AZD environment secret | JWT signing for Chainlit sessions |
 
-#### Entra ID Authentication (Dual-Layer)
+#### Entra ID Authentication
 
-Authentication uses two complementary layers:
+Authentication uses a platform-side Easy Auth layer plus application-side header parsing:
 
 1. **Easy Auth (platform-level sidecar)** — Intercepts all HTTP requests. Unauthenticated requests are redirected to Microsoft login. Configured via `Microsoft.App/containerApps/authConfigs`.
 
-2. **Chainlit OAuth (application-level)** — When `OAUTH_AZURE_AD_CLIENT_ID` is set, the Chainlit app registers an OAuth callback that extracts the user's OID from the Azure AD token. This identity flows to Cosmos DB as the `userId` partition key for per-user conversation isolation.
+2. **Web-app identity extraction (application-level)** — The Next.js app reads the authenticated principal from `X-MS-CLIENT-PRINCIPAL*` headers added by Easy Auth and derives the user OID plus security groups for conversation metadata and agent request forwarding. No separate in-app OAuth callback is required.
 
 | Setting | Value |
 |---------|-------|
@@ -320,9 +315,9 @@ Authentication uses two complementary layers:
 | Tenant Mode | Single-tenant |
 | Unauthenticated Action | Redirect to login (return HTTP 302) |
 | App Registration | Created via AZD pre-provision hook |
-| Redirect URIs | `https://<fqdn>/.auth/login/aad/callback` (Easy Auth) + `https://<fqdn>/auth/oauth/azure-ad/callback` (Chainlit OAuth) |
+| Redirect URI | `https://<fqdn>/.auth/login/aad/callback` |
 
-The Entra App Registration is created by the AZD `preprovision` hook script (`scripts/setup-entra-auth.sh`). The client ID, secret, and tenant ID are stored as AZD environment variables and passed to the Bicep template as parameters. The `postprovision` hook adds both redirect URIs to the app registration.
+The Entra App Registration is created by the AZD `preprovision` hook script (`scripts/setup-entra-auth.sh`). The client ID and secret are stored as AZD environment variables and passed to the Bicep template as parameters. The `postprovision` hook ensures the Easy Auth redirect URI is present on the app registration.
 
 ### Agent Container App (`agent-container-app.bicep`)
 
@@ -423,7 +418,7 @@ flowchart LR
 
 ### Entra ID Authentication
 
-The Container App uses a **dual-layer auth model**: **Easy Auth** (platform-level sidecar) for gateway enforcement + **Chainlit OAuth callback** (application-level) for user identity extraction. The **Entra App Registration** (single-tenant) is created via an AZD pre-provision hook script (`scripts/setup-entra-auth.sh`). Both redirect URIs (`/.auth/login/aad/callback` for Easy Auth and `/auth/oauth/azure-ad/callback` for Chainlit OAuth) are added via the post-provision hook. Only users in the Azure AD tenant can access the web app. Unauthenticated requests are automatically redirected to the Microsoft login page.
+The Container App uses **Easy Auth** (platform-level sidecar) for gateway enforcement, while the Next.js app reads the resulting `X-MS-CLIENT-PRINCIPAL*` headers to recover user identity and groups. The **Entra App Registration** (single-tenant) is created via an AZD pre-provision hook script (`scripts/setup-entra-auth.sh`), and the post-provision hook ensures `/.auth/login/aad/callback` is configured as the redirect URI. Only users in the Azure AD tenant can access the web app. Unauthenticated requests are automatically redirected to the Microsoft login page.
 
 ### Key Security Settings
 

@@ -178,14 +178,39 @@ def _patch_agentserver_streaming_converter() -> None:
 # ---------------------------------------------------------------------------
 
 
+from agent_framework.ag_ui import AgentFrameworkAgent, add_agent_framework_fastapi_endpoint
+from fastapi import Depends, FastAPI
+
+from middleware.jwt_auth import JWTAuthMiddleware, require_jwt_auth
+
+
+def _create_ag_ui_app(agent) -> FastAPI:
+    """Build the AG-UI FastAPI app mounted onto the Starlette agent server."""
+    ag_ui_app = FastAPI(
+        title="KB Agent AG-UI",
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
+        redirect_slashes=False,
+    )
+    ag_ui_agent = AgentFrameworkAgent(agent=agent, use_service_session=True)
+    add_agent_framework_fastapi_endpoint(
+        ag_ui_app,
+        ag_ui_agent,
+        "/",
+        dependencies=[Depends(require_jwt_auth)],
+    )
+    return ag_ui_app
+
+
 def main() -> None:
     """Run the KB Agent as an HTTP server on port 8088."""
     logger.info("[KB-AGENT] Starting agent server (port 8088)…")
     _patch_agentserver_streaming_converter()
 
+    from agent.config import config
     from agent.kb_agent import create_agent
     from agent.session_repository import CosmosAgentSessionRepository
-    from agent.config import config
 
     agent = create_agent()
     logger.info("[KB-AGENT] Agent created, starting server…")
@@ -202,9 +227,8 @@ def main() -> None:
         logger.info("[KB-AGENT] Session persistence disabled (no COSMOS_ENDPOINT)")
 
     server = from_agent_framework(agent, session_repository=session_repo)
-    from middleware.jwt_auth import JWTAuthMiddleware
-
     server.app.add_middleware(JWTAuthMiddleware)
+    server.app.mount("/ag-ui", _create_ag_ui_app(agent))
     server.run()
 
 

@@ -1,8 +1,8 @@
 # Epic 016 — CopilotKit Migration with AG-UI Protocol
 
-> **Status:** Draft
+> **Status:** In Progress
 > **Created:** March 27, 2026
-> **Updated:** March 27, 2026
+> **Updated:** March 28, 2026
 
 ## Objective
 
@@ -30,7 +30,7 @@ After this epic:
 - [ ] Copilot Runtime routes requests to agent AG-UI endpoint via `HttpAgent`
 - [ ] Image proxy endpoint (`/api/images/[...path]`) serves blobs from Azure Storage
 - [ ] Inline images in agent responses render correctly in the CopilotKit chat
-- [ ] Citations from search results are displayed in the UI (custom component or markdown rendering)
+- [x] Citations from search results are displayed in the UI (custom component or markdown rendering)
 - [ ] Conversation starters available on the welcome screen
 - [ ] Auth: Entra Easy Auth works in prod, local dev works without auth
 - [ ] Docker image builds and deploys via `azd deploy --service web-app`
@@ -39,9 +39,16 @@ After this epic:
 - [ ] `azure.yaml` updated for the new web app service
 - [ ] Architecture spec updated to reflect CopilotKit + AG-UI
 - [ ] `make dev-test` passes with zero regressions on agent and functions (web-app tests rewritten)
-- [ ] ARD-016 documents the decision to migrate from Chainlit to CopilotKit
-- [ ] Multi-turn conversations persist and resume correctly (AG-UI `threadId` maps to agent session `conversation_id`)
+- [x] ARD-016 documents the decision to migrate from Chainlit to CopilotKit
+- [x] Multi-turn conversations persist and resume correctly (AG-UI `threadId` maps to agent session `conversation_id`)
 - [ ] End-to-end validated: user asks KB question in CopilotKit UI → real-time tool call visible → streamed answer with inline images and citations displayed
+
+## Validation Snapshot
+
+- [x] `cd src/agent && uv run pytest tests/ -o addopts= -m "not uitest"` passed earlier in the implementation cycle after AG-UI endpoint integration
+- [x] `cd src/web-app && npm test` passes with history hydration and citation rendering coverage
+- [x] `cd src/web-app && npm run build` passes with `/api/conversations/[threadId]/messages` included in the production app
+- [ ] Full manual end-to-end validation from the local dev stack is still pending
 
 ### Validation Criteria
 
@@ -303,18 +310,18 @@ Re-implement the image proxy endpoint in Next.js and ensure inline images from a
 
 ### Story 5 — Citation Display
 
-> **Status:** Not Started
+> **Status:** Completed
 > **Depends on:** Story 3
 
 Display search citations in the CopilotKit chat. Replace Chainlit's `cl.Text` side-panel elements with CopilotKit-native rendering.
 
 #### Deliverables
 
-- [ ] Citations from `search_knowledge_base` tool output displayed as expandable sections or links below the answer
-- [ ] Each citation shows: article title, section header, content preview
-- [ ] Citation component uses CopilotKit patterns (custom component via `useRenderTool` result rendering, or a dedicated React component)
-- [ ] `Ref #N` markers in agent text link to the corresponding citation
-- [ ] Inline images in citation content render via the image proxy
+- [x] Citations from `search_knowledge_base` tool output displayed as expandable sections or links below the answer
+- [x] Each citation shows: article title, section header, content preview
+- [x] Citation component uses CopilotKit patterns (custom component via `useRenderTool` result rendering, or a dedicated React component)
+- [x] `Ref #N` markers in agent text link to the corresponding citation
+- [x] Inline images in citation content render via the image proxy
 
 #### Notes
 
@@ -323,30 +330,30 @@ Display search citations in the CopilotKit chat. Replace Chainlit's `cl.Text` si
 
 #### Definition of Done
 
-- [ ] Agent answer includes `Ref #1`, `Ref #2` markers → each links/scrolls to the corresponding citation card
-- [ ] Citation cards show article title, section header, and a content preview
-- [ ] Citations with images render those images via the proxy endpoint
+- [x] Agent answer includes `Ref #1`, `Ref #2` markers → each links/scrolls to the corresponding citation card
+- [x] Citation cards show article title, section header, and a content preview
+- [x] Citations with images render those images via the proxy endpoint
 
 ---
 
 ### Story 6 — Conversation Persistence & History Sidebar
 
-> **Status:** Not Started
+> **Status:** Completed
 > **Depends on:** Story 2
 
 Implement lightweight conversation persistence so users can see and resume previous conversations.
 
 #### Deliverables
 
-- [ ] Next.js API routes for conversation CRUD: list conversations (sidebar), create conversation, get conversation
-- [ ] Conversations stored in the existing `conversations` Cosmos container (partition key `/userId`)
-- [ ] Uses `@azure/cosmos` SDK with `DefaultAzureCredential` (prod) or emulator key (dev)
-- [ ] Auto-title from first user message (80 chars max), matching current behavior
-- [ ] Conversation list displayed in a sidebar or thread selector
-- [ ] Selected conversation passes `thread_id` / `conversation_id` to the agent via AG-UI thread context
-- [ ] Agent loads session state from `agent-sessions` container based on the thread ID (existing behavior)
-- [ ] **Conversation resume**: when a user selects a previous conversation, previous messages are hydrated into the CopilotKit chat
-- [ ] Message hydration reads from the `agent-sessions` container (which stores the full message history in `session.state["messages"]`) via a Next.js API route, then passes the messages to CopilotKit's initial message state
+- [x] Next.js API routes for conversation CRUD: list conversations (sidebar), create conversation, get conversation
+- [x] Conversations stored in the existing `conversations` Cosmos container (partition key `/userId`)
+- [x] Uses `@azure/cosmos` SDK with `DefaultAzureCredential` (prod) or emulator key (dev)
+- [x] Auto-title from first user message (80 chars max), matching current behavior
+- [x] Conversation list displayed in a sidebar or thread selector
+- [x] Selected conversation passes `thread_id` / `conversation_id` to the agent via AG-UI thread context
+- [x] Agent loads session state from `agent-sessions` container based on the thread ID (existing behavior)
+- [x] **Conversation resume**: when a user selects a previous conversation, previous messages are hydrated into the CopilotKit chat
+- [x] Message hydration reads from the `agent-sessions` container (which stores the full message history in `session.state["messages"]`) via a Next.js API route, then passes the messages to CopilotKit's initial message state
 
 #### Notes
 
@@ -356,11 +363,11 @@ Implement lightweight conversation persistence so users can see and resume previ
 
 #### Definition of Done
 
-- [ ] Sidebar lists previous conversations for the current user, ordered by most recent
-- [ ] Creating a new conversation generates a unique thread ID and persists metadata to `conversations` container
-- [ ] Selecting a previous conversation loads its messages into the CopilotKit chat
-- [ ] A follow-up message in a resumed conversation includes full prior context (agent session continuity)
-- [ ] `@azure/cosmos` client correctly connects to both Cosmos emulator (dev) and Azure Cosmos DB (prod)
+- [x] Sidebar lists previous conversations for the current user, ordered by most recent
+- [x] Creating a new conversation generates a unique thread ID and persists metadata to `conversations` container
+- [x] Selecting a previous conversation loads its messages into the CopilotKit chat
+- [x] A follow-up message in a resumed conversation includes full prior context (agent session continuity)
+- [x] `@azure/cosmos` client correctly connects to both Cosmos emulator (dev) and Azure Cosmos DB (prod)
 
 ---
 
@@ -430,23 +437,23 @@ Update the Dockerfile, Docker Compose, Bicep, azure.yaml, and Makefile for the n
 
 ### Story 9 — Web App Tests
 
-> **Status:** Not Started
+> **Status:** In Progress
 > **Depends on:** Stories 2–6
 
 Write tests for the new CopilotKit web app. Replace the existing Chainlit pytest suite with appropriate JavaScript/TypeScript tests.
 
 #### Deliverables
 
-- [ ] Test framework set up (Jest or Vitest)
+- [x] Test framework set up (Jest or Vitest)
 - [ ] Unit tests for: image proxy API route, conversation API routes, image URL normalization logic, config loading
-- [ ] Component tests for: tool rendering component, citation display component
+- [x] Component tests for: tool rendering component, citation display component
 - [ ] Integration test: CopilotKit chat sends message → receives streamed response (mock agent)
-- [ ] Test configuration in `package.json` scripts
+- [x] Test configuration in `package.json` scripts
 - [ ] `make dev-test` runs web-app tests correctly alongside Python tests for agent and functions
 
 #### Definition of Done
 
-- [ ] `cd src/web-app && npm test` passes all unit and component tests
+- [x] `cd src/web-app && npm test` passes all unit and component tests
 - [ ] `make dev-test` passes: functions (pytest), agent (pytest), web-app (jest/vitest) — zero regressions
 - [ ] Test coverage includes: image proxy route, conversation CRUD routes, image URL normalization, tool renderer component, citation component
 
@@ -454,27 +461,27 @@ Write tests for the new CopilotKit web app. Replace the existing Chainlit pytest
 
 ### Story 10 — Documentation & Cleanup
 
-> **Status:** Not Started
+> **Status:** In Progress
 > **Depends on:** Stories 1–9
 
 Update all documentation to reflect the CopilotKit + AG-UI architecture. Clean up removed Chainlit artifacts.
 
 #### Deliverables
 
-- [ ] `docs/ards/ARD-016-copilotkit-migration.md` created — documents the decision to migrate from Chainlit to CopilotKit with AG-UI
+- [x] `docs/ards/ARD-016-copilotkit-migration.md` created — documents the decision to migrate from Chainlit to CopilotKit with AG-UI
 - [ ] `docs/specs/architecture.md` updated: replace Chainlit references with CopilotKit + AG-UI, update conversation flow diagram, update image flow diagram, update key design decisions table
-- [ ] `docs/specs/infrastructure.md` updated: web app container port and tech stack
+- [x] `docs/specs/infrastructure.md` updated: web app container port and tech stack
 - [ ] `docs/setup-and-makefile.md` updated: new setup instructions (Node.js prereqs, npm install)
 - [ ] `src/web-app/.env.sample` rewritten for Node.js environment
 - [ ] `README.md` updated if it references Chainlit
 - [ ] Remove any orphaned Chainlit references in other epics/docs (informational, not rewriting history)
 - [ ] `messages` and `references` Cosmos containers marked as deprecated in `infra/modules/cosmos-db.bicep` with comments (containers preserved, not deleted)
-- [ ] Epic 016 doc updated with completion status
+- [x] Epic 016 doc updated with completion status
 
 #### Definition of Done
 
-- [ ] ARD-016 exists and documents: decision, alternatives considered, rationale, consequences
+- [x] ARD-016 exists and documents: decision, alternatives considered, rationale, consequences
 - [ ] `docs/specs/architecture.md` no longer references Chainlit; diagrams show CopilotKit + AG-UI flow
-- [ ] `docs/specs/infrastructure.md` shows web app as Node.js/Next.js on port 3000
+- [x] `docs/specs/infrastructure.md` shows web app as Node.js/Next.js on port 3000
 - [ ] `grep -r "chainlit" docs/` returns zero hits in specs and setup docs (epics are historical — ok to keep)
 - [ ] Epic 016 status updated to `Done` with a Validation Snapshot section

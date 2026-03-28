@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------------
 // Module: container-app.bicep
-// Deploys Container App for the web app (Chainlit thin client)
+// Deploys Container App for the web app (Next.js + CopilotKit client)
 // with Easy Auth (Entra ID, single-tenant) and system-assigned managed identity.
 // Requires an existing Container Apps Environment (created by container-apps-env.bicep).
 // ---------------------------------------------------------------------------
@@ -27,26 +27,10 @@ param acrResourceId string
 param imageName string = ''
 
 // Use a public placeholder image on first deploy (before AZD pushes the real image).
-// The placeholder listens on port 80, so provision with that port and switch to 8080 on the real deploy.
+// The placeholder listens on port 80, so provision with that port and switch to 3000 on the real deploy.
 var useAcrImage = !empty(imageName)
 var containerImage = useAcrImage ? '${acrLoginServer}/${imageName}' : 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
-var targetPort = useAcrImage ? 8080 : 80
-
-// --- Application settings ---
-@description('Azure AI Services endpoint')
-param aiServicesEndpoint string
-
-@description('Agent model deployment name')
-param agentModelDeploymentName string = 'gpt-4.1'
-
-@description('Embedding deployment name')
-param embeddingDeploymentName string = 'text-embedding-3-small'
-
-@description('Azure AI Search endpoint')
-param searchEndpoint string
-
-@description('Azure AI Search index name')
-param searchIndexName string = 'kb-articles'
+var targetPort = useAcrImage ? 3000 : 80
 
 @description('Serving storage blob endpoint')
 param servingBlobEndpoint string
@@ -65,13 +49,6 @@ param cosmosEndpoint string = ''
 @description('Cosmos DB database name')
 param cosmosDatabaseName string = 'kb-agent'
 
-@description('Chainlit auth secret used to sign JWT session cookies')
-@secure()
-param chainlitAuthSecret string = ''
-
-var defaultChainlitAuthSecret = '${uniqueString(resourceGroup().id, 'chainlit-auth-secret-a')}${uniqueString(resourceGroup().id, 'chainlit-auth-secret-b')}${uniqueString(resourceGroup().id, 'chainlit-auth-secret-c')}'
-
-// --- Chainlit OAuth (Azure AD) ---
 // --- Easy Auth ---
 @description('Entra App Registration client ID for Easy Auth')
 param entraClientId string = ''
@@ -130,17 +107,11 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
             memory: '1Gi'
           }
           env: [
-            { name: 'AI_SERVICES_ENDPOINT', value: aiServicesEndpoint }
-            { name: 'AGENT_MODEL_DEPLOYMENT_NAME', value: agentModelDeploymentName }
-            { name: 'EMBEDDING_DEPLOYMENT_NAME', value: embeddingDeploymentName }
-            { name: 'SEARCH_ENDPOINT', value: searchEndpoint }
-            { name: 'SEARCH_INDEX_NAME', value: searchIndexName }
             { name: 'SERVING_BLOB_ENDPOINT', value: servingBlobEndpoint }
             { name: 'SERVING_CONTAINER_NAME', value: servingContainerName }
             { name: 'AGENT_ENDPOINT', value: agentEndpoint }
             { name: 'COSMOS_ENDPOINT', value: cosmosEndpoint }
             { name: 'COSMOS_DATABASE_NAME', value: cosmosDatabaseName }
-            { name: 'CHAINLIT_AUTH_SECRET', value: !empty(chainlitAuthSecret) ? chainlitAuthSecret : defaultChainlitAuthSecret }
           ]
         }
       ]

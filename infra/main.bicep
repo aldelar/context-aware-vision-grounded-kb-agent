@@ -47,10 +47,6 @@ param entraClientId string = ''
 @secure()
 param entraClientSecret string = ''
 
-@description('Chainlit auth secret used by the web app for JWT session signing')
-@secure()
-param chainlitAuthSecret string = ''
-
 // ---------------------------------------------------------------------------
 // Variables
 // ---------------------------------------------------------------------------
@@ -300,16 +296,12 @@ module containerApp 'modules/container-app.bicep' = {
     containerAppsEnvId: containerAppsEnv.outputs.containerAppsEnvId
     acrLoginServer: containerRegistry.outputs.containerRegistryLoginServer
     acrResourceId: containerRegistry.outputs.containerRegistryId
-    aiServicesEndpoint: aiServices.outputs.aiServicesEndpoint
-    embeddingDeploymentName: aiServices.outputs.embeddingDeploymentName
-    searchEndpoint: search.outputs.searchEndpoint
     servingBlobEndpoint: servingStorage.outputs.blobEndpoint
     entraClientId: entraClientId
     entraClientSecret: entraClientSecret
     agentEndpoint: agentApimEndpoint
     cosmosEndpoint: cosmosDb.outputs.cosmosEndpoint
     cosmosDatabaseName: cosmosDb.outputs.cosmosDatabaseName
-    chainlitAuthSecret: chainlitAuthSecret
   }
 }
 

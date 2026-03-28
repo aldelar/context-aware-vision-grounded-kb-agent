@@ -67,9 +67,9 @@ services:
     environment:
       OTEL_SERVICE_NAME: kb-web-app
     ports:
-      - "8080:8080"
+      - "3000:3000"
     healthcheck:
-      test: ["CMD", "python", "-c", "import socket; s=socket.create_connection(('127.0.0.1', 8080), 2); s.close()"]
+      test: ["CMD", "node", "-e", "const net=require('node:net'); const s=net.createConnection({host:'127.0.0.1', port:3000}, ()=>{s.end(); process.exit(0);}); s.on('error', ()=>process.exit(1)); setTimeout(()=>process.exit(1), 2000);"]
       interval: 10s
       timeout: 5s
       retries: 20

@@ -92,7 +92,7 @@ flowchart LR
     VIS -->|inject| AGENT
     AGENT -->|sessions| COSMOS["Cosmos DB"]
 
-    CHAT["Chainlit UI"] --> APIM["APIM"] --> AGENT
+    CHAT["CopilotKit UI"] --> WEBAPP["Next.js Runtime"] --> APIM["APIM"] --> AGENT
     CHAT -->|conversations| COSMOS
 
     style AgentSvc fill:#3949ab,stroke:#5c6bc0,color:#ffffff
@@ -105,6 +105,7 @@ flowchart LR
     style VIS fill:#8b7535,stroke:#a6893f,color:#ffffff
     style IMG fill:#8b7535,stroke:#a6893f,color:#ffffff
     style AF fill:#4a148c,stroke:#6a1b9a,color:#ffffff
+    style WEBAPP fill:#455a64,stroke:#546e7a,color:#ffffff
     style CHAT fill:#455a64,stroke:#546e7a,color:#ffffff
 ```
 
@@ -112,7 +113,7 @@ flowchart LR
 
 ## Context Aware & Vision Grounded KB Agent
 
-The solution consists of two services: a standalone **KB Agent** deployed as an **Azure Container App** (with Foundry integration for tracing and registration) and a **Chainlit thin client** web app that calls the agent via the OpenAI-compatible **Responses API** through an APIM AI Gateway. The agent owns conversation history — it persists and loads `AgentSession` state via Cosmos DB using the Agent Framework's session persistence model (see [Agent Memory](agent-memory.md)).
+The solution consists of two services: a standalone **KB Agent** deployed as an **Azure Container App** (with Foundry integration for tracing and registration) and a **Next.js + CopilotKit** web app that calls the agent via the **AG-UI protocol** through an APIM AI Gateway. The agent owns conversation history — it persists and loads `AgentSession` state via Cosmos DB using the Agent Framework's session persistence model (see [Agent Memory](agent-memory.md)).
 
 ### Agent (Container App)
 
@@ -132,31 +133,31 @@ The agent runs as a Starlette ASGI service on port 8088 (built with `from_agent_
 - **Vision Middleware** — A `ChatMiddleware` on the Azure OpenAI chat client that intercepts tool results, detects image URLs in the search response JSON, downloads the images from blob storage, and injects them into the LLM conversation as `Content.from_data()` (base64 image payloads). This enables GPT-4.1's vision capabilities — the LLM can **see** the actual images (diagrams, screenshots, architecture charts) and reason about their visual content when composing answers.
 - **Image Service** — Downloads images from blob storage for the vision middleware. Uses `DefaultAzureCredential` for blob access.
 
-### Web App (Chainlit Thin Client)
+### Web App (Next.js + CopilotKit)
 
-The web app is a Chainlit-based UI that calls the agent via the Responses API. It does **not** contain any agent logic, search code, or vision middleware — those all live in the agent package.
+The web app is a Next.js App Router application that uses CopilotKit for chat UI and a server-side runtime route to broker AG-UI traffic to the agent. It does **not** contain any agent logic, search code, or vision middleware — those all live in the agent package.
 
 #### Web App Components
 
-- **OpenAI SDK Client** — Calls the agent via `client.responses.create(input=..., stream=True)`. Local dev uses plain HTTP (`http://localhost:8088`). Deployed: routed through registered APIM proxy URL with Entra bearer token.
-- **Cosmos DB Data Layer** — `CosmosDataLayer(BaseDataLayer)` uses three dedicated containers: `conversations` (PK `/userId`), `messages` (PK `/conversationId`), and `references` (PK `/conversationId`). The agent exclusively owns the `agent-sessions` container — there is no shared state. The web app writes conversations, messages, and references to their respective containers, and queries `conversations` by `userId` for the sidebar thread list. Auto-title from first user message (80 chars max).
-- **Image Proxy** — A FastAPI endpoint (`/api/images/{article_id}/{image_path}`) that downloads images from the serving blob account on demand. Chainlit renders standard `![alt](/api/images/...)` markdown natively, and the browser fetches images from this same-origin proxy.
-- **Image Normaliser** — Post-processing step that normalises all `![alt](url)` references in the LLM output to clean `/api/images/...` proxy URLs. Handles the variety of URL formats the LLM may generate (hallucinated domains, missing leading slashes, `attachment:` schemes) via pattern matching and filename-to-citation lookup.
-- **Chainlit Chat UI** — Streaming chat interface with real-time token display, native Markdown rendering (including inline images via the proxy), clickable `[Ref #N]` citation links with side-panel detail views, and conversation history panel.
+- **CopilotKit Runtime Route** — Next.js API route at `/api/copilotkit` uses `@copilotkit/runtime` and an `HttpAgent` to stream AG-UI events to and from the agent. In deployed environments, the route acquires a managed-identity token for the APIM-backed agent endpoint.
+- **Conversation Metadata Store** — The web app stores only lightweight sidebar metadata in the `conversations` Cosmos container. The agent exclusively owns `agent-sessions`, which remains the source of truth for turn history.
+- **Image Proxy** — A Next.js route handler at `/api/images/...` downloads images from the serving blob account on demand and serves them from the same origin.
+- **Tool Renderers** — CopilotKit tool renderers surface `search_knowledge_base` progress and results inline while the agent is running.
+- **CopilotKit Chat UI** — Streaming chat interface with CopilotKit components, inline tool call rendering, conversation sidebar, and same-origin markdown image rendering.
 
 ### Conversation Flow
 
 ```
-User message → Web App → POST /v1/responses (stream=True, extra_body={conversation: {id: thread_id}})
-                       → APIM proxy → Agent (Starlette)
-                       → from_agent_framework loads AgentSession from Cosmos
+User message → Web App → POST /api/copilotkit
+                       → Next.js runtime route → APIM proxy → Agent `/ag-ui`
+                       → AG-UI adapter loads AgentSession from Cosmos using threadId
                        → ChatAgent.run_stream() (with full history from session)
                                          → search_knowledge_base tool
                                          → Vision middleware (download + inject images)
-                                         → LLM response (streamed SSE)
-                       → from_agent_framework saves AgentSession to Cosmos
-                       ← Stream tokens to Chainlit UI
-                       → Web app saves steps/elements to Cosmos (same document)
+                                         → LLM response (streamed AG-UI events)
+                       → AG-UI adapter saves AgentSession to Cosmos
+                       ← Stream events to CopilotKit UI
+                       → Web app stores sidebar metadata in `conversations`
 ```
 
 ### Image Flow: From Index to Browser
@@ -166,7 +167,7 @@ The image-aware chunks created by the ingestion pipeline (Epic 001) are the foun
 ```mermaid
 sequenceDiagram
     participant User
-    participant WebApp as Web App (Chainlit)
+    participant WebApp as Web App (Next.js + CopilotKit)
     participant Agent as Agent (Starlette)
     participant Search as AI Search
     box rgba(249, 168, 37, 0.25)
@@ -218,13 +219,13 @@ Despite explicit system prompt instructions, LLMs generate image URLs in many cr
 |---|----------|-----------|
 | 1 | Two-service split (Agent + Web App) | Agent is a standalone Container App with its own managed identity and RBAC. Web app is a thin client — no agent logic, search code, or vision middleware. Clean separation of concerns. |
 | 2 | Microsoft Agent Framework | Provides `Agent` with built-in tool calling, conversation threading, and Azure OpenAI integration — avoids manual Responses API loop management. |
-| 3 | Responses API integration | Web app calls agent via OpenAI SDK `client.responses.create()`. Standard protocol, local dev uses plain HTTP, deployed uses APIM proxy with Entra bearer token, streaming SSE. |
+| 3 | AG-UI integration | Web app calls agent via a Next.js CopilotKit runtime route backed by AG-UI `HttpAgent`. Standard thread-based protocol, local dev uses plain HTTP, deployed uses APIM proxy with Entra bearer token. |
 | 4 | Vision middleware for image injection | `ChatMiddleware` intercepts tool results and injects images as `Content.from_data()`. The framework auto-converts to OpenAI's vision format. The LLM can reason about visual content (diagrams, architecture charts) not just text descriptions — producing higher-fidelity answers. |
 | 5 | Agent-owned conversation persistence | Agent persists `AgentSession` to Cosmos DB `agent-sessions` container (partition key `/id`) via `CosmosAgentSessionRepository`. Web app is a thin client — passes `conversation_id`, reads from same container for sidebar/resume. See [Agent Memory](agent-memory.md). |
-| 6 | Same-origin image proxy | Avoids SAS URL complexity (token expiry, CORS). Chainlit renders `![alt](/api/images/...)` as native markdown; browser fetches from same origin. Images persist across `msg.update()` re-renders. |
-| 7 | Post-processing normalisation (not base64 `<img>`) | Chainlit strips HTML `<img>` tags on `msg.update()`, causing grey boxes. Native markdown `![alt](url)` survives re-rendering. The normaliser ensures all URLs point to the proxy. |
+| 6 | Same-origin image proxy | Avoids SAS URL complexity (token expiry, CORS). CopilotKit renders markdown image links through the browser, which fetches from the same-origin proxy route. |
+| 7 | Agent-owned turns, web-owned sidebar metadata | The agent persists full turn history in `agent-sessions`. The web app persists only thread metadata in `conversations`, which keeps the BFF thin and avoids duplicating message storage. |
 | 8 | Hybrid search | Best relevance — combines vector similarity and keyword matching. |
-| 9 | Chainlit | Purpose-built chat UI with native streaming, `cl.Text` side panels for citations, and markdown rendering. Single `chainlit run` command. |
+| 9 | CopilotKit + Next.js | Purpose-built AG-UI chat stack with prebuilt chat components, live tool rendering, and App Router route handlers for runtime and image proxy flows. |
 | 10 | AI Gateway (APIM) | Centralised API gateway for agent traffic. Enables Foundry agent registration (requires APIM connection), provides a stable proxy URL, and supports future rate limiting, monitoring, and access control. BasicV2 SKU for dev/test (~$50/month). |
 | 11 | Contextual tool filtering | Out-of-band security context propagation via `ContextVar` → `FunctionMiddleware` → `**kwargs`. JWT claims are extracted at the HTTP boundary, enriched by a middleware that resolves group GUIDs to department names, and forwarded to tools as plain kwargs. Tools build backend-specific OData filters. The LLM never sees the filter context. See [Contextual Tool Filtering spec](contextual-tool-filtering.md). |
 
@@ -232,7 +233,7 @@ For implementation details, see [Epic 002](../epics/002-kb-search-web-app.md) an
 
 ### Deployment
 
-The solution deploys **six services**: 4 function Container Apps (one per pipeline function), an agent Container App, and a Chainlit web app.
+The solution deploys **six services**: 4 function Container Apps (one per pipeline function), an agent Container App, and a Next.js web app.
 
 1. **Function Apps** — 4 independent Container Apps, one per pipeline function, each with its own Docker image and managed identity. See [Function Apps Deployment](#function-apps-deployment-container-apps) below.
 2. **Agent** — Deployed as a **standard Azure Container App** (`agent-{project}-{env}`) with external HTTPS ingress and in-code JWT validation on port 8088. System-assigned managed identity with RBAC for AI Services, AI Search, and Serving Storage. Foundry project retained for tracing and agent registration.
@@ -272,21 +273,20 @@ See [ARD-008](../ards/ARD-008-per-function-containers.md) for the decision ratio
 - **Container image** built from `src/web-app/Dockerfile` and pushed to **Azure Container Registry** (Basic SKU)
 - **Container App** runs on a Consumption-plan **Container Apps Environment** linked to Log Analytics
 - Single container: 0.5 vCPU / 1 GiB memory, scale 0–1 (scale-to-zero for cost savings)
-- Ingress: external, port 8080, HTTPS-only
-- Application settings (Agent endpoint, Cosmos endpoint, AI Services endpoint, Search endpoint, Blob endpoint, deployment names) injected as environment variables from Bicep outputs
+- Ingress: external, port 3000, HTTPS-only
+- Application settings (agent endpoint, Cosmos endpoint, and Blob endpoint) injected as environment variables from Bicep outputs
 
-#### Authentication — Dual-Layer Entra ID Auth
+#### Authentication — Entra ID Easy Auth
 
-Authentication uses two complementary layers:
+Authentication uses a platform-level Easy Auth layer plus header parsing inside the web app:
 
 1. **Easy Auth (platform-level)** — Container Apps Easy Auth is a sidecar that intercepts all HTTP requests before they reach the application container. Unauthenticated requests are auto-redirected to Microsoft Entra login. After sign-in, Entra issues a token; Easy Auth validates it (single-tenant) and forwards the authenticated request with `X-MS-CLIENT-PRINCIPAL-ID` headers.
 
-2. **Chainlit OAuth callback (application-level)** — When `OAUTH_AZURE_AD_CLIENT_ID` is set, the app registers an `@cl.oauth_callback` handler that extracts the user's OID from the Azure AD token and creates a `cl.User` with the OID as identifier. This identity flows through to Cosmos DB as the `userId` partition key, enabling per-user conversation isolation.
+2. **Header-based user context (application-level)** — The Next.js backend decodes `X-MS-CLIENT-PRINCIPAL*` headers to recover the authenticated user and security groups. It uses this identity to scope sidebar metadata and forwards `X-User-Groups` to the agent for contextual tool filtering.
 
-The `_get_user_id()` function implements a 3-tier identity resolution:
-- **Tier 1:** Chainlit authenticated user (`cl.user_session.get("user").identifier`) — OID from OAuth
-- **Tier 2:** Easy Auth header (`X-MS-CLIENT-PRINCIPAL-ID`) — passthrough from sidecar
-- **Tier 3:** Fallback to `"local-user"` — local development without authentication
+The web app uses a 2-tier identity resolution:
+- **Tier 1:** Easy Auth principal headers (`X-MS-CLIENT-PRINCIPAL*`) — OID and group claims from the sidecar
+- **Tier 2:** Fallback to `local-user` — local development without authentication
 
 Only users in the Azure AD tenant can access the app. An **Entra App Registration** (single-tenant) defines the client ID, tenant ID, and redirect URIs. The `scripts/setup-entra-auth.sh` script automates app registration creation and OAuth environment variable configuration.
 

@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "5570546631684332947"
+      "templateHash": "6127832066435243456"
     }
   },
   "parameters": {
@@ -70,13 +70,6 @@
       "defaultValue": "",
       "metadata": {
         "description": "Entra App Registration client secret for web app Easy Auth"
-      }
-    },
-    "chainlitAuthSecret": {
-      "type": "securestring",
-      "defaultValue": "",
-      "metadata": {
-        "description": "Chainlit auth secret used by the web app for JWT session signing"
       }
     }
   },
@@ -2707,15 +2700,6 @@
           "acrResourceId": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'container-registry'), '2025-04-01').outputs.containerRegistryId.value]"
           },
-          "aiServicesEndpoint": {
-            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'ai-services'), '2025-04-01').outputs.aiServicesEndpoint.value]"
-          },
-          "embeddingDeploymentName": {
-            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'ai-services'), '2025-04-01').outputs.embeddingDeploymentName.value]"
-          },
-          "searchEndpoint": {
-            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'search'), '2025-04-01').outputs.searchEndpoint.value]"
-          },
           "servingBlobEndpoint": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'serving-storage'), '2025-04-01').outputs.blobEndpoint.value]"
           },
@@ -2733,9 +2717,6 @@
           },
           "cosmosDatabaseName": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'cosmos-db'), '2025-04-01').outputs.cosmosDatabaseName.value]"
-          },
-          "chainlitAuthSecret": {
-            "value": "[parameters('chainlitAuthSecret')]"
           }
         },
         "template": {
@@ -2745,7 +2726,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "2643093426724171979"
+              "templateHash": "8597085771400659650"
             }
           },
           "parameters": {
@@ -2793,39 +2774,6 @@
                 "description": "Docker image name and tag (e.g., webapp-{project}:latest). Leave empty for initial provisioning."
               }
             },
-            "aiServicesEndpoint": {
-              "type": "string",
-              "metadata": {
-                "description": "Azure AI Services endpoint"
-              }
-            },
-            "agentModelDeploymentName": {
-              "type": "string",
-              "defaultValue": "gpt-4.1",
-              "metadata": {
-                "description": "Agent model deployment name"
-              }
-            },
-            "embeddingDeploymentName": {
-              "type": "string",
-              "defaultValue": "text-embedding-3-small",
-              "metadata": {
-                "description": "Embedding deployment name"
-              }
-            },
-            "searchEndpoint": {
-              "type": "string",
-              "metadata": {
-                "description": "Azure AI Search endpoint"
-              }
-            },
-            "searchIndexName": {
-              "type": "string",
-              "defaultValue": "kb-articles",
-              "metadata": {
-                "description": "Azure AI Search index name"
-              }
-            },
             "servingBlobEndpoint": {
               "type": "string",
               "metadata": {
@@ -2860,13 +2808,6 @@
                 "description": "Cosmos DB database name"
               }
             },
-            "chainlitAuthSecret": {
-              "type": "securestring",
-              "defaultValue": "",
-              "metadata": {
-                "description": "Chainlit auth secret used to sign JWT session cookies"
-              }
-            },
             "entraClientId": {
               "type": "string",
               "defaultValue": "",
@@ -2892,8 +2833,7 @@
           "variables": {
             "useAcrImage": "[not(empty(parameters('imageName')))]",
             "containerImage": "[if(variables('useAcrImage'), format('{0}/{1}', parameters('acrLoginServer'), parameters('imageName')), 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest')]",
-            "targetPort": "[if(variables('useAcrImage'), 8080, 80)]",
-            "defaultChainlitAuthSecret": "[format('{0}{1}{2}', uniqueString(resourceGroup().id, 'chainlit-auth-secret-a'), uniqueString(resourceGroup().id, 'chainlit-auth-secret-b'), uniqueString(resourceGroup().id, 'chainlit-auth-secret-c'))]",
+            "targetPort": "[if(variables('useAcrImage'), 3000, 80)]",
             "acrPullRoleId": "7f951dda-4ed3-4680-a7ca-43fe172d538d"
           },
           "resources": [
@@ -2930,26 +2870,6 @@
                       },
                       "env": [
                         {
-                          "name": "AI_SERVICES_ENDPOINT",
-                          "value": "[parameters('aiServicesEndpoint')]"
-                        },
-                        {
-                          "name": "AGENT_MODEL_DEPLOYMENT_NAME",
-                          "value": "[parameters('agentModelDeploymentName')]"
-                        },
-                        {
-                          "name": "EMBEDDING_DEPLOYMENT_NAME",
-                          "value": "[parameters('embeddingDeploymentName')]"
-                        },
-                        {
-                          "name": "SEARCH_ENDPOINT",
-                          "value": "[parameters('searchEndpoint')]"
-                        },
-                        {
-                          "name": "SEARCH_INDEX_NAME",
-                          "value": "[parameters('searchIndexName')]"
-                        },
-                        {
                           "name": "SERVING_BLOB_ENDPOINT",
                           "value": "[parameters('servingBlobEndpoint')]"
                         },
@@ -2968,10 +2888,6 @@
                         {
                           "name": "COSMOS_DATABASE_NAME",
                           "value": "[parameters('cosmosDatabaseName')]"
-                        },
-                        {
-                          "name": "CHAINLIT_AUTH_SECRET",
-                          "value": "[if(not(empty(parameters('chainlitAuthSecret'))), parameters('chainlitAuthSecret'), variables('defaultChainlitAuthSecret'))]"
                         }
                       ]
                     }
@@ -3064,12 +2980,10 @@
         }
       },
       "dependsOn": [
-        "[resourceId('Microsoft.Resources/deployments', 'ai-services')]",
         "[resourceId('Microsoft.Resources/deployments', 'apim')]",
         "[resourceId('Microsoft.Resources/deployments', 'container-apps-env')]",
         "[resourceId('Microsoft.Resources/deployments', 'container-registry')]",
         "[resourceId('Microsoft.Resources/deployments', 'cosmos-db')]",
-        "[resourceId('Microsoft.Resources/deployments', 'search')]",
         "[resourceId('Microsoft.Resources/deployments', 'serving-storage')]"
       ]
     },

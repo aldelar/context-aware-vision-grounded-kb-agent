@@ -16,6 +16,7 @@ import logging
 import os
 
 import jwt
+from fastapi import HTTPException
 from jwt import PyJWKClient
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -44,6 +45,93 @@ _VALID_ISSUER_PREFIXES = (
 _jwks_client = PyJWKClient(_JWKS_URL, cache_keys=True, lifespan=300)
 
 
+class UnauthorizedError(Exception):
+    """Raised when a request fails JWT authentication."""
+
+    def __init__(self, detail: str) -> None:
+        super().__init__(detail)
+        self.detail = detail
+
+
+def _get_header_groups(request: Request) -> list[str]:
+    header_groups = request.headers.get("x-user-groups", "")
+    return [group.strip() for group in header_groups.split(",") if group.strip()]
+
+
+def _set_dev_claims(request: Request) -> None:
+    user_claims_var.set({
+        "user_id": "dev-user",
+        "tenant_id": "dev-tenant",
+        "groups": _get_header_groups(request) or ["dev-group-guid"],
+        "roles": ["contributor"],
+    })
+
+
+def _validate_request(request: Request) -> None:
+    """Validate the request and populate the request-scoped claims ContextVar."""
+    require_auth = os.environ.get("REQUIRE_AUTH", "true")
+    if require_auth.lower() == "false":
+        _set_dev_claims(request)
+        return
+
+    if request.url.path in _HEALTH_PATHS:
+        return
+
+    auth_header = request.headers.get("authorization", "")
+    if not auth_header.lower().startswith("bearer "):
+        raise UnauthorizedError("Missing or invalid Authorization header")
+
+    token = auth_header[7:]
+    audiences = [_DEFAULT_AUDIENCE]
+    app_uri = os.environ.get("AGENT_APP_URI")
+    if app_uri:
+        audiences.append(app_uri)
+
+    try:
+        signing_key = _jwks_client.get_signing_key_from_jwt(token)
+        claims = jwt.decode(
+            token,
+            signing_key.key,
+            algorithms=["RS256"],
+            audience=audiences,
+            options={"verify_iss": False},
+        )
+
+        issuer = claims.get("iss", "")
+        if not any(issuer.startswith(prefix) for prefix in _VALID_ISSUER_PREFIXES):
+            raise UnauthorizedError(f"Invalid issuer: {issuer}")
+
+    except jwt.ExpiredSignatureError as exc:
+        raise UnauthorizedError("Token has expired") from exc
+    except jwt.InvalidAudienceError as exc:
+        raise UnauthorizedError("Invalid audience") from exc
+    except jwt.PyJWTError as exc:
+        logger.warning("JWT validation failed: %s", exc)
+        raise UnauthorizedError(str(exc)) from exc
+
+    groups = claims.get("groups", [])
+    if not groups:
+        groups = _get_header_groups(request)
+
+    user_claims_var.set({
+        "user_id": claims.get("oid", ""),
+        "tenant_id": claims.get("tid", ""),
+        "groups": groups,
+        "roles": claims.get("roles", []),
+    })
+
+
+async def require_jwt_auth(request: Request) -> None:
+    """FastAPI dependency that enforces the same JWT logic as the Starlette middleware."""
+    try:
+        _validate_request(request)
+    except UnauthorizedError as exc:
+        raise HTTPException(
+            status_code=401,
+            detail={"error": "unauthorized", "detail": exc.detail},
+        ) from exc
+
+
 # ---------------------------------------------------------------------------
 # Middleware
 # ---------------------------------------------------------------------------
@@ -53,80 +141,10 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
     """Starlette middleware that validates Entra ID JWT bearer tokens."""
 
     async def dispatch(self, request: Request, call_next):  # noqa: ANN001
-        # Skip auth when disabled (local dev)
-        require_auth = os.environ.get("REQUIRE_AUTH", "true")
-        if require_auth.lower() == "false":
-            # Set default dev claims so tools receive security context.
-            # Honour X-User-Groups header even in dev mode so local testing
-            # of the header propagation path works end-to-end.
-            dev_groups = ["dev-group-guid"]
-            header_groups = request.headers.get("x-user-groups", "")
-            if header_groups:
-                dev_groups = [g.strip() for g in header_groups.split(",") if g.strip()]
-            user_claims_var.set({
-                "user_id": "dev-user",
-                "tenant_id": "dev-tenant",
-                "groups": dev_groups,
-                "roles": ["contributor"],
-            })
-            return await call_next(request)
-
-        # Skip auth for health probes
-        if request.url.path in _HEALTH_PATHS:
-            return await call_next(request)
-
-        # Extract bearer token
-        auth_header = request.headers.get("authorization", "")
-        if not auth_header.lower().startswith("bearer "):
-            return _unauthorized("Missing or invalid Authorization header")
-
-        token = auth_header[7:]  # Strip "Bearer "
-
-        # Build accepted audiences
-        audiences = [_DEFAULT_AUDIENCE]
-        app_uri = os.environ.get("AGENT_APP_URI")
-        if app_uri:
-            audiences.append(app_uri)
-
         try:
-            signing_key = _jwks_client.get_signing_key_from_jwt(token)
-            claims = jwt.decode(
-                token,
-                signing_key.key,
-                algorithms=["RS256"],
-                audience=audiences,
-                options={"verify_iss": False},  # manual issuer check below
-            )
-
-            # Validate issuer prefix (multi-tenant)
-            issuer = claims.get("iss", "")
-            if not any(issuer.startswith(p) for p in _VALID_ISSUER_PREFIXES):
-                return _unauthorized(f"Invalid issuer: {issuer}")
-
-        except jwt.ExpiredSignatureError:
-            return _unauthorized("Token has expired")
-        except jwt.InvalidAudienceError:
-            return _unauthorized("Invalid audience")
-        except jwt.PyJWTError as exc:
-            logger.warning("JWT validation failed: %s", exc)
-            return _unauthorized(str(exc))
-
-        # Propagate validated claims to downstream tools via ContextVar.
-        # When the JWT has no groups claim (service-to-service token from
-        # the web app's managed identity), fall back to X-User-Groups header
-        # which the web app sets from the end-user's Easy Auth / OAuth claims.
-        groups = claims.get("groups", [])
-        if not groups:
-            header_groups = request.headers.get("x-user-groups", "")
-            if header_groups:
-                groups = [g.strip() for g in header_groups.split(",") if g.strip()]
-
-        user_claims_var.set({
-            "user_id": claims.get("oid", ""),
-            "tenant_id": claims.get("tid", ""),
-            "groups": groups,
-            "roles": claims.get("roles", []),
-        })
+            _validate_request(request)
+        except UnauthorizedError as exc:
+            return _unauthorized(exc.detail)
 
         return await call_next(request)
 

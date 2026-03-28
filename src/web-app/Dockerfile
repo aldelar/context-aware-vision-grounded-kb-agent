@@ -1,40 +1,25 @@
-# ==============================================================================
-# Dockerfile — Context Aware & Vision Grounded KB Agent (Chainlit + Agent Framework)
-# ==============================================================================
-# Uses UV for fast, reproducible dependency installation.
-# ==============================================================================
-
-FROM python:3.11-slim
-
-# Install UV (official installer)
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
-    && curl -LsSf https://astral.sh/uv/install.sh | sh \
-    && apt-get purge -y curl && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
-ENV PATH="/root/.local/bin:$PATH"
+FROM node:20-bookworm-slim AS deps
 
 WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
 
-# Copy only pyproject.toml for dependency layer caching
-COPY pyproject.toml ./
+FROM node:20-bookworm-slim AS builder
 
-# Install production dependencies only (project installed after code copy)
-RUN uv sync --no-dev --no-install-project
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+RUN npm run build
 
-# Copy application code
-COPY app/ ./app/
-COPY public/ ./public/
-COPY .chainlit/ ./.chainlit/
-COPY chainlit.md ./chainlit.md
+FROM node:20-bookworm-slim AS runner
 
-# Install the project itself so the 'app' package is importable
-RUN uv sync --no-dev
+WORKDIR /app
+ENV NODE_ENV=production
 
-# Ensure the venv is on PATH
-ENV PATH="/app/.venv/bin:$PATH"
-ENV PYTHONUNBUFFERED=1
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
 
-# Chainlit listens on 8080
-EXPOSE 8080
+EXPOSE 3000
 
-# Run Chainlit in production mode (no --watch)
-CMD ["chainlit", "run", "app/main.py", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["node", "server.js"]

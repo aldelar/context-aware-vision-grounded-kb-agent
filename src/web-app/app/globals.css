@@ -1,0 +1,747 @@
+:root {
+  --font-sans: "Space Grotesk", sans-serif;
+  --font-serif: "Spectral", serif;
+  --color-ink: #15232b;
+  --color-ink-soft: #5f7078;
+  --color-paper: #f6f0e7;
+  --color-paper-strong: #fffdf8;
+  --color-panel: rgba(255, 252, 247, 0.78);
+  --color-sidebar: rgba(22, 35, 43, 0.92);
+  --color-sidebar-line: rgba(255, 255, 255, 0.12);
+  --color-accent: #eb6a42;
+  --color-accent-strong: #ce4f2b;
+  --color-accent-soft: rgba(235, 106, 66, 0.14);
+  --color-support: #0f8a74;
+  --color-line: rgba(21, 35, 43, 0.1);
+  --color-shadow: rgba(30, 39, 44, 0.14);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  background:
+    radial-gradient(circle at top left, rgba(255, 198, 145, 0.66), transparent 28%),
+    radial-gradient(circle at 85% 18%, rgba(86, 166, 144, 0.18), transparent 22%),
+    radial-gradient(circle at bottom right, rgba(214, 117, 76, 0.14), transparent 28%),
+    linear-gradient(180deg, #fbf5eb 0%, #efe5d8 100%);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+.workspaceShell {
+  margin: 0 auto;
+  max-width: 1500px;
+  min-height: 100vh;
+  padding: 24px 18px 30px;
+  position: relative;
+}
+
+.workspaceBackdrop {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.64), rgba(255, 255, 255, 0.2)),
+    repeating-linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.08),
+      rgba(255, 255, 255, 0.08) 10px,
+      rgba(255, 255, 255, 0.02) 10px,
+      rgba(255, 255, 255, 0.02) 20px
+    );
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 34px;
+  inset: 16px;
+  pointer-events: none;
+  position: absolute;
+}
+
+.workspaceTopbar,
+.workspaceFrame {
+  position: relative;
+  z-index: 1;
+}
+
+.workspaceTopbar {
+  align-items: center;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.workspaceKicker {
+  color: var(--color-accent);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  margin: 0 0 6px;
+  text-transform: uppercase;
+}
+
+.workspaceBrand {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+}
+
+.workspaceBrandMark {
+  align-items: center;
+  background:
+    linear-gradient(135deg, var(--color-accent), #ffb364),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.2), transparent);
+  border-radius: 20px;
+  box-shadow: 0 16px 32px rgba(235, 106, 66, 0.22);
+  color: white;
+  display: inline-flex;
+  font-size: 1.15rem;
+  font-weight: 700;
+  height: 60px;
+  justify-content: center;
+  letter-spacing: 0.1em;
+  min-width: 60px;
+}
+
+.workspaceBrand h1 {
+  font-size: clamp(1.5rem, 2vw, 2.25rem);
+  line-height: 1;
+  margin: 0;
+}
+
+.workspaceTopbarCopy {
+  color: var(--color-ink-soft);
+  font-size: 0.96rem;
+  line-height: 1.5;
+  margin: 0;
+  max-width: 48ch;
+}
+
+.workspaceTopbarMeta {
+  display: flex;
+  gap: 12px;
+}
+
+.workspaceMetaCard {
+  backdrop-filter: blur(14px);
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  border-radius: 18px;
+  box-shadow: 0 20px 40px rgba(20, 35, 43, 0.08);
+  display: grid;
+  gap: 4px;
+  min-width: 170px;
+  padding: 12px 14px;
+}
+
+.workspaceMetaCard.accent {
+  background: linear-gradient(180deg, rgba(235, 106, 66, 0.16), rgba(255, 255, 255, 0.55));
+}
+
+.workspaceMetaLabel {
+  color: var(--color-ink-soft);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.workspaceFrame {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(270px, 310px) minmax(0, 1fr);
+}
+
+.conversationRail,
+.chatSurface,
+.loadingCard {
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.68);
+  border-radius: 28px;
+  box-shadow: 0 30px 80px var(--color-shadow);
+}
+
+.conversationRail {
+  background: linear-gradient(180deg, rgba(18, 29, 36, 0.96), rgba(28, 45, 54, 0.92));
+  border-color: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.96);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 72vh;
+  padding: 18px 18px 16px;
+}
+
+.conversationRailHeader {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.conversationRailLabel {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.conversationRailTitle {
+  font-size: 1.35rem;
+  line-height: 1.05;
+  margin: 4px 0 0;
+}
+
+.conversationRailIntro {
+  align-items: baseline;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--color-sidebar-line);
+  border-radius: 18px;
+  display: grid;
+  gap: 4px;
+  padding: 14px 15px;
+}
+
+.conversationRailIntro strong {
+  font-size: 1.5rem;
+}
+
+.conversationRailIntro span,
+.conversationRailFooter p {
+  color: rgba(255, 255, 255, 0.62);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.conversationCreateButton,
+.conversationItem {
+  background: transparent;
+  border: 1px solid var(--color-sidebar-line);
+  border-radius: 18px;
+  color: inherit;
+  cursor: pointer;
+}
+
+.conversationCreateButton {
+  background: linear-gradient(135deg, rgba(235, 106, 66, 0.96), rgba(255, 157, 94, 0.92));
+  border-color: transparent;
+  color: white;
+  font-weight: 700;
+  padding: 10px 14px;
+}
+
+.conversationList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.conversationItem {
+  align-items: start;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 15px;
+  text-align: left;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    transform 140ms ease;
+}
+
+.conversationItem:hover {
+  background: rgba(255, 255, 255, 0.06);
+  transform: translateY(-1px);
+}
+
+.conversationItemTitle {
+  font-size: 0.98rem;
+  font-weight: 700;
+}
+
+.conversationItem.active {
+  background: linear-gradient(180deg, rgba(235, 106, 66, 0.18), rgba(255, 255, 255, 0.06));
+  border-color: rgba(255, 180, 145, 0.42);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.conversationItemMeta {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.conversationItem small {
+  color: rgba(255, 255, 255, 0.56);
+}
+
+.conversationItemMeta em {
+  background: rgba(15, 138, 116, 0.2);
+  border-radius: 999px;
+  color: #9be4d5;
+  font-size: 0.73rem;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 4px 8px;
+  text-transform: uppercase;
+}
+
+.conversationRailFooter {
+  margin-top: auto;
+  padding: 4px 2px 0;
+}
+
+.chatSurface {
+  background: var(--color-panel);
+  min-height: 72vh;
+  overflow: hidden;
+  padding: 12px;
+}
+
+.toolCallStack {
+  display: grid;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.toolCallStackItem {
+  width: 100%;
+}
+
+.copilotCanvas {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-height: calc(72vh - 24px);
+}
+
+.copilotCanvas .copilotKitHeader {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  border-radius: 20px 20px 0 0;
+  border-bottom: 1px solid rgba(21, 35, 43, 0.08);
+  display: flex;
+  font-size: 0.98rem;
+  font-weight: 700;
+  justify-content: space-between;
+  margin: 0;
+  padding: 16px 18px 14px;
+}
+
+.copilotCanvas .copilotKitHeaderControls {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.copilotCanvas .copilotKitHeaderCloseButton {
+  align-items: center;
+  background: rgba(21, 35, 43, 0.06);
+  border: 0;
+  border-radius: 999px;
+  color: var(--color-ink-soft);
+  display: inline-flex;
+  height: 34px;
+  justify-content: center;
+  width: 34px;
+}
+
+.copilotCanvas .copilotKitMessages {
+  min-height: 0;
+  padding: 0 10px;
+}
+
+.copilotCanvas .copilotKitMessagesContainer {
+  display: grid;
+  gap: 14px;
+  padding: 18px 0 20px;
+}
+
+.copilotCanvas .copilotKitMessage {
+  box-shadow: 0 16px 34px rgba(21, 35, 43, 0.06);
+  max-width: min(840px, 88%);
+}
+
+.copilotCanvas .copilotKitAssistantMessage {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(21, 35, 43, 0.08);
+  border-radius: 24px 24px 24px 10px;
+  padding: 16px 18px;
+}
+
+.copilotCanvas .copilotKitUserMessage {
+  background: linear-gradient(135deg, var(--color-accent-strong), var(--color-accent));
+  border: 0;
+  border-radius: 24px 24px 10px 24px;
+  color: white;
+  margin-left: auto;
+  padding: 15px 18px;
+}
+
+.copilotCanvas .copilotKitMarkdown {
+  color: var(--color-ink);
+  font-size: 0.98rem;
+  line-height: 1.65;
+}
+
+.copilotCanvas .copilotKitMarkdownElement {
+  margin: 0;
+}
+
+.copilotCanvas .copilotKitMarkdown p + p,
+.copilotCanvas .copilotKitMarkdown ul,
+.copilotCanvas .copilotKitMarkdown ol,
+.copilotCanvas .copilotKitMarkdown pre,
+.copilotCanvas .copilotKitMarkdown blockquote {
+  margin-top: 0.8rem;
+}
+
+.copilotCanvas .copilotKitMarkdown a {
+  color: var(--color-support);
+  font-weight: 700;
+  text-decoration-color: rgba(15, 138, 116, 0.28);
+}
+
+.copilotCanvas .copilotKitInlineCode {
+  background: rgba(21, 35, 43, 0.06);
+  border-radius: 8px;
+  font-size: 0.9em;
+  padding: 0.15rem 0.4rem;
+}
+
+.copilotCanvas .copilotKitMessageControls {
+  margin-top: 14px;
+}
+
+.copilotCanvas .copilotKitMessageControlButton {
+  background: rgba(21, 35, 43, 0.06);
+  border: 0;
+  border-radius: 999px;
+  color: var(--color-ink-soft);
+}
+
+.copilotCanvas .copilotKitMessageControlButton.active {
+  background: rgba(235, 106, 66, 0.14);
+  color: var(--color-accent-strong);
+}
+
+.copilotCanvas .copilotKitMessagesFooter {
+  background: linear-gradient(180deg, rgba(246, 240, 231, 0), rgba(246, 240, 231, 0.86) 18%, rgba(246, 240, 231, 0.96));
+  border-top: 1px solid rgba(21, 35, 43, 0.06);
+  padding-top: 8px;
+}
+
+.copilotCanvas .suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 0 8px 10px;
+}
+
+.copilotCanvas .suggestion {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(21, 35, 43, 0.08);
+  border-radius: 999px;
+  box-shadow: 0 10px 20px rgba(21, 35, 43, 0.05);
+  color: var(--color-ink);
+  font-weight: 700;
+  padding: 0.7rem 1rem;
+}
+
+.copilotCanvas .suggestion:not(:disabled):hover {
+  background: rgba(235, 106, 66, 0.12);
+  border-color: rgba(235, 106, 66, 0.25);
+}
+
+.copilotCanvas .copilotKitInputContainer {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 253, 248, 0.74));
+  padding: 10px 8px 8px;
+}
+
+.copilotCanvas .copilotKitInput {
+  align-items: end;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(21, 35, 43, 0.08);
+  border-radius: 24px;
+  box-shadow: 0 16px 34px rgba(21, 35, 43, 0.08);
+  display: flex;
+  gap: 10px;
+  min-height: 72px;
+  padding: 12px 12px 12px 16px;
+}
+
+.copilotCanvas .copilotKitInput textarea {
+  background: transparent;
+  border: 0;
+  color: var(--color-ink);
+  flex: 1;
+  font-size: 0.98rem;
+  min-height: 44px;
+  outline: none;
+  resize: none;
+}
+
+.copilotCanvas .copilotKitInput textarea::placeholder {
+  color: #7e8c93;
+}
+
+.copilotCanvas .copilotKitInputControls {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.copilotCanvas .copilotKitInputControlButton {
+  align-items: center;
+  background: rgba(21, 35, 43, 0.06);
+  border: 0;
+  border-radius: 16px;
+  color: var(--color-ink);
+  display: inline-flex;
+  height: 44px;
+  justify-content: center;
+  transition:
+    background-color 140ms ease,
+    transform 140ms ease;
+  width: 44px;
+}
+
+.copilotCanvas .copilotKitInputControlButton:hover:not(:disabled) {
+  background: rgba(235, 106, 66, 0.14);
+  transform: translateY(-1px);
+}
+
+.copilotCanvas .copilotKitInputControlButton:last-child {
+  background: linear-gradient(135deg, var(--color-accent-strong), var(--color-accent));
+  color: white;
+}
+
+.copilotCanvas .copilotKitInputControlButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.toolCard {
+  background: var(--color-paper-strong);
+  border: 1px solid rgba(235, 106, 66, 0.14);
+  border-radius: 22px;
+  box-shadow: 0 18px 34px rgba(21, 35, 43, 0.07);
+  margin: 12px 0;
+  padding: 16px 17px;
+}
+
+.toolCardHeader {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.toolCardEyebrow {
+  color: var(--color-accent);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.toolCardStatus {
+  color: var(--color-ink-soft);
+  font-size: 0.86rem;
+}
+
+.toolCardStatus.working {
+  color: var(--color-accent);
+}
+
+.toolCardQuery {
+  font-size: 1rem;
+  margin: 12px 0 0;
+}
+
+.toolCardHint {
+  color: var(--color-ink-soft);
+  margin: 12px 0 0;
+}
+
+.toolCardPayload {
+  background: rgba(31, 26, 20, 0.04);
+  border-radius: 14px;
+  font-family: ui-monospace, SFMono-Regular, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.86rem;
+  margin: 12px 0 0;
+  overflow-x: auto;
+  padding: 12px 14px;
+  white-space: pre-wrap;
+}
+
+.fallbackTool .toolCardQuery {
+  margin-bottom: 0;
+}
+
+.toolCardList {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+}
+
+.toolCardList li {
+  border-top: 1px solid var(--color-line);
+  display: grid;
+  gap: 2px;
+  padding-top: 10px;
+}
+
+.toolCardList span {
+  color: rgba(31, 26, 20, 0.62);
+  font-size: 0.9rem;
+}
+
+.citationDeck {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.citationCard {
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid var(--color-line);
+  border-radius: 18px;
+  padding: 14px;
+  scroll-margin-top: 120px;
+}
+
+.citationCardHeader {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto 1fr;
+}
+
+.citationCardHeader span {
+  color: var(--color-ink-soft);
+  display: block;
+  font-size: 0.9rem;
+  margin-top: 2px;
+}
+
+.citationBadge {
+  align-self: start;
+  background: rgba(187, 90, 48, 0.1);
+  border-radius: 999px;
+  color: var(--color-accent);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 6px 10px;
+  text-transform: uppercase;
+}
+
+.citationPreview {
+  color: rgba(21, 35, 43, 0.84);
+  line-height: 1.55;
+  margin: 12px 0 0;
+  white-space: pre-wrap;
+}
+
+.citationImageStrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.citationImage {
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(187, 90, 48, 0.12);
+  border-radius: 14px;
+  height: auto;
+  max-width: min(220px, 100%);
+}
+
+.loadingState {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+}
+
+.loadingCard {
+  padding: 24px 28px;
+}
+
+@media (max-width: 980px) {
+  .workspaceTopbar,
+  .workspaceFrame {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+
+  .workspaceTopbarMeta {
+    width: 100%;
+  }
+
+  .workspaceMetaCard {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .conversationRail {
+    min-height: auto;
+  }
+
+  .chatSurface {
+    min-height: 68vh;
+  }
+
+  .copilotCanvas .copilotKitMessage {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .workspaceShell {
+    padding: 12px 10px 18px;
+  }
+
+  .workspaceBackdrop {
+    inset: 8px;
+  }
+
+  .workspaceBrandMark {
+    border-radius: 18px;
+    height: 52px;
+    min-width: 52px;
+  }
+
+  .workspaceTopbarMeta {
+    flex-direction: column;
+  }
+
+  .conversationRail,
+  .chatSurface,
+  .loadingCard {
+    border-radius: 24px;
+  }
+
+  .copilotCanvas .copilotKitHeader {
+    padding: 14px 14px 12px;
+  }
+
+  .copilotCanvas .copilotKitInput {
+    border-radius: 20px;
+    padding: 10px 10px 10px 14px;
+  }
+}

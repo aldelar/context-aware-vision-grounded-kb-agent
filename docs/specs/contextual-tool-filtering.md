@@ -9,7 +9,7 @@ Pass application-level context (logged-in user's department, RBAC roles, securit
 ## Current Request Flow
 
 ```
-Web App (Chainlit)
+Web App (Next.js + CopilotKit)
   → APIM (auth gateway)
     → Agent API (Starlette + JWT middleware)
       → Agent Framework (agent.run)

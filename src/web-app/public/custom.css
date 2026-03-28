@@ -1,6 +1,0 @@
-/* Custom logo sizing — SVG contains title + subtitle */
-img.logo {
-    height: 80px !important;
-    width: auto !important;
-    max-width: 400px !important;
-}

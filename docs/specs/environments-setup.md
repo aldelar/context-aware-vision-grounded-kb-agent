@@ -31,7 +31,7 @@ Two parameters stored in AZD env: `PROJECT_NAME` is shared across environment wo
 
 | Service | Cosmos DB | AI Search | Blob Storage | AI Services / LLM | Foundry Project |
 |---------|-----------|-----------|-------------|-------------------|-----------------|
-| **web-app** (Chainlit) | Yes (conversations, messages, references) | No | Yes (serving images) | No | No |
+| **web-app** (Next.js + CopilotKit) | Yes (conversations) | No | Yes (serving images) | No | No |
 | **agent** | Yes (agent-sessions) | Yes (kb-articles index) | Yes (serving images) | Yes (GPT model for reasoning) | Yes (prod only — agent registration) |
 | **fn-convert** (all variants) | No | No | Yes (staging read, serving write) | Yes (image analysis) | No |
 | **fn-index** | No | Yes (push chunks to index) | Yes (serving read — images) | Yes (embeddings) | No |
@@ -61,7 +61,7 @@ Two parameters stored in AZD env: `PROJECT_NAME` is shared across environment wo
 │                                                                │
 │  ┌──────────────┐                                              │
 │  │   web-app    │                                              │
-│  │   :8080      │  ← browser UI entry point                   │
+│  │   :3000      │  ← browser UI entry point                   │
 │  └──────────────┘                                              │
 │                                                                │
 └────────────────────────────────────────────────────────────────┘
@@ -244,7 +244,7 @@ OTEL_EXPORTER_OTLP_PROTOCOL=grpc
 | `dev-services-agents-up` | Build & start agent only |
 | `dev-test` | Run unit + integration tests |
 | `dev-test-ui` | Run optional browser-based UI tests |
-| `dev-ui` | Open browser to http://localhost:8080 |
+| `dev-ui` | Open browser to http://localhost:3000 |
 | `dev-pipeline` | Run full KB pipeline locally (convert + index) |
 | `dev-pipeline-convert` | Run fn-convert only (MarkItDown in dev) |
 | `dev-pipeline-index` | Run fn-index only |
