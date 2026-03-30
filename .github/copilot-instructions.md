@@ -14,7 +14,8 @@
 - `src/agent/` — Foundry hosted KB Agent (Starlette + Agent Framework)
 - `src/functions/` — Azure Functions: `fn-convert` (HTML→Markdown) + `fn-index` (Markdown→AI Search)
 - `src/web-app/` — Chainlit thin client (OpenAI SDK + Cosmos DB data layer)
-- `infra/` — Bicep modules for all Azure resources
+- `infra/azure/` — AZD project, hooks, and Bicep modules for Azure resources
+- `infra/docker/` — Docker Compose topology for local dev infra and services
 - `docs/epics/` — Epic and story tracking (source of truth for work status)
 - `scripts/` — Automation and setup scripts
 
@@ -22,9 +23,9 @@
 
 - **Infrastructure as Code only** — no manual Azure portal changes
 - **Managed identity everywhere** — no keys or secrets in code or config
-- **Environment-driven config** — `.env` files from `azd env get-values`, never hardcoded
+- **Environment-driven config** — `.env` files from `azd -C infra/azure env get-values`, never hardcoded
 - **uv** for Python dependency management — each service has its own `pyproject.toml`
-- **Tests before commit** — run `make test` to validate all services
+- **Tests before commit** — run `make dev-test` to validate the current repo test suite
 - **Docs match code** — epic docs must always reflect the actual implementation state
 
 ## Agent-Driven Development
@@ -77,7 +78,7 @@ Composable rules auto-applied by file pattern:
 - [testing.instructions.md](instructions/testing.instructions.md) — pytest three-tier test strategy (`**/tests/**`)
 - [security.instructions.md](instructions/security.instructions.md) — Secrets, auth, and validation rules (`**`)
 - [epic-tracking.instructions.md](instructions/epic-tracking.instructions.md) — Epic lifecycle and doc-code consistency (`docs/epics/**`)
-- [azure-infra.instructions.md](instructions/azure-infra.instructions.md) — Bicep modules and AZD deployment (`infra/**`)
+- [azure-infra.instructions.md](instructions/azure-infra.instructions.md) — Bicep modules and AZD deployment (`infra/azure/**`)
 - [shared-scratchpad.instructions.md](instructions/shared-scratchpad.instructions.md) — Cross-agent scratchpad protocol (`shared-scratchpads/**`)
 - [docker.instructions.md](instructions/docker.instructions.md) — Docker best practices for building optimized, secure container images (`**/Dockerfile,**/Dockerfile.*,**/*.dockerfile`)
 - [shell-scripting.instructions.md](instructions/shell-scripting.instructions.md) — Shell scripting best practices for bash scripts (`**/*.sh`)

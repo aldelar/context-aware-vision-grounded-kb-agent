@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 ENV_FILE="${ROOT_DIR}/.env.dev"
-COMPOSE_FILE="${ROOT_DIR}/docker-compose.dev-infra.yml"
+COMPOSE_FILE="${ROOT_DIR}/infra/docker/docker-compose.dev-infra.yml"
 COMPOSE_PROJECT_NAME=${DEV_INFRA_PROJECT:-kb-agent-infra}
 AZURITE_ACCOUNT_KEY="Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
 
@@ -157,11 +157,11 @@ PY
 
 echo "Ensuring Ollama models are available..."
 for model in "${AGENT_MODEL_DEPLOYMENT_NAME:-phi4-mini}" "${EMBEDDING_DEPLOYMENT_NAME:-mxbai-embed-large}" "${VISION_DEPLOYMENT_NAME:-moondream}"; do
-    if docker compose -p "${COMPOSE_PROJECT_NAME}" -f "${COMPOSE_FILE}" exec -T ollama ollama list | awk 'NR>1 {print $1}' | grep -qx "${model}"; then
+    if docker compose --project-directory "${ROOT_DIR}" -p "${COMPOSE_PROJECT_NAME}" -f "${COMPOSE_FILE}" exec -T ollama ollama list | awk 'NR>1 {print $1}' | grep -qx "${model}"; then
         echo "Ollama model already present: ${model}"
         continue
     fi
-    docker compose -p "${COMPOSE_PROJECT_NAME}" -f "${COMPOSE_FILE}" exec -T ollama ollama pull "${model}"
+    docker compose --project-directory "${ROOT_DIR}" -p "${COMPOSE_PROJECT_NAME}" -f "${COMPOSE_FILE}" exec -T ollama ollama pull "${model}"
 done
 
 echo "Emulator initialization complete."

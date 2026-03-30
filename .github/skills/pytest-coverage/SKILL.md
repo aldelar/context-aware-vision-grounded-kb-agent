@@ -57,7 +57,7 @@ This project has three services with independent test suites:
 | Functions | `cd src/functions && pytest` | `src/functions/` |
 | Web App | `cd src/web-app && pytest` | `src/web-app/` |
 
-Run all: `make test`
+Run all: `make dev-test`
 
 Example for agent coverage:
 ```bash

@@ -111,7 +111,7 @@ Add the `mistral-document-ai-2512` model deployment to the existing `ai-services
 
 #### Deliverables
 
-- [x] Add `mistral-document-ai-2512` deployment to `infra/modules/ai-services.bicep`:
+- [x] Add `mistral-document-ai-2512` deployment to `infra/azure/infra/modules/ai-services.bicep`:
   - Format: `Mistral AI`
   - SKU: `GlobalStandard`, capacity 1
   - API version: `2024-04-01-preview` (required for Mistral models)

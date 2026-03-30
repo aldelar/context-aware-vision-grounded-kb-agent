@@ -36,7 +36,7 @@ Two parameters are set once per project and stored in AZD env. `PROJECT_NAME` is
 
 - In **dev**: local Docker always runs `fn_convert_markitdown/Dockerfile`. `CONVERTER` does not change the local converter.
 - In **prod**: the Makefile treats one of the existing Azure converter services as the operationally selected converter for deploy and pipeline targets.
-- This epic **does not** collapse the current prod topology in `azure.yaml` / `infra/main.bicep`; converter selection in prod is an operational convention unless and until infra is made conditional.
+- This epic **does not** collapse the current prod topology in `infra/azure/azure.yaml` / `infra/azure/infra/main.bicep`; converter selection in prod is an operational convention unless and until infra is made conditional.
 - In other words, the selected converter is the one deploy/pipeline targets use by default, not an exclusivity guarantee enforced by Azure today.
 - `dev-pipeline-convert` always routes to the local MarkItDown converter.
 - `prod-pipeline-convert` routes to the converter selected by `make set-converter converter=X`.
@@ -164,10 +164,10 @@ Aspire Dashboard provides a rich development-time UI for traces, structured logs
 
 ## 5. Dev Environment Architecture
 
-### 5.1 Docker Compose Topology — `docker-compose.dev-infra.yml` + `docker-compose.dev-services.yml`
+### 5.1 Docker Compose Topology — `infra/docker/docker-compose.dev-infra.yml` + `infra/docker/docker-compose.dev-services.yml`
 
 ```
-┌─ docker-compose.dev-infra.yml + docker-compose.dev-services.yml ───────────┐
+┌─ infra/docker/docker-compose.dev-infra.yml + infra/docker/docker-compose.dev-services.yml ─┐
 │                                                                │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐ │
 │  │ cosmosdb-emu │  │   azurite    │  │  search-simulator    │ │
@@ -213,7 +213,7 @@ Unlike previous iterations, **there is no dev Azure Resource Group**. All Azure 
 | Foundry Project | Not needed — agent runs as local HTTP service | N/A |
 | App Insights / Log Analytics | Aspire Dashboard (OpenTelemetry) | `aspire-dashboard` |
 
-**Bicep exists only for prod** (`infra/main.bicep`). No `infra/dev/` directory needed.
+**Bicep exists only for prod** (`infra/azure/infra/main.bicep`). No `infra/dev/` directory needed.
 
 ### 5.3 Credential Strategy for Dev
 
@@ -373,7 +373,7 @@ All test resources use the `-test` suffix (hyphens, not underscores) for consist
 
 ## 8. Docker Compose Design
 
-### 8.1 `docker-compose.dev-infra.yml` — Emulators
+### 8.1 `infra/docker/docker-compose.dev-infra.yml` — Emulators
 
 ```yaml
 # Local infrastructure emulators
@@ -455,7 +455,7 @@ volumes:
 > ```
 > Models are cached in the `ollama-data` volume. Subsequent starts skip the download.
 
-### 8.2 `docker-compose.dev-services.yml` — Our Services
+### 8.2 `infra/docker/docker-compose.dev-services.yml` — Our Services
 
 The local `fn-convert` service always builds `fn_convert_markitdown/Dockerfile`. CU and Mistral remain Azure-only for this environment model.
 
@@ -712,7 +712,7 @@ Can use `az storage container create` with Azurite connection string, or a small
 
 Since dev has **zero Azure cloud dependency**, there is no `infra/dev/` directory. Bicep exists only for prod.
 
-### 10.1 `infra/main.bicep` — Production (unchanged)
+### 10.1 `infra/azure/infra/main.bicep` — Production (unchanged)
 
 ~15 module calls, roles, wiring for full Azure deployment via `azd provision`. This is the only Bicep that exists.
 
@@ -724,16 +724,16 @@ Dev infrastructure is 100% Docker-based. No Azure resources, no Bicep for dev.
 
 This epic keeps the current prod converter topology intact:
 
-- `azure.yaml` continues to define `func-convert-cu`, `func-convert-markitdown`, and `func-convert-mistral` as separate services.
-- `infra/main.bicep` continues to provision three converter container apps.
+- `infra/azure/azure.yaml` continues to define `func-convert-cu`, `func-convert-markitdown`, and `func-convert-mistral` as separate services.
+- `infra/azure/infra/main.bicep` continues to provision three converter container apps.
 - `CONVERTER` selects which of those existing services the Makefile deploys or triggers by default.
 
-Collapsing prod to a single converter service/app is deferred to a separate refactor because it would require coordinated `azure.yaml` and Bicep changes beyond the environment-optimization scope.
+Collapsing prod to a single converter service/app is deferred to a separate refactor because it would require coordinated `infra/azure/azure.yaml` and Bicep changes beyond the environment-optimization scope.
 
 ## 11. Migration Steps (Implementation Order)
 
 ### Phase 1: Foundation
-1. [ ] Create `docker-compose.dev-infra.yml` with Cosmos emulator + Azurite + AI Search Simulator + Ollama + Aspire Dashboard
+1. [ ] Create `infra/docker/docker-compose.dev-infra.yml` with Cosmos emulator + Azurite + AI Search Simulator + Ollama + Aspire Dashboard
 2. [ ] Create `.env.dev.template` with emulator + Ollama connection details
 3. [ ] Create `scripts/dev-init-emulators.sh` — init dev + `-test` resources (Cosmos DBs + containers, blob containers) + pull Ollama models (`phi4-mini`, `mxbai-embed-large`, `moondream`)
 4. [ ] Add `ENVIRONMENT`, container-name, and vector-dimension config to `shared/config.py`, `agent/config.py`, and `web-app/app/config.py`
@@ -757,7 +757,7 @@ Collapsing prod to a single converter service/app is deferred to a separate refa
   9. [ ] Verify web-app and agent work against local emulators + Ollama
 
 ### Phase 2: Makefile + Services
-  10. [ ] Create `docker-compose.dev-services.yml` for our application containers
+  10. [ ] Create `infra/docker/docker-compose.dev-services.yml` for our application containers
   11. [ ] Rewrite Makefile with `dev-*` and `prod-*` target structure + `set-converter`
   12. [ ] Keep current prod converter topology, but map `CONVERTER` to existing AZD service names in deploy/pipeline targets
 

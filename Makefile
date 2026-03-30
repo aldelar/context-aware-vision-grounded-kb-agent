@@ -1,11 +1,17 @@
 .DEFAULT_GOAL := help
 
 DEV_ENV_FILE ?= .env.dev
+PROD_ENV_FILE ?= .env.prod
+AZD := azd -C infra/azure
+PROD_PIPELINE_TRIGGER := bash scripts/prod-pipeline-request.sh
+PROD_DOWN_CLEANUP := bash scripts/prod-post-down-cleanup.sh
 DEV_INFRA_PROJECT := kb-agent-infra
 DEV_SERVICES_PROJECT := kb-agent-services
-DEV_INFRA_COMPOSE := docker compose -p $(DEV_INFRA_PROJECT) --env-file $(DEV_ENV_FILE) -f docker-compose.dev-infra.yml
-DEV_SERVICES_COMPOSE := docker compose -p $(DEV_SERVICES_PROJECT) --env-file $(DEV_ENV_FILE) -f docker-compose.dev-services.yml
-CONVERTER ?= $(shell azd env get-value CONVERTER 2>/dev/null || echo markitdown)
+DEV_INFRA_COMPOSE := docker compose -p $(DEV_INFRA_PROJECT) --project-directory . --env-file $(DEV_ENV_FILE) -f infra/docker/docker-compose.dev-infra.yml
+DEV_SERVICES_COMPOSE := docker compose -p $(DEV_SERVICES_PROJECT) --project-directory . --env-file $(DEV_ENV_FILE) -f infra/docker/docker-compose.dev-services.yml
+CONVERTER ?= $(shell $(AZD) env get-value CONVERTER 2>/dev/null || echo markitdown)
+PROD_PIPELINE_RETRY_ATTEMPTS ?= 60
+PROD_PIPELINE_RETRY_DELAY ?= 6
 
 .PHONY: help
 help:
@@ -42,9 +48,11 @@ help:
 	@echo "    make dev-clean-index                Clean all documents from the AI Search index"
 	@echo ""
 	@echo "  ── Tear Down ──"
-	@echo "  make dev-down                       Stop everything local (calls targets below)"
-	@echo "    make dev-services-down              Stop local application services"
-	@echo "    make dev-infra-down                 Stop local emulators"
+	@echo "  make dev-down                       Tear down everything local and remove Docker state"
+	@echo "    make dev-services-destroy           Remove local application services and compose state"
+	@echo "    make dev-infra-destroy              Remove local emulators and named volumes"
+	@echo "  make dev-services-down              Stop local application services without removing volumes"
+	@echo "  make dev-infra-down                 Stop local emulators without removing volumes"
 	@echo ""
 	@echo "━━━ Prod ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo ""
@@ -104,7 +112,7 @@ dev-up: dev-setup dev-infra-up dev-services-up dev-pipeline
 	@$(MAKE) dev-ui
 
 .PHONY: dev-down
-dev-down: dev-services-down dev-infra-down
+dev-down: dev-services-destroy dev-infra-destroy
 
 .PHONY: dev-infra-up
 dev-infra-up:
@@ -116,6 +124,10 @@ dev-infra-up:
 dev-infra-down:
 	@$(DEV_INFRA_COMPOSE) down
 
+.PHONY: dev-infra-destroy
+dev-infra-destroy:
+	@$(DEV_INFRA_COMPOSE) down -v --remove-orphans
+
 .PHONY: dev-services-up
 dev-services-up:
 	@test -f $(DEV_ENV_FILE) || (echo "Missing $(DEV_ENV_FILE). Copy .env.dev.template first." >&2; exit 1)
@@ -124,6 +136,10 @@ dev-services-up:
 .PHONY: dev-services-down
 dev-services-down:
 	@$(DEV_SERVICES_COMPOSE) down
+
+.PHONY: dev-services-destroy
+dev-services-destroy:
+	@$(DEV_SERVICES_COMPOSE) down -v --remove-orphans
 
 .PHONY: dev-services-pipeline-up
 dev-services-pipeline-up:
@@ -199,13 +215,40 @@ dev-clean-index:
 prod-down: prod-services-down prod-infra-down
 
 .PHONY: prod-infra-up
-prod-infra-up:
-	@azd provision
+
+.PHONY: prod-env-prepare
+prod-env-prepare:
+	@location="$$($(AZD) env get-values --no-prompt 2>/dev/null | sed -n 's/^AZURE_LOCATION="\(.*\)"$$/\1/p' | head -n 1)"; \
+	if [ -z "$$location" ] && [ -f "$(PROD_ENV_FILE)" ]; then \
+		location="$(sed -n 's/^AZURE_LOCATION=//p' $(PROD_ENV_FILE) | head -n 1 | tr -d '"')"; \
+	fi; \
+	if [ -z "$$location" ]; then \
+		echo "ERROR: AZURE_LOCATION is not set for the active AZD environment." >&2; \
+		echo "Set it with: azd -C infra/azure env set AZURE_LOCATION <location> --environment $$($(AZD) env get-value AZURE_ENV_NAME 2>/dev/null || echo prod)" >&2; \
+		echo "Or define AZURE_LOCATION=<location> in $(PROD_ENV_FILE)." >&2; \
+		exit 1; \
+	fi; \
+	if ! $(AZD) env get-value AZURE_LOCATION >/dev/null 2>&1; then \
+		echo "Setting AZURE_LOCATION to $$location in the active AZD environment..."; \
+		$(AZD) env set AZURE_LOCATION "$$location"; \
+	fi
+
+prod-infra-up: prod-env-prepare
+	@$(AZD) provision
 
 .PHONY: prod-infra-down
 prod-infra-down:
-	@printf "Delete the active Azure environment? [y/N] " && read answer && [ "$$answer" = "y" ]
-	@azd down --force --purge
+	@env_name="$$($(AZD) env get-value AZURE_ENV_NAME 2>/dev/null || echo prod)"; \
+	project_name="$$($(AZD) env get-value PROJECT_NAME 2>/dev/null || true)"; \
+	resource_group="$$($(AZD) env get-value AZURE_RESOURCE_GROUP 2>/dev/null || true)"; \
+	location="$$($(AZD) env get-value AZURE_LOCATION 2>/dev/null || true)"; \
+	converter="$$($(AZD) env get-value CONVERTER 2>/dev/null || true)"; \
+	printf "Delete the active Azure environment? [y/N] " && read answer && case "$$answer" in [yY]|[yY][eE][sS]) true ;; *) false ;; esac && \
+	$(AZD) down --force --purge; \
+	$(PROD_DOWN_CLEANUP) --project-name "$$project_name" --environment "$$env_name" --location "$$location" --resource-group "$$resource_group"; \
+	if [ -n "$$project_name" ]; then $(AZD) env set PROJECT_NAME "$$project_name" --environment "$$env_name"; fi; \
+	if [ -n "$$location" ]; then $(AZD) env set AZURE_LOCATION "$$location" --environment "$$env_name"; fi; \
+	if [ -n "$$converter" ]; then $(AZD) env set CONVERTER "$$converter" --environment "$$env_name"; fi
 
 .PHONY: prod-up
 prod-up: prod-setup prod-infra-up prod-services-up prod-pipeline
@@ -229,33 +272,33 @@ prod-services-down:
 
 .PHONY: prod-services-pipeline-up
 prod-services-pipeline-up: prod-configure-registries
-	@azd deploy --service func-index
+	@$(AZD) deploy --service func-index
 	@case "$(CONVERTER)" in \
-		cu) azd deploy --service func-convert-cu ;; \
-		mistral) azd deploy --service func-convert-mistral ;; \
-		markitdown) azd deploy --service func-convert-markitdown ;; \
+		cu) $(AZD) deploy --service func-convert-cu ;; \
+		mistral) $(AZD) deploy --service func-convert-mistral ;; \
+		markitdown) $(AZD) deploy --service func-convert-markitdown ;; \
 		*) echo "Unsupported CONVERTER=$(CONVERTER). Use cu, markitdown, or mistral." >&2; exit 1 ;; \
 	 esac
 
 .PHONY: prod-services-app-up
 prod-services-app-up: prod-configure-registries
-	@azd deploy --service web-app
+	@$(AZD) deploy --service web-app
 	@$(MAKE) prod-configure-target-ports
 
 .PHONY: prod-services-agents-up
 prod-services-agents-up: prod-configure-registries
-	@azd deploy --service agent
+	@$(AZD) deploy --service agent
 	@$(MAKE) prod-configure-target-ports
 
 .PHONY: prod-ui-url
 prod-ui-url:
-	@azd env get-value WEBAPP_URL
+	@$(AZD) env get-value WEBAPP_URL
 
 .PHONY: prod-seed-kb
 prod-seed-kb:
 	@test -d kb/staging || (echo "Missing kb/staging." >&2; exit 1)
 	@az storage blob upload-batch \
-		--account-name $$(azd env get-value STAGING_STORAGE_ACCOUNT) \
+		--account-name $$($(AZD) env get-value STAGING_STORAGE_ACCOUNT) \
 		--destination staging \
 		--source kb/staging \
 		--auth-mode login \
@@ -267,15 +310,42 @@ prod-pipeline: prod-seed-kb prod-pipeline-convert prod-pipeline-index
 .PHONY: prod-pipeline-convert
 prod-pipeline-convert:
 	@case "$(CONVERTER)" in \
-		cu) curl -fsS -X POST "$$(azd env get-value FUNC_CONVERT_CU_URL)/api/convert" -H 'Content-Type: application/json' -d '{}' ;; \
-		mistral) curl -fsS -X POST "$$(azd env get-value FUNC_CONVERT_MISTRAL_URL)/api/convert-mistral" -H 'Content-Type: application/json' -d '{}' ;; \
-		markitdown) curl -fsS -X POST "$$(azd env get-value FUNC_CONVERT_MARKITDOWN_URL)/api/convert-markitdown" -H 'Content-Type: application/json' -d '{}' ;; \
+		cu) endpoint="$$($(AZD) env get-value FUNC_CONVERT_CU_URL)/api/convert" ;; \
+		mistral) endpoint="$$($(AZD) env get-value FUNC_CONVERT_MISTRAL_URL)/api/convert-mistral" ;; \
+		markitdown) endpoint="$$($(AZD) env get-value FUNC_CONVERT_MARKITDOWN_URL)/api/convert-markitdown" ;; \
 		*) echo "Unsupported CONVERTER=$(CONVERTER). Use cu, markitdown, or mistral." >&2; exit 1 ;; \
-	 esac
+	 esac; \
+	for i in $$(seq 1 $(PROD_PIPELINE_RETRY_ATTEMPTS)); do \
+		$(PROD_PIPELINE_TRIGGER) convert "$$endpoint"; \
+		rc=$$?; \
+		if [ $$rc -eq 0 ]; then \
+			exit 0; \
+		fi; \
+		if [ $$rc -eq 20 ]; then \
+			exit $$rc; \
+		fi; \
+		echo "  Waiting for Azure converter endpoint to be ready... ($$i/$(PROD_PIPELINE_RETRY_ATTEMPTS))"; \
+		sleep $(PROD_PIPELINE_RETRY_DELAY); \
+	done; \
+	echo "Azure converter pipeline did not complete successfully in time." >&2; \
+	exit 1
 
 .PHONY: prod-pipeline-index
 prod-pipeline-index:
-	@curl -fsS -X POST "$$(azd env get-value FUNC_INDEX_URL)/api/index" -H 'Content-Type: application/json' -d '{}'
+	@for i in $$(seq 1 $(PROD_PIPELINE_RETRY_ATTEMPTS)); do \
+		$(PROD_PIPELINE_TRIGGER) index "$$($(AZD) env get-value FUNC_INDEX_URL)/api/index"; \
+		rc=$$?; \
+		if [ $$rc -eq 0 ]; then \
+			exit 0; \
+		fi; \
+		if [ $$rc -eq 20 ]; then \
+			exit $$rc; \
+		fi; \
+		echo "  Waiting for Azure index endpoint to be ready... ($$i/$(PROD_PIPELINE_RETRY_ATTEMPTS))"; \
+		sleep $(PROD_PIPELINE_RETRY_DELAY); \
+	done; \
+	echo "Azure index pipeline did not complete successfully in time." >&2; \
+	exit 1
 
 .PHONY: prod-clean
 prod-clean: prod-clean-storage prod-clean-cosmos prod-clean-index
@@ -284,12 +354,12 @@ prod-clean: prod-clean-storage prod-clean-cosmos prod-clean-index
 prod-clean-storage:
 	@echo "Clearing staging container..."
 	@az storage blob delete-batch \
-		--account-name $$(azd env get-value STAGING_STORAGE_ACCOUNT) \
+		--account-name $$($(AZD) env get-value STAGING_STORAGE_ACCOUNT) \
 		--source staging \
 		--auth-mode login
 	@echo "Clearing serving container..."
 	@az storage blob delete-batch \
-		--account-name $$(azd env get-value SERVING_STORAGE_ACCOUNT) \
+		--account-name $$($(AZD) env get-value SERVING_STORAGE_ACCOUNT) \
 		--source serving \
 		--auth-mode login
 	@echo "Done."
@@ -332,10 +402,10 @@ print(f'  Cleared {len(docs)} document(s) from {idx}.')"
 .PHONY: set-project
 set-project:
 	@if [ -z "$(name)" ]; then echo "Usage: make set-project name=<id>" >&2; exit 1; fi
-	@azd env set PROJECT_NAME "$(name)"
+	@$(AZD) env set PROJECT_NAME "$(name)"
 
 .PHONY: set-converter
 set-converter:
 	@if [ -z "$(name)" ]; then echo "Usage: make set-converter name=<cu|markitdown|mistral>" >&2; exit 1; fi
 	@case "$(name)" in cu|markitdown|mistral) ;; *) echo "Use cu, markitdown, or mistral." >&2; exit 1 ;; esac
-	@azd env set CONVERTER "$(name)"
+	@$(AZD) env set CONVERTER "$(name)"

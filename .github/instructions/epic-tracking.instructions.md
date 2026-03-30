@@ -18,7 +18,7 @@ applyTo: "docs/epics/**"
 
 1. Read the epic file and verify it reflects reality
 2. Confirm all prior stories are marked ✅ (code matches doc)
-3. Run `make test` — baseline must pass
+3. Run `make dev-test` — baseline must pass
 4. Verify the next story is ready to pick up without auditing code
 
 ### During Implementation

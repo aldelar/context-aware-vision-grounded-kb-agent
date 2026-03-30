@@ -5,13 +5,13 @@
 
 ## Overview
 
-All infrastructure is defined as **Bicep IaC** under `/infra/` and deployed via **Azure Developer CLI (AZD)**. The design follows zero-trust principles: all inter-service authentication is via **managed identity** with RBAC — no keys, secrets, or connection strings are stored in application settings.
+Azure deployment infrastructure is defined as **Bicep IaC** under `/infra/azure/infra/` and deployed via **Azure Developer CLI (AZD)** rooted at `/infra/azure/azure.yaml`. The design follows zero-trust principles: all inter-service authentication is via **managed identity** with RBAC — no keys, secrets, or connection strings are stored in application settings.
 
-This document is intentionally **prod-only**. Local development infrastructure now lives in Docker Compose and is documented in [docs/specs/environments-setup.md](./environments-setup.md).
+This document is intentionally **prod-only**. Local development infrastructure now lives in Docker Compose under `/infra/docker/` and is documented in [docs/specs/environments-setup.md](./environments-setup.md).
 
 **Region:** East US 2 — selected for availability of all required services: Content Understanding, text-embedding-3-small, gpt-5-mini, Azure AI Search, and Azure Functions Flex Consumption.
 
-**Resource naming** is parameterized via two values set during `azd provision`:
+**Resource naming** is parameterized via two values set during `azd -C infra/azure provision`:
 
 - **`PROJECT_NAME`** (2–8 chars) — short project identifier, default `{project}`
 - **`AZURE_ENV_NAME`** (2–7 chars) — environment name (`dev`, `staging`, `prod`)
@@ -60,23 +60,30 @@ All resources follow the pattern `{prefix}-{projectName}-{env}` (e.g., `func-{pr
 
 ```
 infra/
-├── main.bicep                  # Orchestration — wires all modules + role assignments
-├── main.parameters.json        # AZD parameter file (env name, location, search SKU)
-└── modules/
-    ├── apim.bicep                   # API Management — AI Gateway (BasicV2)
-    ├── apim-agent-api.bicep         # APIM agent API definition + backend
-    ├── monitoring.bicep            # Log Analytics + Application Insights
-    ├── storage.bicep               # Reusable storage account with containers + RBAC
-    ├── ai-services.bicep           # AI Services account + model deployments + RBAC
-    ├── search.bicep                # AI Search service + RBAC
-    ├── foundry-project.bicep       # Foundry project (tracing + registration only — no ACR connection or capability host)
-    ├── cosmos-db.bicep             # Cosmos DB NoSQL (serverless) — database + 4 containers
-    ├── cosmos-db-role.bicep        # Cosmos DB Built-in Data Contributor role assignment
-    ├── function-app.bicep          # Reusable Functions Container App module (called 4×, one per function)
-    ├── container-registry.bicep    # Azure Container Registry (Basic) + AcrPull RBAC
-    ├── container-apps-env.bicep    # Container Apps Environment (shared by web app, agent, and functions)
-    ├── container-app.bicep         # Web App Container App + Easy Auth
-    └── agent-container-app.bicep   # Agent Container App (external HTTPS ingress with JWT auth, port 8088)
+├── azure/
+│   ├── azure.yaml                  # AZD project definition
+│   ├── hooks/                      # AZD pre/post-provision hooks
+│   └── infra/
+│       ├── main.bicep              # Orchestration — wires all modules + role assignments
+│       ├── main.parameters.json    # AZD parameter file (env name, location, search SKU)
+│       └── modules/
+│           ├── apim.bicep                   # API Management — AI Gateway (BasicV2)
+│           ├── apim-agent-api.bicep         # APIM agent API definition + backend
+│           ├── monitoring.bicep            # Log Analytics + Application Insights
+│           ├── storage.bicep               # Reusable storage account with containers + RBAC
+│           ├── ai-services.bicep           # AI Services account + model deployments + RBAC
+│           ├── search.bicep                # AI Search service + RBAC
+│           ├── foundry-project.bicep       # Foundry project (tracing + registration only — no ACR connection or capability host)
+│           ├── cosmos-db.bicep             # Cosmos DB NoSQL (serverless) — database + 4 containers
+│           ├── cosmos-db-role.bicep        # Cosmos DB Built-in Data Contributor role assignment
+│           ├── function-app.bicep          # Reusable Functions Container App module (called 4×, one per function)
+│           ├── container-registry.bicep    # Azure Container Registry (Basic) + AcrPull RBAC
+│           ├── container-apps-env.bicep    # Container Apps Environment (shared by web app, agent, and functions)
+│           ├── container-app.bicep         # Web App Container App + Easy Auth
+│           └── agent-container-app.bicep   # Agent Container App (external HTTPS ingress with JWT auth, port 8088)
+└── docker/
+  ├── docker-compose.dev-infra.yml
+  └── docker-compose.dev-services.yml
 ```
 
 ---
@@ -490,16 +497,16 @@ The Container App uses a **dual-layer auth model**: **Easy Auth** (platform-leve
 azd init
 
 # Provision all infrastructure
-azd provision
+azd -C infra/azure provision
 
 # Deploy application code
-azd deploy
+azd -C infra/azure deploy
 
 # Or provision + deploy in one step
-azd up
+azd -C infra/azure up
 ```
 
-AZD reads `azure.yaml` (project root) and `infra/main.parameters.json` to resolve environment-specific values:
+AZD reads `infra/azure/azure.yaml` and `infra/azure/infra/main.parameters.json` to resolve environment-specific values:
 
 | Parameter | Source | Default |
 |-----------|--------|---------|
@@ -511,15 +518,15 @@ AZD reads `azure.yaml` (project root) and `infra/main.parameters.json` to resolv
 
 | Target | Command |
 |--------|---------|
-| `make azure-provision` | `azd provision` |
-| `make azure-deploy` | `azd deploy` |
-| _(per-function)_ | `azd deploy --service func-convert-cu` |
-| _(per-function)_ | `azd deploy --service func-convert-mistral` |
-| _(per-function)_ | `azd deploy --service func-convert-markitdown` |
-| _(per-function)_ | `azd deploy --service func-index` |
-| `make azure-register-agent` | Register agent via AI Gateway in Foundry (idempotent, captures proxy URL) |
-| `make azure-configure-app` | Push registered proxy URL to web app AGENT_ENDPOINT |
-| `make azure-deploy-app` | `azd deploy --service web-app` |
+| `make prod-infra-up` | `azd -C infra/azure provision` |
+| `make prod-services-up` | `azd -C infra/azure deploy ...` |
+| _(per-function)_ | `azd -C infra/azure deploy --service func-convert-cu` |
+| _(per-function)_ | `azd -C infra/azure deploy --service func-convert-mistral` |
+| _(per-function)_ | `azd -C infra/azure deploy --service func-convert-markitdown` |
+| _(per-function)_ | `azd -C infra/azure deploy --service func-index` |
+| `bash scripts/register-agent.sh` | Register agent via AI Gateway in Foundry (idempotent) |
+| `bash scripts/configure-app-agent-endpoint.sh` | Push the registered agent URL to the web app Container App |
+| `make prod-services-app-up` | `azd -C infra/azure deploy --service web-app` |
 
 ---
 

@@ -22,7 +22,7 @@ After this epic, each function:
 - [ ] Each Container App has its own system-assigned managed identity with least-privilege RBAC
 - [ ] Each Container App runs its own Docker image with only the dependencies it needs
 - [ ] `fn_convert_mistral` is the only image that includes Playwright/Chromium
-- [ ] `azure.yaml` defines 4 function services; `azd deploy --service <name>` deploys one function independently
+- [ ] `infra/azure/azure.yaml` defines 4 function services; `azd deploy --service <name>` deploys one function independently
 - [ ] All Makefile targets (`convert`, `azure-convert`, `index`, `azure-index`, `test-functions`) work correctly
 - [ ] `make test-functions` passes with zero regressions (156+ tests)
 - [ ] Architecture and infrastructure docs updated to reflect the new topology
@@ -61,7 +61,7 @@ Four independent Container Apps sharing the same Container Apps Environment, ACR
 - RBAC role assignments (least privilege)
 - Environment variables (only what it needs)
 - `function_app.py` entry point (single trigger)
-- `azure.yaml` service entry (independent deployment)
+- `infra/azure/azure.yaml` service entry (independent deployment)
 
 ### Naming Convention
 
@@ -166,14 +166,14 @@ Create a per-function `function_app.py` for each of the four functions. The mono
 > **Status:** Done
 > **Depends on:** None (can run in parallel with Stories 1–2)
 
-Refactor `infra/modules/function-app.bicep` to be a reusable, parameterized module that can be called once per function. Extract the Functions runtime storage account creation out of the module (it should be created once and shared).
+Refactor `infra/azure/infra/modules/function-app.bicep` to be a reusable, parameterized module that can be called once per function. Extract the Functions runtime storage account creation out of the module (it should be created once and shared).
 
 #### Deliverables
 
 - [x] Extract the Functions runtime storage account resource from `function-app.bicep` into `main.bicep` (created once, shared by all 4 Container Apps)
 - [x] Add parameters to `function-app.bicep`:
   - `functionName` (string) — used in Container App name: `func-${functionName}-${baseName}`
-  - `azdServiceName` (string) — the `azd-service-name` tag value for `azure.yaml` mapping
+  - `azdServiceName` (string) — the `azd-service-name` tag value for `infra/azure/azure.yaml` mapping
   - `envVars` (array) — per-function environment variable array
   - `functionsStorageAccountName` (string) — reference to the shared storage account
 - [x] Remove hardcoded env vars from the module — caller passes the per-function set
@@ -222,12 +222,12 @@ Update `main.bicep` to call `function-app.bicep` four times (once per function),
 
 ---
 
-### Story 5 — Per-Function Dockerfiles + azure.yaml + Deploy ✅
+### Story 5 — Per-Function Dockerfiles + infra/azure/azure.yaml + Deploy ✅
 
 > **Status:** Done
 > **Depends on:** Stories 1, 2, 3, 4 ✅
 
-Create per-function Dockerfiles, update `azure.yaml` with 4 service entries, build and deploy all 4 Container Apps. Decommission the monolithic Dockerfile and `function_app.py`.
+Create per-function Dockerfiles, update `infra/azure/azure.yaml` with 4 service entries, build and deploy all 4 Container Apps. Decommission the monolithic Dockerfile and `function_app.py`.
 
 #### Deliverables
 
@@ -236,7 +236,7 @@ Create per-function Dockerfiles, update `azure.yaml` with 4 service entries, bui
   - `src/functions/fn_convert_mistral/Dockerfile` — same + Playwright/Chromium layer
   - `src/functions/fn_convert_markitdown/Dockerfile` — base image + `shared/` + `fn_convert_markitdown/`
   - `src/functions/fn_index/Dockerfile` — base image + `shared/` + `fn_index/`
-- [x] Update `azure.yaml`: replace single `functions` service with 4 services (`func-convert-cu`, `func-convert-mistral`, `func-convert-markitdown`, `func-index`), each pointing to its own Dockerfile and project path
+- [x] Update `infra/azure/azure.yaml`: replace single `functions` service with 4 services (`func-convert-cu`, `func-convert-mistral`, `func-convert-markitdown`, `func-index`), each pointing to its own Dockerfile and project path
 - [x] Update Makefile:
   - `azure-convert` routes to correct function URLs per analyzer (`FUNC_CONVERT_CU_URL`, `FUNC_CONVERT_MISTRAL_URL`, `FUNC_CONVERT_MARKITDOWN_URL`)
   - `azure-index` routes to `func-index` URL (`FUNC_INDEX_URL`)
@@ -248,7 +248,7 @@ Create per-function Dockerfiles, update `azure.yaml` with 4 service entries, bui
 
 - [x] 4 independent Dockerfiles: each installs only `shared/` + its own package
 - [x] `fn_convert_mistral` Dockerfile includes Playwright/Chromium; other 3 do not
-- [x] `azure.yaml` service names match Bicep `azdServiceName` tags exactly
+- [x] `infra/azure/azure.yaml` service names match Bicep `azdServiceName` tags exactly
 - [x] Makefile `azure-convert`/`azure-index` targets use per-function URLs
 - [x] Old monolithic Dockerfile and function_app.py deleted
 - [x] `make test-functions` passes: 192 tests passed, 5 deselected
@@ -359,10 +359,10 @@ These files are **required** and stay in place:
 
 - [x] Update `.github/instructions/python-standards.instructions.md` line mentioning `src/pyproject.toml` for spike code
 
-**E) Clean Bicep linter warnings in `infra/main.bicep`**
+**E) Clean Bicep linter warnings in `infra/azure/infra/main.bicep`**
 
 - [x] Remove 9 unnecessary `dependsOn` entries flagged by `no-unnecessary-dependson` linter rule (1 `containerApp`, 7 `aiServices`, 1 `cosmosDb`)
-- [x] Verify `az bicep build --file infra/main.bicep` produces 0 errors and 0 warnings
+- [x] Verify `az bicep build --file infra/azure/infra/main.bicep` produces 0 errors and 0 warnings
 
 #### Definition of Done
 

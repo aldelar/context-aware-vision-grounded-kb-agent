@@ -17,16 +17,16 @@ After this epic:
 - **Environment-aware vector dimensions** — dev uses 1024-dim embeddings, prod stays on the repo's current 1536-dim Azure embeddings
 - **Environment-driven config** — `ENVIRONMENT=dev|prod` switches between emulator/Ollama auth and Azure/managed-identity auth via factory functions
 - **Local converter is fixed** — Docker Compose always runs MarkItDown locally; `CONVERTER` only affects Azure deploy/pipeline selection
-- **Current prod converter topology retained** — `azure.yaml` / `infra/main.bicep` keep the three converter services; `CONVERTER` selects the operationally active one for deploy and pipeline targets unless infra is later made conditional
+- **Current prod converter topology retained** — `infra/azure/azure.yaml` / `infra/azure/infra/main.bicep` keep the three converter services; `CONVERTER` selects the operationally active one for deploy and pipeline targets unless infra is later made conditional
 - **Clean Makefile** — `dev-*` and `prod-*` target namespaces with shared `help`, `set-project`, `set-converter`
 - **Practical test taxonomy** — unit + integration by default, optional `uitest` browser tier kept separate
 - **Aspire Dashboard** — local OpenTelemetry observability (traces, logs, metrics) matching prod App Insights
 
 ## Success Criteria
 
-- [x] `docker-compose.dev-infra.yml` starts all 5 infrastructure containers
-- [x] `docker-compose.dev-services.yml` builds and starts all 4 application containers
-- [x] `docker-compose.dev-services.yml` builds local `fn-convert` from `fn_convert_markitdown/Dockerfile`
+- [x] `infra/docker/docker-compose.dev-infra.yml` starts all 5 infrastructure containers
+- [x] `infra/docker/docker-compose.dev-services.yml` builds and starts all 4 application containers
+- [x] `infra/docker/docker-compose.dev-services.yml` builds local `fn-convert` from `fn_convert_markitdown/Dockerfile`
 - [x] Ollama serves `qwen2.5:3b`, `mxbai-embed-large`, and `moondream` models
 - [x] `ENVIRONMENT=dev` config switch routes all SDK clients to local emulators/Ollama
 - [x] `EMBEDDING_VECTOR_DIMENSIONS` drives dev (`1024`) vs prod (`1536`) vector behavior across index creation, query embedding, and tests
@@ -140,9 +140,9 @@ See [docs/specs/environments-setup.md](../specs/environments-setup.md) for the t
 
 ### Scope Boundary
 
-This epic makes local converter behavior explicit: `docker-compose.dev-services.yml` should always build and run MarkItDown for dev.
+This epic makes local converter behavior explicit: `infra/docker/docker-compose.dev-services.yml` should always build and run MarkItDown for dev.
 
-This epic keeps `CONVERTER` as an Azure-only selector. The existing `azure.yaml` and `infra/main.bicep` topology stays in place; Makefile and deployment workflow changes operate on the existing `func-convert-cu`, `func-convert-markitdown`, and `func-convert-mistral` services.
+This epic keeps `CONVERTER` as an Azure-only selector. The existing `infra/azure/azure.yaml` and `infra/azure/infra/main.bicep` topology stays in place; Makefile and deployment workflow changes operate on the existing `func-convert-cu`, `func-convert-markitdown`, and `func-convert-mistral` services.
 
 Conditional Azure provisioning and removal of non-selected converter services is **deferred** because it requires a broader AZD + Bicep refactor across service definitions, module wiring, and RBAC assignments.
 
@@ -156,7 +156,7 @@ Create the Docker Compose file that starts all 5 infrastructure emulators. This 
 
 **Acceptance Criteria:**
 
-- [x] `docker-compose.dev-infra.yml` created at project root
+- [x] `infra/docker/docker-compose.dev-infra.yml` created under `infra/docker/`
 - [x] Cosmos DB emulator (`mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:vnext-preview`) on port 8081 (API) + 1234 (UI) with healthcheck
 - [x] Azurite (`mcr.microsoft.com/azure-storage/azurite:latest`) on ports 10000/10001/10002 with persistent volume
 - [x] AI Search Simulator (`ghcr.io/ellerbach/azure-ai-search-simulator:latest`) on ports 7250 (HTTPS) / 5250 (HTTP) with API keys `dev-admin-key` / `dev-query-key`
@@ -170,7 +170,7 @@ Create the Docker Compose file that starts all 5 infrastructure emulators. This 
 
 | File | Change |
 |------|--------|
-| `docker-compose.dev-infra.yml` | **NEW** — infrastructure emulator compose file |
+| `infra/docker/docker-compose.dev-infra.yml` | **NEW** — infrastructure emulator compose file |
 
 ---
 
@@ -186,7 +186,7 @@ Create a script that initializes all emulator resources after containers are hea
   - Test: database `kb-agent-test` with containers `agent-sessions-test`, `conversations-test`, `messages-test`, `references-test`
 - [x] Waits for Azurite to be healthy, then creates blob containers: `staging`, `serving`, `staging-test`, `serving-test`
 - [x] Pulls Ollama models: `phi4-mini`, `mxbai-embed-large`, `moondream` (idempotent — skips if already present)
-- [x] Uses correct partition keys for each Cosmos container (matching `infra/modules/cosmos-db.bicep`)
+- [x] Uses correct partition keys for each Cosmos container (matching `infra/azure/infra/modules/cosmos-db.bicep`)
 - [x] Script is idempotent — safe to run multiple times
 - [x] Script exits non-zero on failure with clear error message
 
@@ -303,7 +303,7 @@ Create the Docker Compose file for our 4 application services (fn-convert, fn-in
 
 **Acceptance Criteria:**
 
-- [x] `docker-compose.dev-services.yml` created at project root
+- [x] `infra/docker/docker-compose.dev-services.yml` created under `infra/docker/`
 - [x] `fn-convert` builds from `fn_convert_markitdown/Dockerfile`, port 7071
 - [x] `fn-index` builds from `fn_index/Dockerfile`, port 7072
 - [x] `agent` builds from `src/agent/Dockerfile`, port 8088
@@ -316,7 +316,7 @@ Create the Docker Compose file for our 4 application services (fn-convert, fn-in
 
 | File | Change |
 |------|--------|
-| `docker-compose.dev-services.yml` | **NEW** — application service compose file |
+| `infra/docker/docker-compose.dev-services.yml` | **NEW** — application service compose file |
 
 ---
 
@@ -353,7 +353,7 @@ Replace the current Makefile with clean `dev-*` / `prod-*` target namespaces.
 **Acceptance Criteria:**
 
 - [x] `dev-setup` — installs tools (Docker, uv) + Python deps, does NOT pull Docker images
-- [x] `dev-infra-up` — starts `docker-compose.dev-infra.yml` + runs `scripts/dev-init-emulators.sh`
+- [x] `dev-infra-up` — starts `infra/docker/docker-compose.dev-infra.yml` + runs `scripts/dev-init-emulators.sh`
 - [x] `dev-infra-down` — stops all dev infra containers
 - [x] `dev-services-up` — builds + starts all 4 app services
 - [x] `dev-services-down` — stops all dev app containers

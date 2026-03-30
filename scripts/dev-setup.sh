@@ -70,17 +70,40 @@ validate_docker_gpu_support() {
 }
 
 ensure_dev_env_file() {
-    if [[ -f "${DEV_ENV_FILE}" ]]; then
-        return
-    fi
-
     if [[ ! -f "${DEV_ENV_TEMPLATE}" ]]; then
         echo "Missing ${DEV_ENV_TEMPLATE}; cannot create ${DEV_ENV_FILE}." >&2
         exit 1
     fi
 
+    if [[ -f "${DEV_ENV_FILE}" ]]; then
+        sync_missing_dev_env_keys
+        return
+    fi
+
     cp "${DEV_ENV_TEMPLATE}" "${DEV_ENV_FILE}"
     echo "  env         created .env.dev from template"
+}
+
+sync_missing_dev_env_keys() {
+    local line
+    local key
+    local added=0
+
+    while IFS= read -r line || [[ -n "${line}" ]]; do
+        [[ -z "${line}" || "${line}" =~ ^[[:space:]]*# ]] && continue
+        [[ "${line}" != *=* ]] && continue
+
+        key="${line%%=*}"
+        if ! grep -qE "^[[:space:]]*${key}=" "${DEV_ENV_FILE}"; then
+            printf '\n%s\n' "${line}" >> "${DEV_ENV_FILE}"
+            added=1
+            echo "  env         added missing ${key} to .env.dev"
+        fi
+    done < "${DEV_ENV_TEMPLATE}"
+
+    if [[ ${added} -eq 0 ]]; then
+        echo "  env         .env.dev already contains all template keys"
+    fi
 }
 
 first_nvidia_gpu_uuid() {

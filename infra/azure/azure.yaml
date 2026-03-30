@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+name: context-aware-vision-grounded-kb-agent
+metadata:
+    template: context-aware-vision-grounded-kb-agent
+services:
+    agent:
+        project: ../../src/agent
+        host: containerapp
+        language: python
+        docker:
+            path: ./Dockerfile
+    func-convert-cu:
+        project: ../../src/functions
+        host: containerapp
+        language: python
+        docker:
+            path: ./fn_convert_cu/Dockerfile
+    func-convert-markitdown:
+        project: ../../src/functions
+        host: containerapp
+        language: python
+        docker:
+            path: ./fn_convert_markitdown/Dockerfile
+    func-convert-mistral:
+        project: ../../src/functions
+        host: containerapp
+        language: python
+        docker:
+            path: ./fn_convert_mistral/Dockerfile
+    func-index:
+        project: ../../src/functions
+        host: containerapp
+        language: python
+        docker:
+            path: ./fn_index/Dockerfile
+    web-app:
+        project: ../../src/web-app
+        host: containerapp
+        language: python
+        docker:
+            path: ./Dockerfile
+infra:
+    provider: bicep
+    path: infra
+    module: main
+hooks:
+    postprovision:
+        shell: sh
+        run: bash hooks/postprovision.sh
+    preprovision:
+        name: preprovision
+        shell: sh
+        run: bash hooks/preprovision.sh

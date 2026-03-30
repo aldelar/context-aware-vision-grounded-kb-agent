@@ -108,7 +108,7 @@ Brief summary of what's being built and why.
 |------|--------|---------|
 | `src/agent/...` | Create | Agent |
 | `src/functions/...` | Modify | Functions |
-| `infra/modules/...` | Modify | Infra |
+| `infra/azure/infra/modules/...` | Modify | Infra |
 | `tests/...` | Create | Test |
 
 ### Architecture Notes
@@ -117,7 +117,7 @@ Brief summary of what's being built and why.
 
 ### Test Strategy
 - Unit tests: [what to cover]
-- Integration tests: [what to cover, which `make test-*` targets]
+- Integration tests: [what to cover, which `uv run pytest` commands or `make dev-test` coverage apply]
 
 ### Design Context
 

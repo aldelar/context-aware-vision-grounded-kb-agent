@@ -241,11 +241,11 @@ The solution deploys **six services**: 4 function Container Apps (one per pipeli
 #### Agent Deployment (Container App)
 
 - **Container image** built from `src/agent/Dockerfile` (Python 3.12, Starlette + uvicorn, port 8088)
-- **AZD service** defined in `azure.yaml` as `host: containerapp`, `language: python`
-- **Infrastructure** defined in `infra/modules/agent-container-app.bicep`: external HTTPS ingress with JWT auth, 1.0 CPU / 2 GiB memory, system-assigned managed identity
+- **AZD service** defined in `infra/azure/azure.yaml` as `host: containerapp`, `language: python`
+- **Infrastructure** defined in `infra/azure/infra/modules/agent-container-app.bicep`: external HTTPS ingress with JWT auth, 1.0 CPU / 2 GiB memory, system-assigned managed identity
 - **RBAC** (Bicep-managed): Cognitive Services User + Azure AI User on AI Services, Search Index Data Reader + Search Service Contributor on AI Search, Storage Blob Data Reader on Serving Storage
-- **Deployment** via `azd deploy --service agent` — builds Docker image in ACR, deploys to Container Apps
-- **Registration** (optional): `make azure-register-agent` registers the agent in Foundry portal (Operate → Assets) for visibility
+- **Deployment** via `azd -C infra/azure deploy --service agent` — builds Docker image in ACR, deploys to Container Apps
+- **Registration** (optional): `bash scripts/register-agent.sh` registers the agent in Foundry portal (Operate → Assets) for visibility
 - **AI Gateway**: APIM (`apim-{project}-{env}`, BasicV2) proxies all external agent traffic. Foundry registers the agent via the APIM gateway connection.
 - **Foundry integration**: Foundry project retained for App Insights tracing (`APPLICATIONINSIGHTS_CONNECTION_STRING` + `OTEL_SERVICE_NAME=kb-agent`); no ACR connection or capability host
 - **Agent endpoint**: internal FQDN `http://agent-{project}-{env}.internal.{cae-domain}` for direct access; registered APIM proxy URL for gateway routing (set by `configure-app-agent-endpoint.sh`)
@@ -256,14 +256,14 @@ See [ARD-005](../ards/ARD-005-foundry-hosted-agent.md), [ARD-009](../ards/ARD-00
 
 The ingestion pipeline is deployed as **4 independent Container Apps**, each with its own Docker image, managed identity, and RBAC:
 
-| Service (azure.yaml) | Container App | Dockerfile | Playwright |
+| Service (`infra/azure/azure.yaml`) | Container App | Dockerfile | Playwright |
 |---|---|---|---|
 | `func-convert-cu` | `func-cvt-cu-{project}-{env}` | `fn_convert_cu/Dockerfile` | No |
 | `func-convert-mistral` | `func-cvt-mis-{project}-{env}` | `fn_convert_mistral/Dockerfile` | Yes |
 | `func-convert-markitdown` | `func-cvt-mit-{project}-{env}` | `fn_convert_markitdown/Dockerfile` | No |
 | `func-index` | `func-idx-{project}-{env}` | `fn_index/Dockerfile` | No |
 
-Each Container App is deployed independently via `azd deploy --service <service-name>`, using separate Docker images built from per-function Dockerfiles. Only `fn_convert_mistral` includes Playwright/Chromium.
+Each Container App is deployed independently via `azd -C infra/azure deploy --service <service-name>`, using separate Docker images built from per-function Dockerfiles. Only `fn_convert_mistral` includes Playwright/Chromium.
 
 See [ARD-008](../ards/ARD-008-per-function-containers.md) for the decision rationale.
 
@@ -327,8 +327,8 @@ Agent registration and web app routing use a post-deploy script sequence:
 The web app's `_create_agent_client()` detects `https://` endpoints and acquires Entra bearer tokens via `DefaultAzureCredential`. Local dev uses `http://localhost:8088` with no auth.
 
 ```
-make azure-up
-# → azure-provision → azure-deploy → azure-register-agent → azure-configure-app → azure-setup-auth
+make prod-up
+# → prod-setup → prod-infra-up → prod-services-up → prod-pipeline → prod-ui-url
 ```
 
 ---
@@ -418,7 +418,7 @@ Each image is analyzed individually through a **custom Content Understanding ana
 
 The custom analyzer produces richer, more contextual descriptions than the generic `prebuilt-documentSearch` — each image gets dedicated analysis with a prompt tuned for UI screenshots. The extracted `UIElements` and `NavigationPath` fields further enrich the Markdown output and improve search relevance.
 
-The analyzer definition is stored in `src/analyzers/definitions/kb-image-analyzer.json` and managed via `src/analyzers/manage_analyzers.py`. It must be created once in the Content Understanding resource before running the pipeline (deployed via `make azure-deploy`). Note: CU requires model defaults to be set via `manage_analyzers.py setup` — the `deploy` command auto-runs this. CU forbids hyphens in analyzer IDs, so the actual ID is `kb_image_analyzer`.
+The analyzer definition is stored in `src/analyzers/definitions/kb-image-analyzer.json` and managed via `src/analyzers/manage_analyzers.py`. It must be created once in the Content Understanding resource before running the pipeline. Note: CU requires model defaults to be set via `manage_analyzers.py setup` — the `deploy` command auto-runs this. CU forbids hyphens in analyzer IDs, so the actual ID is `kb_image_analyzer`.
 
 ### Output Format
 
@@ -636,13 +636,13 @@ Both steps are handled automatically by `manage_analyzers.py deploy`.
 
 | Prerequisite | Why |
 |---|---|
-| **Azure AI Services resource** provisioned (`azd provision`) | Hosts both Content Understanding and the model deployments |
+| **Azure AI Services resource** provisioned (`azd -C infra/azure provision`) | Hosts both Content Understanding and the model deployments |
 | **`gpt-4.1` model deployed** | Completion model used by `kb-image-analyzer` to generate image descriptions |
 | **`gpt-4.1-mini` + `text-embedding-3-large` models deployed** | Required by `prebuilt-documentSearch` (HTML text extraction). Without either, CU silently returns 0 contents |
 | **Cognitive Services User role** on the developer's identity | Required to call CU management APIs via `DefaultAzureCredential` |
 | **`.env` configured** with `AI_SERVICES_ENDPOINT` | Points `manage_analyzers.py` to the correct CU resource |
 
-All model deployments are defined in `infra/modules/ai-services.bicep` and provisioned via `azd provision`.
+All model deployments are defined in `infra/azure/infra/modules/ai-services.bicep` and provisioned via `azd -C infra/azure provision`.
 
 ### Analyzer Definition
 
@@ -667,13 +667,14 @@ The CLI (`src/analyzers/manage_analyzers.py`) provides four subcommands:
 
 All commands run from `src/analyzers/` and authenticate via `DefaultAzureCredential` (i.e., `az login`).
 
-### Makefile Integration
+### Analyzer Operations
 
-The analyzer lifecycle is wired into the standard deployment and cleanup flow:
+The analyzer lifecycle is managed explicitly via `manage_analyzers.py` and the current Azure environment:
 
 ```
-make azure-deploy    # Runs azd deploy, then manage_analyzers deploy (setup + create/update)
-make azure-clean     # Deletes storage data, search index, and the analyzer
+azd -C infra/azure env get-values > src/analyzers/.env
+cd src/analyzers
+uv run python -m manage_analyzers deploy   # Setup + create/update
 ```
 
 For first-time setup or manual management:
@@ -690,8 +691,8 @@ uv run python -m manage_analyzers delete   # Remove it from CU
 To change the analyzer (e.g., modify field descriptions, add new fields, or switch the completion model):
 
 1. Edit `src/analyzers/definitions/kb-image-analyzer.json`
-2. Run `make azure-deploy` (or `python -m manage_analyzers deploy` directly)
-3. Re-run `make convert` (or `make azure-convert`) to re-process articles with the updated analyzer
+2. Run `cd src/analyzers && uv run python -m manage_analyzers deploy`
+3. Re-run `make dev-pipeline` or `make prod-pipeline` to re-process articles with the updated analyzer
 
 The `deploy` command uses `allow_replace=True`, so it overwrites the existing analyzer definition in-place.
 

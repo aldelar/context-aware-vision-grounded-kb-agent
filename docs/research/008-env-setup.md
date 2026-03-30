@@ -35,7 +35,7 @@ Two parameters are set once per project and stored in AZD env. All Makefile targ
 **How `CONVERTER` works:**
 
 - Determines which `fn-convert` variant is built and deployed — only one at a time.
-- In **dev**: `docker-compose.dev-services.yml` builds the Dockerfile for the selected converter.
+- In **dev**: `infra/docker/docker-compose.dev-services.yml` builds the Dockerfile for the selected converter.
 - In **prod**: `azd deploy` deploys only the selected converter's container to Azure Container Apps.
 - The `dev-convert` and `prod-convert` targets route to the correct function automatically.
 - Changing the converter is a `make set-converter converter=X` + rebuild (`dev-services-up` or `prod-services-up`).
@@ -193,7 +193,7 @@ Unlike previous iterations, **there is no dev Azure Resource Group**. All Azure 
 | Foundry Project | Not needed — agent runs as local HTTP service | N/A |
 | App Insights / Log Analytics | Aspire Dashboard (OpenTelemetry) | `aspire-dashboard` |
 
-**Bicep exists only for prod** (`infra/main.bicep`). No `infra/dev/` directory needed.
+**Bicep exists only for prod** (`infra/azure/infra/main.bicep`). No `infra/dev/` directory needed.
 
 ### 5.3 Credential Strategy for Dev
 
@@ -350,7 +350,7 @@ All test resources use the `-test` suffix (hyphens, not underscores) for consist
 
 ## 8. Docker Compose Design
 
-### 8.1 `docker-compose.dev-infra.yml` — Emulators
+### 8.1 `infra/docker/docker-compose.dev-infra.yml` — Emulators
 
 ```yaml
 # Local infrastructure emulators
@@ -432,7 +432,7 @@ volumes:
 > ```
 > Models are cached in the `ollama-data` volume. Subsequent starts skip the download.
 
-### 8.2 `docker-compose.dev-services.yml` — Our Services
+### 8.2 `infra/docker/docker-compose.dev-services.yml` — Our Services
 
 The `fn-convert` service builds the Dockerfile selected by the `CONVERTER` project parameter. The Makefile resolves the Dockerfile path before invoking `docker-compose`.
 
@@ -665,9 +665,9 @@ Can use `az storage container create` with Azurite connection string, or a small
 
 ## 10. Infra — Prod Only (No Dev Bicep)
 
-Since dev has **zero Azure dependency**, there is no `infra/dev/` directory. Bicep exists only for prod.
+Since dev has **zero Azure dependency**, there is no `infra/dev/` directory. Bicep exists only for prod under `infra/azure/infra/`.
 
-### 10.1 `infra/main.bicep` — Production (unchanged)
+### 10.1 `infra/azure/infra/main.bicep` — Production (unchanged)
 
 ~15 module calls, roles, wiring for full Azure deployment via `azd provision`. This is the only Bicep that exists.
 
@@ -678,7 +678,7 @@ Dev infrastructure is 100% Docker-based. No Azure resources, no Bicep for dev.
 ## 11. Migration Steps (Implementation Order)
 
 ### Phase 1: Foundation
-1. [ ] Create `docker-compose.dev-infra.yml` with Cosmos emulator + Azurite + AI Search Simulator + Ollama + Aspire Dashboard
+1. [ ] Create `infra/docker/docker-compose.dev-infra.yml` with Cosmos emulator + Azurite + AI Search Simulator + Ollama + Aspire Dashboard
 2. [ ] Create `.env.dev.template` with emulator + Ollama connection details
 3. [ ] Create `scripts/dev-init-emulators.sh` — init dev + `-test` resources (Cosmos DBs + containers, blob containers) + pull Ollama models (`phi4-mini`, `mxbai-embed-large`, `moondream`)
 4. [ ] Add `ENVIRONMENT` env var to config modules (`shared/config.py`, `agent/config.py`)
@@ -700,7 +700,7 @@ Dev infrastructure is 100% Docker-based. No Azure resources, no Bicep for dev.
 7. [ ] Verify web-app and agent work against local emulators + Ollama
 
 ### Phase 2: Makefile + Services
-8. [ ] Create `docker-compose.dev-services.yml` for our application containers
+8. [ ] Create `infra/docker/docker-compose.dev-services.yml` for our application containers
 9. [ ] Rewrite Makefile with `dev-*` and `prod-*` target structure + `set-converter`
 
 ### Phase 3: Test Consolidation

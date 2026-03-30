@@ -79,8 +79,8 @@ Eliminate long-lived credentials:
 
 ## Project-Specific Notes
 
-- This project uses `azd` for deployment — integrate with `azd provision` and `azd deploy`
+- This project uses `azd` for deployment — integrate with `azd -C infra/azure provision` and `azd -C infra/azure deploy`
 - 6 Dockerfiles in `src/` — consider container scanning in CI
 - Python 3.12+ with `uv` — use `uv sync` for dependency installation in CI
-- Tests: `make test` runs all service tests
+- Tests: `make dev-test` runs the current repo-wide test suite
 - Multiple services: agent, web-app, fn-convert (3 analyzers), fn-index

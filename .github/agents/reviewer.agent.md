@@ -12,7 +12,7 @@ tools:
 handoffs:
   - label: Quick Fix
     agent: Implementer
-    prompt: "Apply the specific fixes listed under 'Critical Issues' and 'Warnings' in the review above. These are targeted, localized changes — do not refactor or change anything beyond the listed items. Run `make test` to verify. The shared scratchpad has been updated with review findings."
+    prompt: "Apply the specific fixes listed under 'Critical Issues' and 'Warnings' in the review above. These are targeted, localized changes — do not refactor or change anything beyond the listed items. Run `make dev-test` to verify. The shared scratchpad has been updated with review findings."
     send: false
   - label: Rework
     agent: Implementer
@@ -72,11 +72,11 @@ Use the `security-review` skill to check:
 
 ### 6. Infrastructure Review (if infra/ changed)
 Use the `azure-infra-review` skill to check:
-- [ ] Bicep compiles: `az bicep build --file infra/main.bicep`
-- [ ] New resources wired in `main.bicep` with RBAC
+- [ ] Bicep compiles: `az bicep build --file infra/azure/infra/main.bicep`
+- [ ] New resources wired in `infra/azure/infra/main.bicep` with RBAC
 - [ ] Resource naming follows `{type}-{projectName}-{env}` convention
 - [ ] `docs/specs/infrastructure.md` updated to reflect changes
-- [ ] `azure.yaml` service definitions match actual structure
+- [ ] `infra/azure/azure.yaml` service definitions match actual structure
 
 ### 7. Epic Documentation Review
 If the implementation is part of a tracked epic/story in `docs/epics/`:

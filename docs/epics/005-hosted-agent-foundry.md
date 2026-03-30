@@ -191,9 +191,11 @@ src/web-app/
 │   └── vision_middleware.py             # REMOVED (moved to src/agent/)
 
 infra/
-├── main.bicep                           # Add Foundry project + Cosmos DB modules
+├── azure/
+│   ├── azure.yaml                       # Add agent service
+│   └── infra/
+│       └── main.bicep                  # Add Foundry project + Cosmos DB modules
 Makefile                                 # Add agent targets
-azure.yaml                              # Add agent service
 ```
 
 ---
@@ -210,14 +212,14 @@ Add Bicep IaC for the Foundry project (child of existing AIServices resource) an
 
 #### Deliverables
 
-- [x] Create `infra/modules/foundry-project.bicep`:
+- [x] Create `infra/azure/infra/modules/foundry-project.bicep`:
   - Foundry project as child resource of `ai-{project}-{env}` (`Microsoft.CognitiveServices/accounts/projects`)
   - Name pattern: `proj-{project}-{env}`
   - No model deployments needed (inherited from parent)
   - Link Application Insights for tracing
   - Output: project name, project endpoint
 
-- [x] Create `infra/modules/cosmos-db.bicep`:
+- [x] Create `infra/azure/infra/modules/cosmos-db.bicep`:
   - Cosmos DB account (NoSQL API, serverless capacity mode)
   - Name pattern: `cosmos-{project}-{env}`
   - Database: `kb-agent`
@@ -226,7 +228,7 @@ Add Bicep IaC for the Foundry project (child of existing AIServices resource) an
   - Minimum TLS 1.2, HTTPS only
   - Output: account endpoint, database name
 
-- [x] Update `infra/main.bicep`:
+- [x] Update `infra/azure/infra/main.bicep`:
   - Add Foundry project module
   - Add Cosmos DB module
   - RBAC for web app Container App MI: Cosmos DB Data Contributor
@@ -240,10 +242,10 @@ Add Bicep IaC for the Foundry project (child of existing AIServices resource) an
 
 | File | Status |
 |------|--------|
-| `infra/modules/foundry-project.bicep` | ✅ |
-| `infra/modules/cosmos-db.bicep` | ✅ |
-| `infra/main.bicep` | ✅ |
-| `infra/modules/container-app.bicep` | ✅ |
+| `infra/azure/infra/modules/foundry-project.bicep` | ✅ |
+| `infra/azure/infra/modules/cosmos-db.bicep` | ✅ |
+| `infra/azure/infra/main.bicep` | ✅ |
+| `infra/azure/infra/modules/container-app.bicep` | ✅ |
 
 #### Definition of Done
 
@@ -578,7 +580,7 @@ Deploy the agent to Foundry as a hosted agent, publish it with a dedicated ident
 
 #### Deliverables
 
-- [x] Update `azure.yaml` to add agent service:
+- [x] Update `infra/azure/azure.yaml` to add agent service:
   ```yaml
   services:
     agent:
@@ -629,7 +631,7 @@ Deploy the agent to Foundry as a hosted agent, publish it with a dedicated ident
 
 | File | Status |
 |------|--------|
-| `azure.yaml` | ✅ |
+| `infra/azure/azure.yaml` | ✅ |
 | `Makefile` | ✅ |
 | `scripts/publish-agent.sh` | ✅ |
 
@@ -738,7 +740,7 @@ Update all project documentation to reflect the new architecture: standalone Fou
 - [x] Review and update if needed:
   - `docs/epics/` — prior epics unchanged (historical), but verify no stale cross-references
   - `Makefile` header comments (if any)
-  - `azure.yaml` inline comments
+  - `infra/azure/azure.yaml` inline comments
 
 | File | Status |
 |------|--------|
@@ -914,10 +916,10 @@ Add Azure Entra ID (Azure AD) authentication to the web app so that users must l
 | `src/web-app/app/main.py` | ✅ | Added `@cl.oauth_callback`, `_is_oauth_configured()`, updated `_get_user_id()` |
 | `src/web-app/.env.sample` | ✅ | Added `OAUTH_AZURE_AD_*` and `CHAINLIT_AUTH_SECRET` vars |
 | `scripts/setup-entra-auth.sh` | ✅ | Added `set_oauth_env_vars()`, `update_redirect_uris()`, CHAINLIT_AUTH_SECRET generation, CAE resilience |
-| `infra/modules/container-app.bicep` | ✅ | Pass OAuth env vars + CHAINLIT_AUTH_SECRET to web app container |
+| `infra/azure/infra/modules/container-app.bicep` | ✅ | Pass OAuth env vars + CHAINLIT_AUTH_SECRET to web app container |
 | `src/web-app/tests/test_main.py` | ✅ | Added 7 auth tests: `_is_oauth_configured`, `_get_user_id` (3 paths), `oauth_callback` (2) |
-| `infra/main.bicep` + `main.parameters.json` | ✅ | Added `chainlitAuthSecret` param, wired to container-app module |
-| `azure.yaml` | ✅ | Postprovision hook adds both Easy Auth + Chainlit OAuth redirect URIs |
+| `infra/azure/infra/main.bicep` + `infra/azure/infra/main.parameters.json` | ✅ | Added `chainlitAuthSecret` param, wired to container-app module |
+| `infra/azure/azure.yaml` | ✅ | Postprovision hook adds both Easy Auth + Chainlit OAuth redirect URIs |
 
 #### Definition of Done
 

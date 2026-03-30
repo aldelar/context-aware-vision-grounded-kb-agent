@@ -29,9 +29,10 @@ Verify that the KB Agent service-based architecture is respected. Each service i
 │  - Cosmos DB data layer                          │
 │  - Own pyproject.toml + .env                     │
 ├─────────────────────────────────────────────────┤
-│  infra/              (Bicep IaC)                  │
+│  infra/              (Azure + local runtime)      │
+│  - azure/infra/      (Bicep IaC)                  │
+│  - docker/           (Docker Compose)             │
 │  - No application code                           │
-│  - modules/*.bicep + main.bicep                  │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -74,7 +75,7 @@ All services must follow these configuration rules:
 
 - [ ] Azure service endpoints come from environment variables
 - [ ] `DefaultAzureCredential` for all Azure SDK clients
-- [ ] `.env` files populated by `azd env get-values` — never hardcoded
+- [ ] `.env` files populated by `azd -C infra/azure env get-values` — never hardcoded
 - [ ] Config modules evaluate at import time (`config.py` per service)
 - [ ] Test `conftest.py` sets `os.environ.setdefault(...)` for config safety
 
@@ -84,7 +85,7 @@ All services must follow these configuration rules:
 2. Search for imports in `src/functions/` — should not reference `agent` or `app`
 3. Search for imports in `src/web-app/` — should not reference `agent`, `shared`, or `fn_*`
 4. Verify each service has its own `pyproject.toml` with independent dependencies
-5. Check that `infra/` contains only Bicep files and parameters — no Python
+5. Check that `infra/azure/infra/` contains only Bicep files and parameters — no Python
 
 ## Reference
 

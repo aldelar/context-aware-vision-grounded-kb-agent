@@ -51,7 +51,7 @@ The KB Agent is deployed as a **Foundry Hosted Agent** — a managed Container A
 | Web App Auth | Dual-mode: `http://` → no auth, `https://` → Entra token (`https://ai.azure.com/.default`) |
 | Foundry Project | ACR connection + capability host + App Insights connection + deployer roles |
 | Telemetry | `configure_azure_monitor()` → App Insights → Foundry tracing |
-| azure.yaml | `host: azure.ai.agent`, `docker.remoteBuild: true`, `config` block |
+| infra/azure/azure.yaml | `host: azure.ai.agent`, `docker.remoteBuild: true`, `config` block |
 | Dockerfile | Foundry layout: `/app/user_agent/` subdirectory convention |
 
 ### Proposed State
@@ -69,35 +69,35 @@ The KB Agent runs as a **standard Azure Container App** in the same CAE as the w
 | AI Gateway | APIM (`apim-{project}-{env}`, BasicV2) proxies external traffic; Foundry registers agent via gateway |
 | Foundry Project | App Insights connection + deployer roles + **APIM connection** (no ACR, no capability host) |
 | Telemetry | Same: `configure_azure_monitor()` → App Insights → Foundry tracing |
-| azure.yaml | `host: containerapp` (standard, no remoteBuild or config block) |
+| infra/azure/azure.yaml | `host: containerapp` (standard, no remoteBuild or config block) |
 | Dockerfile | Standard layout: `WORKDIR /app`, `COPY . .` |
 
 ### Change Impact Summary
 
 | Component | Action |
 |-----------|--------|
-| `infra/modules/agent-container-app.bicep` | **NEW** — agent Container App module |
-| `infra/modules/foundry-project.bicep` | **TRIM** — remove ACR connection + capability host |
-| `infra/main.bicep` | **REWIRE** — add agent CA module, remove old Foundry hosting RBAC (~6 modules), add new agent RBAC (~3 modules) |
-| `azure.yaml` | **UPDATE** — `host: containerapp`, remove `config` block and `remoteBuild` |
+| `infra/azure/infra/modules/agent-container-app.bicep` | **NEW** — agent Container App module |
+| `infra/azure/infra/modules/foundry-project.bicep` | **TRIM** — remove ACR connection + capability host |
+| `infra/azure/infra/main.bicep` | **REWIRE** — add agent CA module, remove old Foundry hosting RBAC (~6 modules), add new agent RBAC (~3 modules) |
+| `infra/azure/azure.yaml` | **UPDATE** — `host: containerapp`, remove `config` block and `remoteBuild` |
 | `src/agent/Dockerfile` | **SIMPLIFY** — standard layout instead of Foundry `/app/user_agent/` convention |
 | `src/agent/agent.yaml` | **DELETE** — Foundry agent manifest no longer needed |
 | `scripts/publish-agent.sh` | **DELETE** — replaced by `scripts/register-agent.sh` |
 | `scripts/register-agent.sh` | **NEW** — registration-only script (no hosted deployment) |
 | `src/web-app/app/main.py` | **SIMPLIFY** — `_create_agent_client()` always plain HTTP |
-| `infra/modules/container-app.bicep` | **UPDATE** — `agentEndpoint` receives internal FQDN |
+| `infra/azure/infra/modules/container-app.bicep` | **UPDATE** — `agentEndpoint` receives internal FQDN |
 | `Makefile` | **UPDATE** — azure-deploy, agent logs, test targets |
 | `docs/specs/architecture.md` | **UPDATE** — reflect Container App hosting |
 | `docs/specs/infrastructure.md` | **UPDATE** — resource inventory, RBAC table |
 | `docs/ards/ARD-009-agent-container-apps.md` | **NEW** — architecture decision record |
 | `src/agent/middleware/jwt_auth.py` | **NEW** — FastAPI JWT validation middleware (Story 7) |
-| `infra/modules/apim.bicep` | **NEW** — APIM AI Gateway (Story 8) |
-| `infra/modules/apim-agent-api.bicep` | **NEW** — APIM agent API definition (Story 8) |
+| `infra/azure/infra/modules/apim.bicep` | **NEW** — APIM AI Gateway (Story 8) |
+| `infra/azure/infra/modules/apim-agent-api.bicep` | **NEW** — APIM agent API definition (Story 8) |
 | `scripts/configure-app-agent-endpoint.sh` | **NEW** — post-registration endpoint config for web app (Story 9) |
 | `docs/ards/ARD-010-agent-external-auth-gateway.md` | **NEW** — decision record for external auth + gateway (Story 10) |
-| `infra/modules/agent-container-app.bicep` | **UPDATE** — external HTTPS ingress + `REQUIRE_AUTH` env var (Story 7) |
+| `infra/azure/infra/modules/agent-container-app.bicep` | **UPDATE** — external HTTPS ingress + `REQUIRE_AUTH` env var (Story 7) |
 | `scripts/register-agent.sh` | **UPDATE** — gateway-based registration + capture proxy URL (Story 9) |
-| `infra/modules/foundry-project.bicep` | **UPDATE** — add APIM connection resource (Story 8) |
+| `infra/azure/infra/modules/foundry-project.bicep` | **UPDATE** — add APIM connection resource (Story 8) |
 | `src/web-app/app/main.py` | **UPDATE** — re-add Entra token auth for registered APIM endpoint (Story 10) |
 
 ### RBAC for Agent Container App (Least Privilege)
@@ -119,23 +119,23 @@ The KB Agent runs as a **standard Azure Container App** in the same CAE as the w
 > **Status:** Done
 > **Depends on:** None
 
-Create the `agent-container-app.bicep` module, trim the Foundry project Bicep (remove ACR connection + capability host), and rewire `main.bicep` to deploy the agent as a Container App with its own managed identity and RBAC.
+Create the `infra/azure/infra/modules/agent-container-app.bicep` module, trim the Foundry project Bicep (remove ACR connection + capability host), and rewire `infra/azure/infra/main.bicep` to deploy the agent as a Container App with its own managed identity and RBAC.
 
 #### Deliverables
 
-- [ ] Create `infra/modules/agent-container-app.bicep`:
+- [ ] Create `infra/azure/infra/modules/agent-container-app.bicep`:
   - Container App `agent-{baseName}` in existing CAE (accepts `containerAppsEnvId` param)
   - Internal-only ingress on port 8088
   - System-assigned managed identity
-  - `azd-service-name: agent` tag for azure.yaml mapping
+  - `azd-service-name: agent` tag for `infra/azure/azure.yaml` mapping
   - Environment variables: `AI_SERVICES_ENDPOINT`, `SEARCH_ENDPOINT`, `SEARCH_INDEX_NAME`, `SERVING_BLOB_ENDPOINT`, `SERVING_CONTAINER_NAME`, `PROJECT_ENDPOINT`, `AGENT_MODEL_DEPLOYMENT_NAME`, `EMBEDDING_DEPLOYMENT_NAME`, `APPLICATIONINSIGHTS_CONNECTION_STRING`, `OTEL_SERVICE_NAME=kb-agent`
   - Container resource limits: 1.0 CPU, 2Gi memory (match current Foundry config)
   - Outputs: `agentEndpoint` (internal FQDN with port), `agentPrincipalId` (for RBAC)
-- [ ] Trim `infra/modules/foundry-project.bicep`:
+- [ ] Trim `infra/azure/infra/modules/foundry-project.bicep`:
   - Remove `acrConnection` resource and `acrLoginServer`/`acrResourceId` parameters
   - Remove `accountCapabilityHost` resource
   - Keep: project resource, `appInsightsConnection`, deployer roles, project AI User role, web app AI User role
-- [ ] Update `infra/main.bicep`:
+- [ ] Update `infra/azure/infra/main.bicep`:
   - Add `agentContainerApp` module call, passing CAE ID from web app module
   - Wire agent RBAC: AI Services (Cognitive Services User + Azure AI User), AI Search (Index Data Reader + Service Contributor), Serving Storage (Blob Data Reader)
   - Remove Foundry-hosted-agent RBAC modules (`searchAgentRole`, `aiServicesAgentRole`, `servingStorageAgentRole` for AI Services MI; `searchFoundryRole`, `aiServicesFoundryRole`, `servingStorageFoundryRole` for Foundry Project MI; `containerRegistryFoundryRole`)
@@ -148,7 +148,7 @@ Create the `agent-container-app.bicep` module, trim the Foundry project Bicep (r
 
 #### Implementation Notes
 
-- The existing `infra/modules/container-app.bicep` creates the CAE and outputs `containerAppsEnvId` — the new agent module consumes this output.
+- The existing `infra/azure/infra/modules/container-app.bicep` creates the CAE and outputs `containerAppsEnvId` — the new agent module consumes this output.
 - The web app module already has an `agentEndpoint` param that sets `AGENT_ENDPOINT` env var — the value changes from external Foundry URL to internal FQDN but the plumbing stays the same.
 - The `from_agent_framework` adapter listens on port 8088 and serves `/liveness` and `/readiness` for probes.
 
@@ -156,10 +156,10 @@ Create the `agent-container-app.bicep` module, trim the Foundry project Bicep (r
 
 - [ ] `agent-container-app.bicep` creates a Container App with internal ingress, managed identity, and correct env vars
 - [ ] `foundry-project.bicep` has no ACR connection or capability host resources
-- [ ] `main.bicep` wires agent RBAC (3 role modules) and removes old Foundry hosting RBAC (~7 role modules)
+- [ ] `infra/azure/infra/main.bicep` wires agent RBAC (3 role modules) and removes old Foundry hosting RBAC (~7 role modules)
 - [ ] `agentEndpoint` flows from agent Container App output → web app module (no external parameter)
 - [ ] `az bicep build` succeeds with 0 errors
-- [ ] `main.parameters.json` has no `agentEndpoint` entry
+- [ ] `infra/azure/infra/main.parameters.json` has no `agentEndpoint` entry
 
 ---
 
@@ -168,7 +168,7 @@ Create the `agent-container-app.bicep` module, trim the Foundry project Bicep (r
 > **Status:** Done
 > **Depends on:** Story 1
 
-Simplify the agent Dockerfile, update `azure.yaml` to deploy as a standard Container App, delete the Foundry agent manifest, and update Makefile targets.
+Simplify the agent Dockerfile, update `infra/azure/azure.yaml` to deploy as a standard Container App, delete the Foundry agent manifest, and update Makefile targets.
 
 #### Deliverables
 
@@ -176,7 +176,7 @@ Simplify the agent Dockerfile, update `azure.yaml` to deploy as a standard Conta
   - Standard layout: `WORKDIR /app`, `COPY . .` (remove `/app/user_agent/` convention)
   - Keep: `python:3.12-slim` base, pip install from `requirements.txt`, `EXPOSE 8088`
   - Add `CMD ["python", "main.py"]` explicitly (Foundry platform injects one; Container Apps does not)
-- [ ] Update `azure.yaml` agent service:
+- [ ] Update `infra/azure/azure.yaml` agent service:
   - `host: containerapp` (was `azure.ai.agent`)
   - Remove `docker.remoteBuild: true`
   - Remove `config` block (container resources, scale, model deployments — now in Bicep)
@@ -191,12 +191,12 @@ Simplify the agent Dockerfile, update `azure.yaml` to deploy as a standard Conta
 
 - The `from_agent_framework` adapter already serves the right endpoints; it doesn't care whether it runs in Foundry or a bare Container App.
 - `requirements.txt` is generated by `uv export` (existing pattern); no change needed.
-- The `config` block in `azure.yaml` was Foundry-specific (model deployments, container resources). Container resources are now in Bicep; model deployments remain in AI Services (already provisioned).
+- The `config` block in `infra/azure/azure.yaml` was Foundry-specific (model deployments, container resources). Container resources are now in Bicep; model deployments remain in AI Services (already provisioned).
 
 #### Definition of Done
 
 - [ ] Dockerfile uses standard layout (`COPY . .`, explicit `CMD`)
-- [ ] `azure.yaml` agent service uses `host: containerapp` with no `remoteBuild` or `config`
+- [ ] `infra/azure/azure.yaml` agent service uses `host: containerapp` with no `remoteBuild` or `config`
 - [ ] `agent.yaml` deleted
 - [ ] Makefile `azure-deploy` no longer calls `publish-agent.sh`
 - [ ] `make agent-dev` still starts the agent locally (no regression)
@@ -350,11 +350,11 @@ Switch the agent Container App from internal-only to external HTTPS ingress, and
 
 #### Deliverables
 
-- [x] Update `infra/modules/agent-container-app.bicep`:
+- [x] Update `infra/azure/infra/modules/agent-container-app.bicep`:
   - Change `external: false` → `external: true`
   - Change `allowInsecure: true` → `allowInsecure: false`
   - Add output `agentExternalUrl` (the public HTTPS FQDN) alongside the existing internal endpoint output
-- [x] Update `infra/main.bicep`:
+- [x] Update `infra/azure/infra/main.bicep`:
   - Add new output `AGENT_EXTERNAL_URL` from the agent module's `agentExternalUrl`
 - [x] Create `src/agent/middleware/__init__.py` — empty package
 - [x] Create `src/agent/middleware/jwt_auth.py` — FastAPI middleware:
@@ -419,27 +419,27 @@ Provision an Azure API Management (APIM) instance as an AI Gateway via Bicep, li
 
 #### Deliverables
 
-- [x] Create `infra/modules/apim.bicep`:
+- [x] Create `infra/azure/infra/modules/apim.bicep`:
   - APIM resource `apim-{baseName}` (BasicV2 SKU for dev/test, parameterised for StandardV2 in prod)
   - Publisher name and email from parameters (required by APIM)
   - System-assigned managed identity
   - Tags: `azd-env-name`
   - Outputs: `apimName`, `apimGatewayUrl`, `apimPrincipalId`, `apimResourceId`
-- [x] Create `infra/modules/apim-agent-api.bicep`:
+- [x] Create `infra/azure/infra/modules/apim-agent-api.bicep`:
   - API definition `kb-agent-api` on the APIM instance
   - Backend pointing to the agent's external HTTPS URL
   - Operations: `POST /responses`, `GET /liveness`, `GET /readiness`
   - Policy: pass-through (APIM forwards the caller's Entra token to the agent; agent validates it)
   - Subscription not required (`subscriptionRequired: false`) — auth is via Entra JWT, not APIM subscription keys
-- [x] Update `infra/main.bicep`:
+- [x] Update `infra/azure/infra/main.bicep`:
   - Add `apim` module call, passing location, baseName, tags
   - Add `apimAgentApi` module call, passing APIM name and agent external URL
   - Add outputs: `APIM_NAME`, `APIM_GATEWAY_URL`
   - **Do NOT change `AGENT_ENDPOINT` on the web app yet** — it stays as the internal FQDN until Story 9 provides the registered proxy URL
-- [x] Update `infra/modules/foundry-project.bicep`:
+- [x] Update `infra/azure/infra/modules/foundry-project.bicep`:
   - Add APIM connection resource linking the Foundry project to the APIM gateway (required for agent registration via gateway)
   - Accept new parameter `apimResourceId`
-- [x] Update `infra/main.bicep` — pass `apimResourceId` to `foundryProject` module
+- [x] Update `infra/azure/infra/main.bicep` — pass `apimResourceId` to `foundryProject` module
 - [x] Update `docs/specs/architecture.md`:
   - Azure Services Map diagram: add APIM node between Web App and Agent, show APIM ↔ Agent connection
   - Agent Deployment section: document APIM as the agent's public gateway

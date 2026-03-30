@@ -11,7 +11,7 @@ applyTo: "**"
 - **Never** commit secrets, connection strings, API keys, or tokens
 - Use Azure Managed Identity for all service-to-service auth
 - Use Key Vault references where managed identity isn't available
-- `.env` files are gitignored — they contain local dev credentials populated by `azd env get-values`
+- `.env` files are gitignored — they contain local dev credentials populated by `azd -C infra/azure env get-values`
 - `.env.sample` files document required variables without values
 
 ## Authentication & Authorization

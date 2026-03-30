@@ -20,10 +20,10 @@ This project processes knowledge base content and serves it via a conversational
 ### Authentication & Authorization
 - [ ] `DefaultAzureCredential` used for all Azure SDK clients — no keys or connection strings
 - [ ] Entra ID Easy Auth configured on Container Apps for user-facing endpoints
-- [ ] RBAC role assignments defined in `infra/main.bicep` — never assigned manually
+- [ ] RBAC role assignments defined in `infra/azure/infra/main.bicep` — never assigned manually
 - [ ] Cosmos DB uses native RBAC (Built-in Data Contributor via `cosmos-db-role.bicep`) — no connection strings
 - [ ] No hardcoded API keys, tokens, or secrets in source code
-- [ ] `.env` files are gitignored — they contain local dev credentials from `azd env get-values`
+- [ ] `.env` files are gitignored — they contain local dev credentials from `azd -C infra/azure env get-values`
 
 ### Input Validation
 - [ ] All external input validated at API boundaries (HTTP handlers, function triggers)

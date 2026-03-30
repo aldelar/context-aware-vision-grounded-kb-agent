@@ -7,7 +7,7 @@ description: 'Guides safe refactoring operations across the KB Agent service-bas
 
 ## Pre-Refactoring Checklist
 
-1. Run `make test` — establish green baseline. Do not start refactoring with failing tests.
+1. Run `make dev-test` — establish green baseline. Do not start refactoring with failing tests.
 2. Identify all callers/importers of the code being moved (use grep/search)
 3. Plan the move: old path → new path, old imports → new imports
 4. Determine if this is a within-service or cross-service refactor
@@ -19,7 +19,7 @@ Moving code within the same service (e.g., within `src/agent/`):
 1. Create new file at destination
 2. Move code (don't copy — move)
 3. Update ALL imports within the service
-4. Run the service's tests: `make test-agent`, `make test-app`, or `make test-functions`
+4. Run the affected service's tests directly from that service directory with `uv run pytest`
 5. Delete old file only after all imports are updated and tests pass
 
 ## Cross-Service Refactoring
@@ -32,7 +32,7 @@ Moving code between services (e.g., `src/functions/` → `src/agent/`) is a **si
    - Can it be a utility that each service vendors independently?
 3. Update `pyproject.toml` for both services if dependencies change
 4. Run `uv sync --extra dev` in both service directories
-5. Run ALL service tests: `make test` (not just the affected service)
+5. Run the repo-wide test suite with `make dev-test` (not just the affected service)
 
 ## Import Update Patterns
 
@@ -64,7 +64,7 @@ When renaming or moving a module:
 
 After refactoring is complete:
 ```bash
-make test    # ALL service tests — catches broken imports and runtime breakage
+make dev-test    # current repo-wide test suite — catches broken imports and runtime breakage
 ```
 
 Must pass before the refactoring is considered done.
