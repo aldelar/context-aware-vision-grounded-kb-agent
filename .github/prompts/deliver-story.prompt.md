@@ -1,6 +1,6 @@
 ---
 description: "Implement a story end-to-end — plan, then hand off to @implementer and @reviewer."
-agent: "planner"
+agent: "Planner"
 ---
 
 # Implement Story

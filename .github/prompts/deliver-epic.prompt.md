@@ -1,6 +1,6 @@
 ---
 description: "Deliver an epic end-to-end — plan all remaining stories, then hand off to @implementer and @reviewer for each."
-agent: "planner"
+agent: "Planner"
 ---
 
 # Deliver Epic

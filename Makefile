@@ -92,7 +92,7 @@ dev-setup:
 	@bash scripts/dev-setup.sh
 	@cd src/functions && uv sync --extra dev
 	@cd src/agent && uv sync --extra dev
-	@cd src/web-app && uv sync --extra dev
+	@cd src/web-app && npm ci
 	@test -f $(DEV_ENV_FILE) || (echo "Missing $(DEV_ENV_FILE) after dev-setup." >&2; exit 1)
 
 .PHONY: dev-setup-gpu
@@ -172,7 +172,7 @@ dev-test-ui:
 
 .PHONY: dev-ui
 dev-ui:
-	@echo http://localhost:8080
+	@echo http://localhost:3000
 
 .PHONY: dev-otel-dashboard
 dev-otel-dashboard:
