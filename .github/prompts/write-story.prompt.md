@@ -1,6 +1,6 @@
 ---
 description: "Write a new story for an existing epic — clarify scope, define deliverables, and produce a testable Definition of Done."
-agent: "planner"
+agent: "Planner"
 ---
 
 # Write Story

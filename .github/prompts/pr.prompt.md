@@ -1,6 +1,6 @@
 ---
 description: 'Create a pull request from the current branch to main'
-mode: 'agent'
+agent: 'Implementer'
 ---
 
 # Create Pull Request

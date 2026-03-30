@@ -1,6 +1,6 @@
 ---
 description: 'Merge the open PR for the current branch and switch to main'
-mode: 'agent'
+agent: 'Implementer'
 ---
 
 # Merge Pull Request
