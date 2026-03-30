@@ -32,8 +32,8 @@ When a test fails or an error occurs, follow these steps **before** giving up or
 | Assertion mismatch | Code changed but test expectations didn't update | Update test expectation or fix the code |
 | `TypeError` on function call | Wrong argument count or types after refactor | Check function signature matches all callers |
 | `DefaultAzureCredential` failure | Missing `az login` or wrong subscription | Run `az account show`, `az login` |
-| 403 from Azure service | Missing RBAC role assignment | Check `infra/main.bicep` role assignments |
-| Container fails to start | Dockerfile issue or missing env var | Check `make azure-app-logs` |
+| 403 from Azure service | Missing RBAC role assignment | Check `infra/azure/infra/main.bicep` role assignments |
+| Container fails to start | Dockerfile issue or missing env var | Check Container App logs with Azure CLI (`az containerapp logs show`) or the portal |
 
 ### 4. Apply the Minimal Fix
 
@@ -45,7 +45,7 @@ When a test fails or an error occurs, follow these steps **before** giving up or
 ### 5. Validate
 
 - Re-run the failing test (not just the full suite — target the specific test first)
-- Then run `make test` to confirm no regressions
+- Then run `make dev-test` to confirm no regressions
 - If the fix introduces new failures, repeat from Step 1
 
 ## When to Escalate

@@ -92,7 +92,7 @@ Use the publish CLI command without AZD integration.
 
 1. **`main.py`** uses `from_agent_framework(_create_agent).run()` — single entry point for local + deployed
 2. **`main_local.py`** deleted — no longer needed
-3. **`azure.yaml`** agent service set to `host: azure.ai.agent` with proper `config` block
+3. **`infra/azure/azure.yaml`** agent service set to `host: azure.ai.agent` with proper `config` block
 4. **`agent.yaml`** uses `ContainerAgent` schema format
 5. **`pyproject.toml`** includes `azure-ai-agentserver-agentframework>=1.0.0b7` and `starlette<1.0` (adapter dependency compatibility)
 6. **Web app** extracts citations from `response.output_item.done` (function call output) instead of `response.completed.metadata`

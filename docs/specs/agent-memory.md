@@ -37,7 +37,7 @@ flowchart LR
 
 ### Infrastructure
 
-Deployed via Bicep (`infra/modules/cosmos-db.bicep`):
+Deployed via Bicep (`infra/azure/infra/modules/cosmos-db.bicep`):
 
 | Setting | Value |
 |---|---|

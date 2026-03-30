@@ -128,4 +128,4 @@ This project follows these security rules (see `.github/instructions/security.in
 - **Never** commit secrets, connection strings, API keys, or tokens
 - Use Azure Managed Identity for all service-to-service auth
 - Use Key Vault references where managed identity isn't available
-- `.env` files are gitignored — they contain local dev credentials from `azd env get-values`
+- `.env` files are gitignored — they contain local dev credentials from `azd -C infra/azure env get-values`

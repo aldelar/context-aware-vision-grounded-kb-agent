@@ -10,13 +10,17 @@ applyTo: "**/tests/**"
 
 - **pytest** for all tests
 - Each service has its own `tests/` directory with `conftest.py`
-- Run all tests: `make test` (runs `test-agent` + `test-app` + `test-functions`)
+- Run the current repo test suite: `make dev-test`
 
 ## Three-Tier Test Strategy
 
 ### Unit Tests (default — no Azure credentials needed)
 
-Run with: `make test-agent`, `make test-app`, `make test-functions`
+Run with direct service-local pytest commands, for example:
+
+- `cd src/agent && uv run pytest tests -o addopts= -m "not integration and not uitest"`
+- `cd src/functions && uv run pytest tests -o addopts= -m "not integration and not uitest"`
+- `cd src/web-app && uv run pytest tests -o addopts= -m "not integration and not uitest"`
 
 - Mock all external services (Azure SDK clients, HTTP calls)
 - Fast, deterministic, run on every change
@@ -32,7 +36,11 @@ Run with: `make test-agent`, `make test-app`, `make test-functions`
 
 ### Integration Tests (require running services + Azure credentials)
 
-Run with: `make azure-test-agent`, `make azure-test-app`, `make azure-test`
+Run with `make dev-test` once the appropriate environment is configured, or use direct pytest filters such as:
+
+- `cd src/agent && uv run pytest tests -o addopts= -m "integration and not uitest"`
+- `cd src/web-app && uv run pytest tests -o addopts= -m "integration and not uitest"`
+- `cd src/functions && uv run pytest tests -o addopts= -m "integration and not uitest"`
 
 - Marked with `@pytest.mark.integration`
 - Excluded by default via `addopts = "-m 'not integration'"` in `pyproject.toml`
@@ -66,4 +74,4 @@ Run with: `make azure-test-agent`, `make azure-test-app`, `make azure-test`
 1. Read the code under test and its existing tests first
 2. Identify untested paths: happy path, edge cases, error boundaries
 3. Write the test, run it, confirm it passes
-4. Run the full suite (`make test`) to check for regressions
+4. Run the full suite (`make dev-test`) to check for regressions

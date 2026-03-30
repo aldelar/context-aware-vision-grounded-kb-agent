@@ -6,6 +6,10 @@
 # adds the developer's current public IP to the Cosmos DB firewall allowlist.
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/lib/azd.sh"
+
 ENV=$(azd env get-value AZURE_ENV_NAME 2>/dev/null || echo "dev")
 PROJECT=$(azd env get-value PROJECT_NAME)
 COSMOS_ACCOUNT="cosmos-${PROJECT}-${ENV}"

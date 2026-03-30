@@ -104,7 +104,7 @@ Automate project-level observability connection so the deployed Foundry project 
 #### Deliverables
 
 - [ ] Add script to create/update Foundry project connection for Application Insights using Azure CLI project connection commands and versioned connection spec file.
-- [ ] Add deployment hook integration in `azure.yaml` (post-provision or post-deploy as appropriate).
+- [ ] Add deployment hook integration in `infra/azure/azure.yaml` (post-provision or post-deploy as appropriate).
 - [ ] Add idempotent checks to avoid duplicate connection creation.
 - [ ] Persist verification outputs (connection name/id) in AZD env variables.
 
@@ -112,7 +112,7 @@ Automate project-level observability connection so the deployed Foundry project 
 |------|--------|
 | `scripts/foundry/connect-appinsights.sh` | ⬜ |
 | `infra/foundry/connections/appinsights.connection.json` (or `.yaml`) | ⬜ |
-| `azure.yaml` (hook wiring) | ⬜ |
+| `infra/azure/azure.yaml` (hook wiring) | ⬜ |
 | `Makefile` (`eval-connect-appi`, `eval-verify`) | ⬜ |
 
 #### Definition of Done
@@ -256,9 +256,9 @@ Provision alerting resources and rules tied to evaluation/operational signals.
 
 | File | Status |
 |------|--------|
-| `infra/modules/alerts.bicep` | ⬜ |
-| `infra/main.bicep` (module integration + outputs) | ⬜ |
-| `infra/main.parameters.json` (if needed) | ⬜ |
+| `infra/azure/infra/modules/alerts.bicep` | ⬜ |
+| `infra/azure/infra/main.bicep` (module integration + outputs) | ⬜ |
+| `infra/azure/infra/main.parameters.json` (if needed) | ⬜ |
 | `Makefile` (`eval-alerts-verify`) | ⬜ |
 
 #### Definition of Done
@@ -292,7 +292,7 @@ Integrate all evaluation setup into deployment lifecycle and expose deterministi
 | `Makefile` | ⬜ |
 | `scripts/foundry/eval-setup.sh` | ⬜ |
 | `scripts/foundry/eval-verify.sh` | ⬜ |
-| `azure.yaml` (hook integration) | ⬜ |
+| `infra/azure/azure.yaml` (hook integration) | ⬜ |
 
 #### Definition of Done
 

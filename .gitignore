@@ -1,3 +1,6 @@
+.azure/
+infra/azure/.azure
+.env.prod
 # Scratchpads
 .shared-scratchpads/
 

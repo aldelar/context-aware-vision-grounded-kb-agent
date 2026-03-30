@@ -14,7 +14,7 @@ Two environments: **Dev** (fully local, Docker-only) and **Prod** (Azure). No st
 | **Dev** (local) | Docker containers only — **zero Azure cloud dependency** | Docker containers (our code + emulators + Ollama) | Ollama (local): `qwen2.5:3b` for chat, `mxbai-embed-large` for embeddings, `moondream` for vision | Daily development, fast iteration, unit + integration tests |
 | **Prod** | Azure RG (`rg-{project}-prod`) | Azure Container Apps | Azure AI Services (GPT-4.1, text-embedding-3-small, GPT-4.1 vision) | Production |
 
-**Key design decision:** Dev has **no Azure cloud dependency**. All runtime infrastructure runs in Docker. Bicep/IaC exists only for prod. AZD may still be used locally as a parameter store for `PROJECT_NAME` and `CONVERTER`, but dev does not require `az login`, an Azure subscription, or Azure spend.
+**Key design decision:** Dev has **no Azure cloud dependency**. All runtime infrastructure runs in Docker under `infra/docker/`. Azure IaC and AZD assets live under `infra/azure/`. AZD may still be used locally as a parameter store for `PROJECT_NAME` and `CONVERTER`, but dev does not require `az login`, an Azure subscription, or Azure spend.
 
 ## Project-Level Parameters
 
@@ -39,7 +39,7 @@ Two parameters stored in AZD env: `PROJECT_NAME` is shared across environment wo
 ## Dev Environment — Docker Topology
 
 ```
-┌─ docker-compose.dev-infra.yml + docker-compose.dev-services.yml ───────────┐
+┌─ infra/docker/docker-compose.dev-infra.yml + infra/docker/docker-compose.dev-services.yml ─┐
 │                                                                │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐ │
 │  │ cosmosdb-emu │  │   azurite    │  │  search-simulator    │ │
@@ -167,7 +167,7 @@ Switching is driven by `ENVIRONMENT` env var (`dev` | `prod`). Code uses factory
 
 ### Prod (Azure)
 
-Prod resources follow the existing Bicep naming patterns in `infra/main.bicep` — e.g., `cosmos-{project}-{env}`, `st{project}staging{env}`, `srch-{project}-{env}`.
+Prod resources follow the existing Bicep naming patterns in `infra/azure/infra/main.bicep` — e.g., `cosmos-{project}-{env}`, `st{project}staging{env}`, `srch-{project}-{env}`.
 
 ## Observability
 

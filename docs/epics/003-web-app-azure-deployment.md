@@ -142,11 +142,11 @@ Add Bicep modules for Azure Container Registry, Container Apps Environment, Cont
 
 #### Deliverables
 
-- [x] Create `infra/modules/container-registry.bicep`:
+- [x] Create `infra/azure/infra/modules/container-registry.bicep`:
   - Basic SKU ACR
   - Admin user disabled (managed identity pull)
   - Optional `acrPullPrincipalId` param for AcrPull role assignment
-- [x] Create `infra/modules/container-app.bicep`:
+- [x] Create `infra/azure/infra/modules/container-app.bicep`:
   - Container Apps Environment (Consumption plan, linked to Log Analytics)
   - Container App with:
     - System-assigned managed identity
@@ -155,13 +155,13 @@ Add Bicep modules for Azure Container Registry, Container Apps Environment, Cont
     - Environment variables (same as local `.env` — AI Services endpoint, Search endpoint, Blob endpoint, deployment names)
     - Easy Auth configuration: Entra ID provider, single-tenant, require authentication, redirect unauthenticated
   - Scale: min 0, max 1 (dev tier — scale-to-zero for cost savings)
-- [x] Update `infra/main.bicep`:
+- [x] Update `infra/azure/infra/main.bicep`:
   - Add ACR module
   - Add Container App module
   - Wire outputs (ACR login server, Container App URL)
   - Add RBAC role assignments for Container App MI → AI Services, AI Search, Serving Storage
   - Add parameter or mechanism for Entra App Registration (client ID / tenant ID)
-- [x] Update `infra/main.parameters.json` if new parameters are needed
+- [x] Update `infra/azure/infra/main.parameters.json` if new parameters are needed
 - [x] Entra App Registration:
   - Option B chosen: Create via a pre-provision AZD hook script (`scripts/setup-entra-auth.sh`)
   - Single-tenant, with redirect URI set post-provision to Container App's auth callback URL
@@ -169,10 +169,10 @@ Add Bicep modules for Azure Container Registry, Container Apps Environment, Cont
 
 | File | Status |
 |------|--------|
-| `infra/modules/container-registry.bicep` | ✅ |
-| `infra/modules/container-app.bicep` | ✅ |
-| `infra/main.bicep` | ✅ |
-| `infra/main.parameters.json` | ✅ |
+| `infra/azure/infra/modules/container-registry.bicep` | ✅ |
+| `infra/azure/infra/modules/container-app.bicep` | ✅ |
+| `infra/azure/infra/main.bicep` | ✅ |
+| `infra/azure/infra/main.parameters.json` | ✅ |
 | `scripts/setup-entra-auth.sh` | ✅ |
 
 #### Definition of Done
@@ -205,7 +205,7 @@ Create a production Dockerfile for the web app and integrate it with the AZD dep
 - [x] Test Docker build locally:
   - `docker build -t webapp-{project} .` succeeds
   - `docker run -p 8080:8080 --env-file .env webapp-{project}` serves the app locally
-- [x] Update `azure.yaml` to add the web-app service
+- [x] Update `infra/azure/azure.yaml` to add the web-app service
 - [x] Add Makefile targets:
   - `docker-build` — Build the Docker image locally
   - `docker-run` — Run the Docker image locally with `.env`
@@ -214,7 +214,7 @@ Create a production Dockerfile for the web app and integrate it with the AZD dep
 |------|--------|
 | `src/web-app/Dockerfile` | ✅ |
 | `src/web-app/.dockerignore` | ✅ |
-| `azure.yaml` | ✅ |
+| `infra/azure/azure.yaml` | ✅ |
 | `Makefile` | ✅ |
 
 #### Definition of Done
@@ -222,7 +222,7 @@ Create a production Dockerfile for the web app and integrate it with the AZD dep
 - [x] Docker image builds successfully from `src/web-app/`
 - [x] Container runs locally and serves the Chainlit app on port 8080
 - [x] Image size is reasonable (< 500 MB)
-- [x] `azure.yaml` has the web-app service definition for AZD
+- [x] `infra/azure/azure.yaml` has the web-app service definition for AZD
 
 ---
 
@@ -276,7 +276,7 @@ Deploy the web app to Azure Container Apps via AZD and validate the full end-to-
 
 ## Implementation Notes
 
-- **AZD integration:** The web app is added as a second service in `azure.yaml` alongside `functions`. AZD handles Docker build/push/deploy automatically when `host: containerapp` is specified.
+- **AZD integration:** The web app is added as a second service in `infra/azure/azure.yaml` alongside `functions`. AZD handles Docker build/push/deploy automatically when `host: containerapp` is specified.
 - **Managed identity everywhere:** The Container App's system-assigned MI replaces `DefaultAzureCredential` from the developer's local `az login`. No code changes needed — `DefaultAzureCredential` works transparently in both environments.
 - **Easy Auth (no code changes):** Container Apps Easy Auth is a platform-level sidecar. It intercepts all HTTP requests before they reach the app container. The Chainlit app needs zero authentication code — it just sees authenticated requests.
 - **Entra App Registration:** Required for Easy Auth. The app registration defines the client ID, tenant ID, and redirect URIs. This can be created via an AZD pre-provision hook (`az ad app create`) or via Bicep's Microsoft Graph provider (if stable). The chosen approach should be documented in Story 2.

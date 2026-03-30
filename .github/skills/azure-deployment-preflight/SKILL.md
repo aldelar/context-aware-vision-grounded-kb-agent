@@ -6,7 +6,7 @@ description: |
   - Reviewing or preparing Bicep files
   - Previewing what changes a deployment will make (what-if)
   - Verifying permissions are sufficient for deployment
-  - Before running `azd up`, `azd provision`, or `az deployment` commands
+   - Before running `azd -C infra/azure up`, `azd -C infra/azure provision`, or `az deployment` commands
 ---
 
 # Azure Deployment Preflight Validation
@@ -19,12 +19,12 @@ Follow these steps in order. Continue to the next step even if a previous step f
 
 ### Step 1: Detect Project Type
 
-1. **Check for azd project**: Look for `azure.yaml` in the project root
+1. **Check for azd project**: Look for `infra/azure/azure.yaml`
    - If found → Use **azd workflow**
    - If not found → Use **az CLI workflow**
 
 2. **Locate Bicep files**: Find all `.bicep` files to validate
-   - For azd projects: Check `infra/` directory first, then project root
+   - For azd projects: Check `infra/azure/infra/` first, then the azd project directory
    - For standalone: Use the file specified by user or search common locations
 
 3. **Auto-detect parameter files**: For each Bicep file, look for:
@@ -42,12 +42,12 @@ Capture: syntax errors with line/column numbers, warnings, build success/failure
 
 ### Step 3: Run Preflight Validation
 
-#### For azd Projects (azure.yaml exists)
+#### For azd Projects (`infra/azure/azure.yaml` exists)
 
 ```bash
-azd provision --preview
+azd -C infra/azure provision --preview
 # Or with specific environment:
-azd provision --preview --environment <env-name>
+azd -C infra/azure provision --preview --environment <env-name>
 ```
 
 #### For Standalone Bicep (no azure.yaml)
@@ -123,8 +123,8 @@ bicep --version       # Bicep CLI
 
 ## Project Context
 
-This project is an **azd project** (`azure.yaml` exists in root). Key infrastructure:
-- `infra/main.bicep` — Main deployment template (subscription scope)
-- `infra/main.parameters.json` — Parameters
-- `infra/modules/` — 20+ Bicep modules
-- Deploy with: `azd provision` or `make azure-deploy`
+This project is an **azd project** (`infra/azure/azure.yaml` is the project file). Key infrastructure:
+- `infra/azure/infra/main.bicep` — Main deployment template (subscription scope)
+- `infra/azure/infra/main.parameters.json` — Parameters
+- `infra/azure/infra/modules/` — Bicep modules
+- Deploy with: `azd -C infra/azure provision` or `make prod-services-up`

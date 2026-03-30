@@ -46,19 +46,19 @@ Before writing code, understand where it belongs:
 | Index function | `src/functions/fn_index/` | Markdown→Azure AI Search indexing |
 | Shared utilities | `src/functions/shared/` | Cross-function shared code |
 | Web app | `src/web-app/app/` | Chainlit thin client (OpenAI SDK + Cosmos DB) |
-| Infrastructure | `infra/modules/` | Bicep resource modules |
-| Infra orchestration | `infra/main.bicep` | Module wiring + role assignments |
+| Infrastructure | `infra/azure/infra/modules/` | Bicep resource modules |
+| Infra orchestration | `infra/azure/infra/main.bicep` | Module wiring + role assignments |
 
 Use the scoped instructions automatically applied to each file type:
 - Python: `python-standards.instructions.md` (applied to `src/**/*.py`)
 - Tests: `testing.instructions.md` (applied to `**/tests/**`)
-- Azure infra: `azure-infra.instructions.md` (applied to `infra/**`)
+- Azure infra: `azure-infra.instructions.md` (applied to `infra/azure/**`)
 - Security: `security.instructions.md` (applied everywhere)
 
 ### 3. Write Code
 - Follow existing patterns in the target service
 - Use `DefaultAzureCredential` — never hardcode keys or connection strings
-- Config via environment variables (populated by `azd env get-values`)
+- Config via environment variables (populated by `azd -C infra/azure env get-values`)
 - Dependencies go in the correct service's `pyproject.toml`, then `uv sync --extra dev`
 
 ### 4. Write Tests Alongside Code
@@ -71,7 +71,7 @@ Use the scoped instructions automatically applied to each file type:
 ### 5. Verify & Fix Loop
 After writing code + tests, enter a verify-fix cycle:
 
-1. **Run checks**: `make test` (or service-specific: `make test-agent`, `make test-app`, `make test-functions`)
+1. **Run checks**: `make dev-test` (or run service-specific `uv run pytest` commands from the affected service directory)
 2. **If failures**, classify before acting:
 
    **Surface errors** → fix inline and re-run:
@@ -118,19 +118,19 @@ This is part of the definition of "done" — not optional follow-up work. After 
 ### 7. Infrastructure Changes
 
 When a story involves Azure resources:
-- Author Bicep modules in `infra/modules/`
-- Wire into `infra/main.bicep` (module call + role assignments)
+- Author Bicep modules in `infra/azure/infra/modules/`
+- Wire into `infra/azure/infra/main.bicep` (module call + role assignments)
 - Update `docs/specs/infrastructure.md` with the new resource
-- Validate: `az bicep build --file infra/main.bicep`
+- Validate: `az bicep build --file infra/azure/infra/main.bicep`
 - Use the `azure-infra-review` skill checklist
 
 ### 8. Deployment Operations
 
 When deploying or validating Azure:
-- Use Makefile targets: `make azure-up`, `make azure-deploy`, `make azure-kb`, `make azure-test`
+- Use Makefile targets: `make prod-up`, `make prod-services-up`, `make prod-pipeline`, `make prod-ui-url`
 - Check `make help` for the full target list
-- Validate with `make validate-infra` before deploying
-- Verify with `make azure-test` after deploying
+- Validate with `az bicep build --file infra/azure/infra/main.bicep` before deploying
+- Verify with `make dev-test` or targeted integration `uv run pytest` commands after deploying
 
 ## Rules
 

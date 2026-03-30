@@ -6,6 +6,10 @@
 # can upload staging files and test the app locally.
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/lib/azd.sh"
+
 echo "Resolving storage account names from AZD environment..."
 
 RG=$(azd env get-value RESOURCE_GROUP)

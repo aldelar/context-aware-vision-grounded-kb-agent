@@ -9,6 +9,10 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/lib/azd.sh"
+
 readonly RESOURCE_GROUP="$(azd env get-value RESOURCE_GROUP 2>/dev/null || azd env get-value AZURE_RESOURCE_GROUP 2>/dev/null || echo "")"
 
 set_target_port() {

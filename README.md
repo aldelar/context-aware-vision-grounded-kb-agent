@@ -308,7 +308,7 @@ flowchart LR
 
 ![Agent trace in Azure Monitor — tool calls, model invocations, and session lifecycle as OpenTelemetry spans](docs/assets/trace.png)
 
-*Traces are stored in Application Insights and visualized here in the Microsoft Foundry portal — available when the agent is registered to Foundry via `make azure-register-agent`.*
+*Traces are stored in Application Insights and visualized here in the Microsoft Foundry portal — available when the agent is registered to Foundry via `bash scripts/register-agent.sh`.*
 
 ---
 
@@ -393,7 +393,9 @@ flowchart LR
 │   ├── epics/           Epic and story tracking
 │   ├── research/        Spike results and research notes
 │   └── specs/           Architecture, infrastructure, and agent memory specs
-├── infra/               Bicep modules — all Azure resources defined as IaC
+├── infra/
+│   ├── azure/           AZD project, hooks, and Bicep IaC for Azure resources
+│   └── docker/          Local Docker Compose topology for dev infra + services
 ├── kb/
 │   ├── staging/         Source articles (HTML + images)
 │   └── serving/         Processed articles (Markdown + images)
@@ -403,8 +405,7 @@ flowchart LR
 │   ├── functions/       4 Azure Functions (fn_convert_cu, fn_convert_mistral,
 │   │                    fn_convert_markitdown, fn_index) — each a Container App
 │   └── web-app/         Chainlit thin client (OpenAI SDK + Cosmos data layer)
-├── Makefile             Developer workflow — local + Azure targets
-└── azure.yaml           AZD service definitions
+└── Makefile             Developer workflow — local + Azure targets
 ```
 
 ## Documentation
@@ -416,3 +417,9 @@ flowchart LR
 | [Agent Memory](docs/specs/agent-memory.md) | Cosmos DB schema, session lifecycle, dual-writer pattern |
 | [Setup & Makefile Guide](docs/setup-and-makefile.md) | Full Makefile reference, local/Azure workflows, resource naming |
 | [Architecture Decision Records](docs/ards/) | Key design decisions with rationale and alternatives considered |
+
+## Considerations for Production
+
+The Azure teardown flow in this repo is optimized for rapid development and iteration. `make prod-down` is intentionally aggressive: it deletes the active environment and also purges known soft-deleted Azure resources that otherwise block immediate redeploy with the same names.
+
+That convenience should not be treated as a production baseline. In a production setup, soft-delete and recovery protections should be reviewed service by service and kept where they support your operational and compliance requirements. The current repo behavior is aimed at shortening the destroy-and-recreate loop for engineering work, not at maximizing recovery safety after accidental deletion.

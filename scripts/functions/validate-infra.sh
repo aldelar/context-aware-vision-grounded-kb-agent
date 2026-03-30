@@ -33,7 +33,7 @@ echo "─── Environment ───"
 if [[ ! -f "$ENV_FILE" ]]; then
     fail ".env file not found at $ENV_FILE"
     echo ""
-    echo "  Run: azd env get-values > src/functions/.env"
+    echo "  Run: azd -C infra/azure env get-values > src/functions/.env"
     echo ""
     exit 1
 fi
@@ -66,7 +66,7 @@ if $all_vars_set; then
     pass "All required env vars are set"
 else
     echo ""
-    echo "  Fix: azd env get-values > src/functions/.env"
+    echo "  Fix: azd -C infra/azure env get-values > src/functions/.env"
     echo ""
     exit 1
 fi

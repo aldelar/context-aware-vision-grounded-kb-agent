@@ -66,8 +66,8 @@ clean:
 ## Project-Specific Context
 
 This project's `Makefile` is the primary automation surface:
-- Local development: `make test`, `make lint`, `make format`
-- Azure operations: `make deploy`, `make provision`
-- Per-service targets with `analyzer` variable for backend selection
+- Local development: `make dev-up`, `make dev-test`, `make dev-test-ui`
+- Azure operations: `make prod-up`, `make prod-services-up`, `make prod-pipeline`, `make prod-clean`
+- Per-environment target groups are split into `dev-*` and `prod-*`
 - Run `make help` to see all available targets
 - See `docs/setup-and-makefile.md` for full documentation

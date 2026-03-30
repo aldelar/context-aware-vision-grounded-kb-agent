@@ -33,7 +33,7 @@ Migrate the KB Agent to a **standard Azure Container App** in the same Container
 
 - **More infrastructure to manage** — We own the Container App definition (Bicep module, RBAC, env vars). Previously Foundry handled this.
 - **Manual registration** — Agent must be registered in Foundry separately (`scripts/register-agent.sh`) for portal visibility. Previously automatic with hosted deployment.
-- **No automatic model association** — Foundry hosted agents could declare model deployments in `azure.yaml`. Now model deployments are managed independently in `ai-services.bicep`.
+- **No automatic model association** — Foundry hosted agents could declare model deployments in `infra/azure/azure.yaml`. Now model deployments are managed independently in `infra/azure/infra/modules/ai-services.bicep`.
 
 ## Alternatives Considered
 

@@ -29,7 +29,7 @@ applyTo: "src/**/*.py"
 - **Always** use `DefaultAzureCredential` — never hardcode keys or connection strings
 - Use `get_bearer_token_provider()` for OpenAI-style token auth
 - Async clients where available (especially for blob, search, cosmos)
-- All Azure service endpoints come from environment variables (populated by `azd env get-values`)
+- All Azure service endpoints come from environment variables (populated by `azd -C infra/azure env get-values`)
 
 ## Code Style
 

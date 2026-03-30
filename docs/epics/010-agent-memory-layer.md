@@ -106,9 +106,9 @@ The upgrade from beta to rc3 involves significant API changes:
 | `src/agent/main.py` | **UPDATE** — instantiate `CosmosAgentSessionRepository`, pass to `from_agent_framework()` |
 | `src/web-app/app/main.py` | **UPDATE** — pass `conversation_id`, remove context building + trim logic, simplify `on_chat_resume()` |
 | `src/web-app/app/data_layer.py` | **UPDATE** — read from `agent-sessions` container for sidebar/resume |
-| `infra/modules/cosmos-db.bicep` | **UPDATE** — add `agent-sessions` container, remove `conversations` container |
-| `infra/modules/agent-container-app.bicep` | **UPDATE** — add `cosmosEndpoint`, `cosmosDatabaseName` env vars |
-| `infra/main.bicep` | **UPDATE** — add Cosmos RBAC role for agent identity, pass Cosmos params to agent module |
+| `infra/azure/infra/modules/cosmos-db.bicep` | **UPDATE** — add `agent-sessions` container, remove `conversations` container |
+| `infra/azure/infra/modules/agent-container-app.bicep` | **UPDATE** — add `cosmosEndpoint`, `cosmosDatabaseName` env vars |
+| `infra/azure/infra/main.bicep` | **UPDATE** — add Cosmos RBAC role for agent identity, pass Cosmos params to agent module |
 | `docs/specs/agent-memory.md` | **UPDATE** — reflect new ownership model |
 | `docs/specs/architecture.md` | **UPDATE** — memory flow in architecture diagram |
 
@@ -148,7 +148,7 @@ Add the `agent-sessions` container to the Cosmos DB Bicep module. This container
 
 **Acceptance Criteria:**
 
-- [x] `infra/modules/cosmos-db.bicep` defines `agent-sessions` container with partition key `/conversationId`
+- [x] `infra/azure/infra/modules/cosmos-db.bicep` defines `agent-sessions` container with partition key `/conversationId`
 - [x] Indexing policy excludes `/state/*` (large message arrays) and `/"_etag"/?`
 - [x] TTL set to `-1` (no expiry — sessions persist indefinitely)
 - [ ] `azd provision` succeeds with the new container
@@ -158,7 +158,7 @@ Add the `agent-sessions` container to the Cosmos DB Bicep module. This container
 
 | File | Change |
 |------|--------|
-| `infra/modules/cosmos-db.bicep` | Added `agentSessionsContainer` resource with partition key `/conversationId` |
+| `infra/azure/infra/modules/cosmos-db.bicep` | Added `agentSessionsContainer` resource with partition key `/conversationId` |
 
 ---
 
@@ -168,8 +168,8 @@ Grant the agent container app's managed identity `Built-in Data Contributor` RBA
 
 **Acceptance Criteria:**
 
-- [x] `infra/main.bicep` adds a `cosmos-db-role` module instance for the agent container app identity (same pattern as existing `cosmosDbWebAppRole`)
-- [x] `infra/modules/agent-container-app.bicep` accepts `cosmosEndpoint` and `cosmosDatabaseName` parameters
+- [x] `infra/azure/infra/main.bicep` adds a `cosmos-db-role` module instance for the agent container app identity (same pattern as existing `cosmosDbWebAppRole`)
+- [x] `infra/azure/infra/modules/agent-container-app.bicep` accepts `cosmosEndpoint` and `cosmosDatabaseName` parameters
 - [x] Agent container app has `COSMOS_ENDPOINT` and `COSMOS_DATABASE_NAME` environment variables
 - [x] `src/agent/agent/config.py` reads `COSMOS_ENDPOINT` and `COSMOS_DATABASE_NAME` from environment
 - [ ] `azd provision` succeeds — agent identity can access Cosmos
@@ -179,8 +179,8 @@ Grant the agent container app's managed identity `Built-in Data Contributor` RBA
 
 | File | Change |
 |------|--------|
-| `infra/main.bicep` | Added `cosmosDbAgentRole` module + passed Cosmos params to agent module |
-| `infra/modules/agent-container-app.bicep` | Added `cosmosEndpoint`, `cosmosDatabaseName` params + env vars |
+| `infra/azure/infra/main.bicep` | Added `cosmosDbAgentRole` module + passed Cosmos params to agent module |
+| `infra/azure/infra/modules/agent-container-app.bicep` | Added `cosmosEndpoint`, `cosmosDatabaseName` params + env vars |
 | `src/agent/agent/config.py` | Added `cosmos_endpoint`, `cosmos_database_name` fields (optional) |
 
 ---
@@ -310,7 +310,7 @@ Remove the `conversations` container from Cosmos DB Bicep now that all reads/wri
 
 **Acceptance Criteria:**
 
-- [x] `conversations` container resource removed from `infra/modules/cosmos-db.bicep`
+- [x] `conversations` container resource removed from `infra/azure/infra/modules/cosmos-db.bicep`
 - [x] No code references `conversations` container (grep confirms — only generic "conversations" in docstrings)
 - [ ] `azd provision` succeeds — deferred to deployment validation
 - [x] `docs/specs/agent-memory.md` updated — full rewrite documenting agent-owned memory with `agent-sessions` container
@@ -321,7 +321,7 @@ Remove the `conversations` container from Cosmos DB Bicep now that all reads/wri
 
 | File | Change |
 |------|--------|
-| `infra/modules/cosmos-db.bicep` | ✅ `conversationsContainer` resource removed |
+| `infra/azure/infra/modules/cosmos-db.bicep` | ✅ `conversationsContainer` resource removed |
 | `docs/specs/agent-memory.md` | ✅ Full rewrite — agent-owned memory, new schema, new architecture diagram |
 | `docs/specs/infrastructure.md` | ✅ Cosmos container row updated to `agent-sessions` / `/conversationId` |
 
@@ -344,7 +344,7 @@ Clean up the Cosmos DB `agent-sessions` schema introduced in Stories 2–9. The 
 
 **Acceptance Criteria:**
 
-- [x] `infra/modules/cosmos-db.bicep` — `agent-sessions` container partition key changed from `/conversationId` to `/id`
+- [x] `infra/azure/infra/modules/cosmos-db.bicep` — `agent-sessions` container partition key changed from `/conversationId` to `/id`
 - [x] `src/agent/agent/session_repository.py` — `conversationId` field no longer written to documents; docstrings updated to reference "session" not "thread"
 - [x] `src/web-app/app/data_layer.py` — all `conversationId` insertions removed (4 sites); `__users__` document creation removed; private methods renamed from `_thread_*` to `_session_*`
 - [x] `docs/specs/agent-memory.md` — updated with new document schema example (no `conversationId`), session field explanation, updated ASCII container diagram (no `__users__`), field ownership table updated
@@ -359,8 +359,8 @@ Clean up the Cosmos DB `agent-sessions` schema introduced in Stories 2–9. The 
 
 | File | Change |
 |------|--------|
-| `infra/modules/cosmos-db.bicep` | ✅ Partition key `/conversationId` → `/id` |
-| `infra/main.json` | ✅ Regenerated ARM template with updated partition key |
+| `infra/azure/infra/modules/cosmos-db.bicep` | ✅ Partition key `/conversationId` → `/id` |
+| `infra/azure/infra/main.json` | ✅ Regenerated ARM template with updated partition key |
 | `src/agent/agent/session_repository.py` | ✅ Removed `conversationId` from new doc creation; updated docstrings (thread → session) |
 | `src/web-app/app/data_layer.py` | ✅ Removed 4× `conversationId` insertions; removed `__users__` persistence; renamed `_read_thread_doc` → `_read_session_doc` (8 call sites); updated docstrings |
 | `docs/specs/agent-memory.md` | ✅ Updated schema, field ownership, diagrams, code examples — all `conversationId` and `__users__` references removed |

@@ -135,7 +135,7 @@ python -c "from azure.ai.evaluation import evaluate; print('OK')"
 python -c "from azure.ai.projects import AIProjectClient; from azure.identity import DefaultAzureCredential; print('OK')"
 ```
 
-Required environment variables (from `azd env get-values` → `.env`):
+Required environment variables (from `azd -C infra/azure env get-values` → `.env`):
 - `AZURE_AI_FOUNDRY_PROJECT_ENDPOINT` — Foundry project endpoint for eval publishing
 - Azure credentials via `DefaultAzureCredential` (az login for local dev, managed identity in CI)
 
@@ -265,6 +265,6 @@ All three modes are defined in [Epic 006](docs/epics/006-foundry-agent-evaluatio
 | **Agent tools** | KB search (Azure AI Search), image analysis, Cosmos DB memory | Tool behavior tested via unit tests, not evals |
 | **Eval code** | `src/agent/evals/` | Eval scripts, datasets, and config |
 | **Eval epic** | `docs/epics/006-foundry-agent-evaluations.md` | Full eval automation plan (continuous, scheduled, red-team, alerting) |
-| **Foundry project** | `infra/modules/foundry-project.bicep` | Hosts traces, eval runs, model deployments |
+| **Foundry project** | `infra/azure/infra/modules/foundry-project.bicep` | Hosts traces, eval runs, model deployments |
 | **MVP evaluators** | Task Adherence, Coherence, Violence | Baseline quality + safety gate |
-| **Test convention** | `make test` runs all tests, pytest three-tier strategy | Evals are a separate tier — `make eval-run` |
+| **Test convention** | `make dev-test` runs the current repo-wide test suite, pytest three-tier strategy | Evals are a separate tier — `make eval-run` |

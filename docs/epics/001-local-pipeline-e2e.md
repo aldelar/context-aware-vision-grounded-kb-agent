@@ -189,7 +189,7 @@ Implement the CU text extraction module that sends HTML to `prebuilt-documentSea
 | `src/functions/fn_convert/cu_text.py` | ✅ |
 | `src/functions/shared/cu_client.py` | ✅ |
 | `src/functions/tests/test_convert/test_cu_text.py` | ✅ |
-| `infra/modules/ai-services.bicep` | ✅ (added `text-embedding-3-large` + `gpt-4.1-mini` deployments) |
+| `infra/azure/infra/modules/ai-services.bicep` | ✅ (added `text-embedding-3-large` + `gpt-4.1-mini` deployments) |
 | `src/functions/manage_analyzers.py` | ✅ (added both models to `MODEL_DEPLOYMENTS`) |
 | `docs/specs/infrastructure.md` | ✅ (5 model deployments) |
 

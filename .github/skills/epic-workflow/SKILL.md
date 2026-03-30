@@ -43,7 +43,7 @@ Epics follow this structure:
 1. **Verify the epic reflects reality** — check that previous stories are accurately marked
 2. **Run baseline checks:**
    ```bash
-   make test    # all unit/endpoint tests pass
+   make dev-test    # current repo-wide test suite passes
    ```
 3. **Read the story's acceptance criteria** — understand exactly what "done" means
 4. **Check for dependencies** — are prerequisite stories completed?
@@ -52,14 +52,14 @@ Epics follow this structure:
 
 1. **Run tiered quality checks:**
    ```bash
-   make test              # unit + endpoint tests (all services)
-   make test-agent        # agent-specific tests
-   make test-app          # web app tests
-   make test-functions    # function tests
+   make dev-test          # current repo-wide test suite
+   cd src/agent && uv run pytest tests -o addopts= -m "not uitest"
+   cd src/web-app && uv run pytest tests -o addopts= -m "not uitest"
+   cd src/functions && uv run pytest tests -o addopts= -m "not uitest"
    ```
    For Azure integration:
    ```bash
-   make azure-test        # integration tests against deployed services
+   make dev-test          # run against the deployed environment once env vars are configured
    ```
 2. **Update the epic doc immediately:**
    - Check off all acceptance criteria / deliverables: `- [ ]` → `- [x]`

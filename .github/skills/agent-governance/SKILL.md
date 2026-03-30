@@ -218,9 +218,9 @@ dependencies
 
 | Component | Location | Purpose |
 |-----------|----------|---------|
-| APIM gateway | `infra/modules/apim.bicep` | BasicV2, system-assigned identity |
-| APIM agent API | `infra/modules/apim-agent-api.bicep` | Pass-through proxy (add policies here) |
-| Foundry project | `infra/modules/foundry-project.bicep` | Tracing + APIM connection + App Insights |
+| APIM gateway | `infra/azure/infra/modules/apim.bicep` | BasicV2, system-assigned identity |
+| APIM agent API | `infra/azure/infra/modules/apim-agent-api.bicep` | Pass-through proxy (add policies here) |
+| Foundry project | `infra/azure/infra/modules/foundry-project.bicep` | Tracing + APIM connection + App Insights |
 | JWT middleware | `src/agent/middleware/jwt_auth.py` | Entra ID token validation |
 | Security middleware | `src/agent/agent/security_middleware.py` | Department scoping via `**kwargs` |
 | Agent registration | `scripts/register-agent.sh` | Registers agent in Foundry via APIM gateway |

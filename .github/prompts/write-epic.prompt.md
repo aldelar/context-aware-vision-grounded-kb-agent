@@ -103,7 +103,7 @@ Reference existing code patterns (e.g., "follow the same pattern as `fn_convert_
 
 #### Definition of Done
 
-- [ ] {Testable assertion — e.g., "`make test-functions` passes (N tests, zero regressions)"}
+- [ ] {Testable assertion — e.g., "`make dev-test` passes with zero regressions"}
 - [ ] {Testable assertion — e.g., "`python -m fn_foo <args>` works for all sample articles"}
 - [ ] {Testable assertion — e.g., "No new linter warnings in `az bicep build`"}
 ```
@@ -114,7 +114,7 @@ Every DoD item must answer: **How does someone verify this is done?** Prefer:
 - `make ...` commands with expected output (test count, zero errors, specific behavior)
 - CLI invocations with expected results
 - File existence / absence checks
-- `az bicep build`, `azd deploy`, or similar infrastructure validation commands
+- `az bicep build`, `azd -C infra/azure deploy`, or similar infrastructure validation commands
 - Specific metrics or comparisons (e.g., "output within ±5% of baseline")
 
 Avoid vague DoD items like "code is clean", "works correctly", or "properly tested".

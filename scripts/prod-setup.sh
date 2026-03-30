@@ -45,7 +45,7 @@ main() {
     install_azd
 
     echo ""
-    echo "Done. Next: run make set-project name=<id> and then your prod-* target."
+    echo "Done."
 }
 
 main "$@"
