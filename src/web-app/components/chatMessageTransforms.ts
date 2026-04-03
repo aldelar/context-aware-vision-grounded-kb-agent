@@ -324,12 +324,34 @@ export function normalizeCitationRow(value: unknown): SearchCitationResult {
         ? Number(record.ref_number)
         : undefined;
 
+  const chunkIndex =
+    typeof record.chunk_index === "number"
+      ? record.chunk_index
+      : typeof record.chunk_index === "string" && Number.isFinite(Number(record.chunk_index))
+        ? Number(record.chunk_index)
+        : undefined;
+  const summary = coerceMessageContent(record.summary) ?? undefined;
+  const content = coerceMessageContent(record.content) ?? summary;
+  const explicitContentSource = coerceMessageContent(record.content_source);
+  const contentSource = explicitContentSource === "summary" || explicitContentSource === "full"
+    ? explicitContentSource
+    : summary && (!record.content || content === summary)
+      ? "summary"
+      : content
+        ? "full"
+        : undefined;
+
   return {
+    chunk_id: coerceMessageContent(record.chunk_id ?? record.id) ?? undefined,
     article_id: coerceMessageContent(record.article_id) ?? undefined,
+    chunk_index: chunkIndex,
+    indexed_at: coerceMessageContent(record.indexed_at) ?? undefined,
     ref_number: refNumber,
     title: coerceMessageContent(record.title) ?? undefined,
     section_header: coerceMessageContent(record.section_header) ?? undefined,
-    content: coerceMessageContent(record.content) ?? undefined,
+    summary,
+    content,
+    content_source: contentSource,
     image_urls: normalizeStringArray(record.image_urls),
     images: Array.isArray(record.images)
       ? record.images

@@ -37,7 +37,7 @@ services:
     web-app:
         project: ../../src/web-app
         host: containerapp
-        language: python
+        language: docker
         docker:
             path: ./Dockerfile
 infra:

@@ -26,23 +26,22 @@ update_redirect_uris() {
     return 0
   fi
 
-  # Add Chainlit's OAuth callback redirect URI
-  local callback_url="${webapp_url}/auth/oauth/azure-ad/callback"
-  echo "Adding redirect URI: $callback_url"
+  local easy_auth_url="${webapp_url}/.auth/login/aad/callback"
+  echo "Adding redirect URI: $easy_auth_url"
 
   # Get existing redirect URIs
   local existing_uris
   existing_uris=$(az ad app show --id "$client_id" --query "web.redirectUris" -o json 2>/dev/null || echo "[]")
 
   # Check if already present
-  if echo "$existing_uris" | grep -q "$callback_url"; then
+  if echo "$existing_uris" | grep -q "$easy_auth_url"; then
     echo "Redirect URI already configured."
     return 0
   fi
 
   # Add the new URI to existing ones
   az ad app update --id "$client_id" \
-    --web-redirect-uris $callback_url \
+    --web-redirect-uris $easy_auth_url \
     $(echo "$existing_uris" | python3 -c "import sys,json; [print(u) for u in json.load(sys.stdin)]" 2>/dev/null || true)
 
   echo "Redirect URI added successfully."

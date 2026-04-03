@@ -121,7 +121,9 @@ resource conversationsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDataba
 
 // ---------------------------------------------------------------------------
 // Container: messages (partition key: /conversationId)
-// Web app owns — one doc per message, insert-only
+// DEPRECATED: previously used by the Chainlit DataLayer for per-message storage.
+// The active runtime no longer reads or writes this container. Retained only as a
+// migration-era compatibility artifact until legacy data can be exported and removed.
 // ---------------------------------------------------------------------------
 resource messagesContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-05-15' = {
   parent: database
@@ -150,7 +152,9 @@ resource messagesContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/c
 
 // ---------------------------------------------------------------------------
 // Container: references (partition key: /conversationId)
-// Web app owns — one doc per chunk reference, point reads
+// DEPRECATED: previously used by the Chainlit DataLayer for citation/reference storage.
+// The active runtime no longer reads or writes this container. Retained only as a
+// migration-era compatibility artifact until legacy data can be exported and removed.
 // ---------------------------------------------------------------------------
 resource referencesContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-05-15' = {
   parent: database

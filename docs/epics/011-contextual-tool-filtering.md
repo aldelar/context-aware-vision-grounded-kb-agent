@@ -280,7 +280,7 @@ Update all documentation to reflect the new contextual filtering architecture. A
 
 > **Status:** Done
 > **Depends on:** Story 6 ✅, Epic 010 ✅
-> **Spec:** `docs/specs/agent-memory.md` (authoritative — all schema and access pattern details live there)
+> **Specs:** `docs/specs/agent-sessions.md` and `docs/specs/conversations-state-model.md` (authoritative for canonical session persistence and ownership boundaries)
 
 #### Problem
 
@@ -405,5 +405,5 @@ All code and docs rename the concept of Chainlit "elements" (which stored citati
 - [x] No chunk cache container — references store full chunk content at write time
 - [x] Follow-up response time bounded — no degradation beyond 5th turn
 - [x] `make test` passes across all services
-- [x] Docs updated (`agent-memory.md`, `infrastructure.md`, `architecture.md`)
+- [x] Docs updated (`agent-sessions.md`, `conversations-state-model.md`, `infrastructure.md`, `architecture.md`)
 - [x] README "Agent-Owned Conversation Memory" section updated to reflect the 4-container separated design, compaction, and elements→references rename

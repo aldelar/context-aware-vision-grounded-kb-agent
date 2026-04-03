@@ -113,7 +113,7 @@ function renderToolCall(
   const status = toolResultMessage ? "complete" : isInProgress ? "executing" : "inProgress";
 
   if (toolName === "search_knowledge_base") {
-    return <SearchToolRenderer args={args} result={parsedResult as any} status={status} />;
+    return <SearchToolRenderer args={args} result={parsedResult as any} status={status} toolCallId={toolCall.id} />;
   }
 
   const toolLabel = coerceMessageContent(toolName) ?? "Agent tool";

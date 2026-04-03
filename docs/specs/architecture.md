@@ -113,7 +113,7 @@ flowchart LR
 
 ## Context Aware & Vision Grounded KB Agent
 
-The solution consists of two services: a standalone **KB Agent** deployed as an **Azure Container App** (with Foundry integration for tracing and registration) and a **Next.js + CopilotKit** web app that calls the agent via the **AG-UI protocol** through an APIM AI Gateway. The agent owns conversation history — it persists and loads `AgentSession` state via Cosmos DB using the Agent Framework's session persistence model (see [Agent Memory](agent-memory.md)).
+The solution consists of two services: a standalone **KB Agent** deployed as an **Azure Container App** (with Foundry integration for tracing and registration) and a **Next.js + CopilotKit** web app that calls the agent via the **AG-UI protocol** through an APIM AI Gateway. The agent owns conversation history — it persists and loads `AgentSession` state via Cosmos DB using the Agent Framework's session persistence model (see [Agent Sessions](agent-sessions.md)).
 
 ### Agent (Container App)
 
@@ -125,12 +125,14 @@ The agent runs as a Starlette ASGI service on port 8088 (built with `from_agent_
 | `/readiness` | GET | Agent readiness probe |
 | `/responses` | POST | OpenAI-compatible Responses API (streaming + non-streaming) |
 | `/ag-ui` | POST | AG-UI event stream used by the CopilotKit runtime |
+| `/citations/{threadId}/{toolCallId}/{refNumber}` | GET | Reload a cited chunk from the canonical thread using compact transcript handles |
 
 #### Agent Components
 
 - **KB Agent** — An `Agent` (from `agent-framework-core` + `agent-framework-azure-ai`) with a single tool: `search_knowledge_base`. Context providers: `InMemoryHistoryProvider` (multi-turn history) and `CompactionProvider` (`SlidingWindowStrategy` + `ToolResultCompactionStrategy`) for bounded context windows. In Azure the agent uses Foundry-hosted models; in local dev it runs against Ollama-backed chat/embedding models.
 - **Session Repository** — `CosmosAgentSessionRepository` (subclass of `SerializedAgentSessionRepository`) persists `AgentSession` to Cosmos DB `agent-sessions` container. Wired via `from_agent_framework(agent, session_repository=...)` which auto-loads/saves sessions per request.
 - **Search Tool** — Embeds the agent's query with `text-embedding-3-small`, performs hybrid search via `azure-search-documents`, and returns ranked chunks with image references.
+- **Citation Lookup API** — Resolves compact stored search-result handles from `agent-sessions` and reloads the matching chunk on demand under the current department-scoped security filter. Used only for post-resume UI enrichment.
 - **Vision Middleware** — A `ChatMiddleware` on the Azure OpenAI chat client that intercepts tool results, detects image URLs in the search response JSON, downloads the images from blob storage, and injects them into the LLM conversation as `Content.from_data()` (base64 image payloads). This enables GPT-4.1's vision capabilities — the LLM can **see** the actual images (diagrams, screenshots, architecture charts) and reason about their visual content when composing answers.
 - **Grounding Middleware** — A post-generation middleware that appends deterministic `Ref #N` citations and inline image fallbacks when grounded search results exist but the model omitted visible source or image markers.
 - **Image Service** — Downloads images from blob storage for the vision middleware. Uses `DefaultAzureCredential` for blob access.
@@ -144,8 +146,9 @@ The web app is a Next.js App Router application that uses CopilotKit for chat UI
 - **CopilotKit Runtime Route** — Next.js API route at `/api/copilotkit` uses `@copilotkit/runtime` and an `HttpAgent` to stream AG-UI events to and from the agent. In deployed environments, the route forwards Easy Auth identity headers and acquires a managed-identity token for the APIM-backed agent endpoint when no user bearer token is present.
 - **Conversation Metadata Store** — The web app stores only lightweight sidebar metadata in the `conversations` Cosmos container. The agent exclusively owns `agent-sessions`, which remains the source of truth for turn history.
 - **Image Proxy** — A Next.js route handler at `/api/images/...` downloads images from the serving blob account on demand and serves them from the same origin.
+- **Citation Proxy** — A Next.js route handler at `/api/conversations/{threadId}/citations/{toolCallId}/{refNumber}` validates thread ownership, forwards identity headers to the agent, and proxies the agent-owned citation lookup response back to the browser.
 - **Transcript Hydration** — A history hydrator restores stored assistant, reasoning, and tool messages from `agent-sessions` so resumed threads render with the same structured transcript model as live chats.
-- **Message and Tool Renderers** — Custom renderers surface reasoning blocks, running/completed `search_knowledge_base` activity, normalized citations, and proxy-backed inline images inline in the CopilotKit chat flow.
+- **Message and Tool Renderers** — Custom renderers surface reasoning blocks, running/completed `search_knowledge_base` activity, normalized citations, proxy-backed inline images, and lazy citation enrichment for compact stored search results inline in the CopilotKit chat flow.
 - **CopilotKit Chat UI** — Streaming chat interface with CopilotKit components, starter prompts, conversation sidebar, and same-origin markdown image rendering.
 
 ### Conversation Flow
@@ -161,6 +164,20 @@ User message → Web App → POST /api/copilotkit
                        → AG-UI adapter saves AgentSession to Cosmos
                        ← Stream events to CopilotKit UI
                        → Web app stores sidebar metadata in `conversations`
+```
+
+### Resume and Citation Enrichment Flow
+
+```
+User selects thread → Web App loads compact transcript from `agent-sessions`
+                   → CopilotKit renders stored summary-sized citation rows
+User opens a citation → Web App GET /api/conversations/{threadId}/citations/{toolCallId}/{refNumber}
+                     → Web App validates thread ownership
+                     → Web App forwards request to Agent `/citations/{threadId}/{toolCallId}/{refNumber}`
+                     → Agent resolves compact row from canonical transcript
+                     → Agent reloads chunk from AI Search with current security filter
+                     ← Ready / stale / missing citation payload
+                     ← Web App enriches the visible citation card only
 ```
 
 ### Image Flow: From Index to Browser
@@ -221,11 +238,11 @@ Despite explicit system prompt instructions, LLMs generate image URLs in many cr
 
 | # | Decision | Rationale |
 |---|----------|-----------|
-| 1 | Two-service split (Agent + Web App) | Agent is a standalone Container App with its own managed identity and RBAC. Web app is a thin client — no agent logic, search code, or vision middleware. Clean separation of concerns. |
+| 1 | Two-service split (Agent + Web App) | Agent is a standalone Container App with its own managed identity and RBAC. Web app remains a thin client — it may proxy citation enrichment requests, but search and transcript-owned chunk resolution stay in the agent. |
 | 2 | Microsoft Agent Framework | Provides `Agent` with built-in tool calling, conversation threading, and Azure OpenAI integration — avoids manual Responses API loop management. |
 | 3 | AG-UI integration | Web app calls agent via a Next.js CopilotKit runtime route backed by AG-UI `HttpAgent`. Standard thread-based protocol, local dev uses plain HTTP, deployed uses APIM proxy with Entra bearer token. |
 | 4 | Vision middleware for image injection | `ChatMiddleware` intercepts tool results and injects images as `Content.from_data()`. The framework auto-converts to OpenAI's vision format. The LLM can reason about visual content (diagrams, architecture charts) not just text descriptions — producing higher-fidelity answers. |
-| 5 | Agent-owned conversation persistence | Agent persists `AgentSession` to Cosmos DB `agent-sessions` container (partition key `/id`) via `CosmosAgentSessionRepository`. Web app is a thin client — passes `conversation_id`, reads from same container for sidebar/resume. See [Agent Memory](agent-memory.md). |
+| 5 | Agent-owned conversation persistence | Agent persists `AgentSession` to Cosmos DB `agent-sessions` container (partition key `/id`) via `CosmosAgentSessionRepository`. Stored search tool results are compacted to stable chunk handles plus summaries, and the web app reloads fuller source detail only through an agent-owned citation lookup path. See [Agent Sessions](agent-sessions.md). |
 | 6 | Same-origin image proxy | Avoids SAS URL complexity (token expiry, CORS). CopilotKit renders markdown image links through the browser, which fetches from the same-origin proxy route. |
 | 7 | Agent-owned turns, web-owned sidebar metadata | The agent persists full turn history in `agent-sessions`. The web app persists only thread metadata in `conversations`, which keeps the BFF thin and avoids duplicating message storage. |
 | 8 | Hybrid search | Best relevance — combines vector similarity and keyword matching. |
@@ -292,7 +309,7 @@ The web app uses a 2-tier identity resolution:
 - **Tier 1:** Easy Auth principal headers (`X-MS-CLIENT-PRINCIPAL*`) — OID and group claims from the sidecar
 - **Tier 2:** Fallback to `local-user` — local development without authentication
 
-Only users in the Azure AD tenant can access the app. An **Entra App Registration** (single-tenant) defines the client ID, tenant ID, and redirect URIs. The `scripts/setup-entra-auth.sh` script automates app registration creation and OAuth environment variable configuration.
+Only users in the Azure AD tenant can access the app. An **Entra App Registration** (single-tenant) defines the client ID, tenant ID, and Easy Auth redirect URI. The `scripts/setup-entra-auth.sh` script automates app registration creation and ensures the Container Apps Easy Auth callback is registered.
 
 #### Managed Identity RBAC
 

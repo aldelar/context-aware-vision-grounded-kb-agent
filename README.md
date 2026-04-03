@@ -197,16 +197,16 @@ sequenceDiagram
 
 ### 4. Agent-Owned Conversation Memory
 
-**Problem:** When the web app owns conversation history (the typical pattern), the agent is stateless and the UI layer must build, serialize, trim, and pass the full conversation context on every request. This couples the UI to the agent's context management strategy.
+**Problem:** When the web app owns conversation history, the UI layer must build, serialize, trim, and pass the full conversation context on every request. That couples the frontend to the agent's context-management strategy and makes resume fidelity harder to preserve.
 
-**Pattern:** The agent owns its own memory using the [Microsoft Agent Framework](https://learn.microsoft.com/en-us/agent-framework/)'s session persistence and compaction. A custom `CosmosAgentSessionRepository` persists `AgentSession` state to an `agent-sessions` container. The `CompactionProvider` (rc5) applies two strategies: `SlidingWindowStrategy` (keep last 3 turn groups) trims context before the LLM call, and `ToolResultCompactionStrategy` (keep last 1 tool call group) replaces older tool output with summaries after the LLM responds.
+**Pattern:** The agent owns canonical conversation state using the [Microsoft Agent Framework](https://learn.microsoft.com/en-us/agent-framework/)'s session persistence and compaction. A custom `CosmosAgentSessionRepository` persists `AgentSession` state to an `agent-sessions` container. The web app owns only lightweight `conversations` metadata for sidebar CRUD and thread selection. The `messages` and `references` containers remain provisioned only as deprecated compatibility artifacts and are no longer part of the active runtime path.
 
-The web app owns conversation **display data** in three dedicated containers — `conversations` (sidebar metadata, PK `/userId`), `messages` (one doc per message, PK `/conversationId`), and `references` (one doc per citation, PK `/conversationId`). No shared documents, no read-modify-write races, no dependency on the agent's internal session format.
+Persisted `search_knowledge_base` tool results are compacted before storage to stable chunk handles plus summary-sized previews, and the web app reloads fuller citation excerpts only through an agent-owned, thread-scoped lookup path.
 
 ```mermaid
 flowchart LR
     subgraph WebApp["Web App (thin client)"]
-        UI["Chainlit UI"]
+        UI["Next.js + CopilotKit UI"]
     end
 
     subgraph Agent["KB Agent (Microsoft Agent Framework)"]
@@ -216,23 +216,20 @@ flowchart LR
         AG --- CP
     end
 
-    Sessions[("agent-sessions")]
-    Conv[("conversations")]
-    Msgs[("conversation<br/>messages")]
-    Refs[("message<br/>references")]
+    Sessions[(("agent-sessions"))]
+    Conv[(("conversations"))]
+    Legacy[(("messages / references\ncompat only"))]
 
-    UI -->|"conversation_id<br/>via extra_body"| AG
-    AG -->|"Read/write session"| Sessions
-    UI -->|"Sidebar list"| Conv
-    UI -->|"Append messages"| Msgs
-    UI -->|"Write/read refs"| Refs
+    UI -->|"threadId via AG-UI"| AG
+    AG -->|"Read/write canonical transcript"| Sessions
+    UI -->|"Sidebar metadata"| Conv
+    Legacy -. historical only .-> UI
 
     style WebApp fill:#455a64,stroke:#546e7a,color:#ffffff
     style Agent fill:#3949ab,stroke:#5c6bc0,color:#ffffff
     style Sessions fill:#616161,stroke:#757575,color:#ffffff
     style Conv fill:#616161,stroke:#757575,color:#ffffff
-    style Msgs fill:#616161,stroke:#757575,color:#ffffff
-    style Refs fill:#616161,stroke:#757575,color:#ffffff
+    style Legacy fill:#616161,stroke:#757575,color:#ffffff
 ```
 
 ---
@@ -247,7 +244,7 @@ flowchart LR
 |-------|-----------|
 | **Service-to-service** | System-assigned managed identity on each Container App, with per-service RBAC roles defined in Bicep |
 | **Developer access** | `DefaultAzureCredential` — same code works locally (Azure CLI identity) and deployed (managed identity) |
-| **User authentication** | Entra ID Easy Auth (platform sidecar) + Chainlit OAuth callback for per-user session isolation |
+| **User authentication** | Entra ID Easy Auth (platform sidecar) + Next.js header extraction for per-user session ownership |
 | **Agent API protection** | In-code JWT middleware (RS256, JWKS-cached) for external HTTPS ingress; environment-gated (`REQUIRE_AUTH`) for local dev bypass |
 | **Data access** | Cosmos DB native RBAC (Built-in Data Contributor) — local auth disabled, Entra-only |
 
@@ -295,7 +292,7 @@ Beyond stable routing, APIM provides an extensible policy pipeline — without t
 
 ```mermaid
 flowchart LR
-    CHAT["Chainlit UI"] --> APIM["APIM<br/>AI Gateway"]
+    CHAT["CopilotKit UI"] --> APIM["APIM<br/>AI Gateway"]
     APIM -->|"stable proxy URL"| AGENT["Agent<br/>Container App"]
     APIM -.->|"rate limiting,<br/>content safety,<br/>token tracking"| GOV["Policy Pipeline"]
 
@@ -369,7 +366,7 @@ flowchart LR
 
 ## Architecture
 
-A **two-stage ingestion pipeline** builds an image-aware search index, and a **conversational agent** (Container App with Foundry integration for tracing) reasons over it with vision capabilities. A **Chainlit thin client** calls the agent via the Responses API through an APIM AI Gateway, and conversation history is persisted in **Cosmos DB** (agent-owned via the Agent Framework's session persistence).
+A **two-stage ingestion pipeline** builds an image-aware search index, and a **conversational agent** (Container App with Foundry integration for tracing) reasons over it with vision capabilities. A **Next.js + CopilotKit thin client** calls the agent via the **AG-UI protocol** through an APIM AI Gateway, while conversation persistence is split between agent-owned `agent-sessions` and web-app-owned `conversations` metadata.
 
 ```mermaid
 flowchart LR
@@ -391,8 +388,8 @@ flowchart LR
     VIS -->|inject| AGENT
     AGENT -->|sessions| COSMOS["Cosmos DB"]
 
-    CHAT["Chainlit UI"] --> APIM["APIM"] --> AGENT
-    CHAT -->|conversations| COSMOS
+    CHAT["CopilotKit UI"] -->|AG-UI + citation lookups| APIM["APIM"] --> AGENT
+    CHAT -->|conversation metadata| COSMOS
 
     style AgentSvc fill:#3949ab,stroke:#5c6bc0,color:#ffffff
     style Pipeline fill:#455a64,stroke:#546e7a,color:#ffffff
@@ -418,7 +415,7 @@ flowchart LR
 │   ├── ards/            Architecture Decision Records
 │   ├── epics/           Epic and story tracking
 │   ├── research/        Spike results and research notes
-│   └── specs/           Architecture, infrastructure, and agent memory specs
+│   └── specs/           Architecture, infrastructure, agent-session, and conversation ownership specs
 ├── infra/
 │   ├── azure/           AZD project, hooks, and Bicep IaC for Azure resources
 │   └── docker/          Local Docker Compose topology for dev infra + services
@@ -430,7 +427,7 @@ flowchart LR
 │   ├── agent/           KB Agent — Container App (Starlette + Agent Framework)
 │   ├── functions/       4 Azure Functions (fn_convert_cu, fn_convert_mistral,
 │   │                    fn_convert_markitdown, fn_index) — each a Container App
-│   └── web-app/         Chainlit thin client (OpenAI SDK + Cosmos data layer)
+│   └── web-app/         Next.js + CopilotKit thin client (AG-UI runtime + Cosmos metadata layer)
 └── Makefile             Developer workflow — local + Azure targets
 ```
 
@@ -440,7 +437,7 @@ flowchart LR
 |----------|-------------|
 | [Architecture](docs/specs/architecture.md) | Pipeline design, converter backends, index schema, agent components, image flow |
 | [Infrastructure](docs/specs/infrastructure.md) | Bicep modules, resource inventory, model deployments, RBAC, networking |
-| [Agent Memory](docs/specs/agent-memory.md) | Cosmos DB schema, session lifecycle, dual-writer pattern |
+| [Agent Sessions](docs/specs/agent-sessions.md) | Canonical agent-session persistence, transcript hydration, and ownership boundaries |
 | [Setup & Makefile Guide](docs/setup-and-makefile.md) | Full Makefile reference, local/Azure workflows, resource naming |
 | [Architecture Decision Records](docs/ards/) | Key design decisions with rationale and alternatives considered |
 

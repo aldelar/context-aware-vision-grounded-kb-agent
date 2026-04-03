@@ -1,4 +1,5 @@
 import { DELETE, GET as conversationGET, PATCH } from "../../app/api/conversations/[threadId]/route";
+import { GET as citationsGET } from "../../app/api/conversations/[threadId]/citations/[toolCallId]/[refNumber]/route";
 import { GET as messagesGET } from "../../app/api/conversations/[threadId]/messages/route";
 import { GET as listGET, POST } from "../../app/api/conversations/route";
 import { resetConversationStoreForTests, seedConversationMessagesForTests } from "../../lib/conversations";
@@ -17,6 +18,7 @@ describe("conversation routes", () => {
   beforeEach(() => {
     resetConversationStoreForTests();
     process.env.COSMOS_ENDPOINT = "";
+    vi.restoreAllMocks();
   });
 
   it("creates and lists conversations for the authenticated owner", async () => {
@@ -170,5 +172,55 @@ describe("conversation routes", () => {
 
     const listResponse = await listGET(buildRequest("/api/conversations"));
     expect(await listResponse.json()).toEqual([]);
+  });
+
+  it("proxies transcript-scoped citation enrichment only for the owning user", async () => {
+    const createResponse = await POST(
+      buildRequest("/api/conversations", {
+        method: "POST",
+        body: JSON.stringify({ title: "Citation thread" }),
+      }),
+    );
+    const created = (await createResponse.json()) as { id: string };
+
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          status: "ready",
+          citation: {
+            ref_number: 1,
+            chunk_id: "article-1_0",
+            content: "Full chunk content loaded on demand.",
+            content_source: "full",
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await citationsGET(
+      buildRequest(`/api/conversations/${created.id}/citations/tool-call-1/1`),
+      { params: Promise.resolve({ threadId: created.id, toolCallId: "tool-call-1", refNumber: "1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      status: "ready",
+      citation: {
+        ref_number: 1,
+        chunk_id: "article-1_0",
+        content: "Full chunk content loaded on demand.",
+        content_source: "full",
+      },
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    const forbiddenResponse = await citationsGET(
+      buildRequest(`/api/conversations/${created.id}/citations/tool-call-1/1`, {}, "user-b"),
+      { params: Promise.resolve({ threadId: created.id, toolCallId: "tool-call-1", refNumber: "1" }) },
+    );
+
+    expect(forbiddenResponse.status).toBe(404);
   });
 });

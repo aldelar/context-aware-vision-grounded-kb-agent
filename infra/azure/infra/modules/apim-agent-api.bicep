@@ -74,6 +74,16 @@ resource opPostResponses 'Microsoft.ApiManagement/service/apis/operations@2024-0
   }
 }
 
+resource opPostAgUi 'Microsoft.ApiManagement/service/apis/operations@2024-06-01-preview' = {
+  parent: agentApi
+  name: 'post-ag-ui'
+  properties: {
+    displayName: 'AG-UI stream'
+    method: 'POST'
+    urlTemplate: '/ag-ui'
+  }
+}
+
 resource opGetLiveness 'Microsoft.ApiManagement/service/apis/operations@2024-06-01-preview' = {
   parent: agentApi
   name: 'get-liveness'
@@ -91,5 +101,32 @@ resource opGetReadiness 'Microsoft.ApiManagement/service/apis/operations@2024-06
     displayName: 'Readiness probe'
     method: 'GET'
     urlTemplate: '/readiness'
+  }
+}
+
+resource opGetCitationLookup 'Microsoft.ApiManagement/service/apis/operations@2024-06-01-preview' = {
+  parent: agentApi
+  name: 'get-citation-lookup'
+  properties: {
+    displayName: 'Transcript-scoped citation lookup'
+    method: 'GET'
+    urlTemplate: '/citations/{threadId}/{toolCallId}/{refNumber}'
+    templateParameters: [
+      {
+        name: 'threadId'
+        required: true
+        type: 'string'
+      }
+      {
+        name: 'toolCallId'
+        required: true
+        type: 'string'
+      }
+      {
+        name: 'refNumber'
+        required: true
+        type: 'string'
+      }
+    ]
   }
 }

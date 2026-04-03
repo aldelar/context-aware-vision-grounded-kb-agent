@@ -195,6 +195,11 @@ def _patch_agentserver_streaming_converter() -> None:
 from agent_framework.ag_ui import AgentFrameworkAgent, add_agent_framework_fastapi_endpoint
 from fastapi import Depends, FastAPI
 
+from agent.group_resolver import resolve_departments
+from agent.image_service import get_image_url
+from agent.search_result_store import find_citation_reference
+from agent.search_tool import build_security_filter, get_chunk_by_id
+from middleware.request_context import user_claims_var
 from middleware.jwt_auth import JWTAuthMiddleware, require_jwt_auth
 
 
@@ -263,6 +268,80 @@ def _create_ag_ui_app(
     return ag_ui_app
 
 
+def _create_citation_lookup_app(session_repository) -> FastAPI:
+    """Build a protected API for transcript-scoped citation enrichment."""
+    citation_app = FastAPI(
+        title="KB Agent Citation Lookup",
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
+        redirect_slashes=False,
+    )
+
+    @citation_app.get(
+        "/{thread_id}/{tool_call_id}/{ref_number}",
+        dependencies=[Depends(require_jwt_auth)],
+    )
+    async def get_citation_chunk(thread_id: str, tool_call_id: str, ref_number: int) -> dict[str, Any]:
+        if ref_number < 1:
+            return {"status": "missing"}
+
+        serialized_session = await session_repository.read_from_storage(thread_id)
+        if not serialized_session:
+            return {"status": "missing"}
+
+        stored_citation = find_citation_reference(
+            serialized_session,
+            tool_call_id=tool_call_id,
+            ref_number=ref_number,
+        )
+        if not stored_citation:
+            return {"status": "missing"}
+
+        chunk_id = stored_citation.get("chunk_id")
+        if not isinstance(chunk_id, str) or not chunk_id.strip():
+            return {"status": "missing"}
+
+        claims = user_claims_var.get()
+        groups = claims.get("groups", []) if isinstance(claims, dict) else []
+        departments = resolve_departments(groups) if groups else []
+        security_filter = build_security_filter(departments)
+        current_chunk = get_chunk_by_id(chunk_id, security_filter=security_filter)
+        if current_chunk is None:
+            return {"status": "missing"}
+
+        citation = {
+            **stored_citation,
+            "chunk_id": current_chunk.id,
+            "article_id": current_chunk.article_id,
+            "chunk_index": current_chunk.chunk_index,
+            "title": current_chunk.title or stored_citation.get("title"),
+            "section_header": current_chunk.section_header or stored_citation.get("section_header"),
+            "summary": current_chunk.summary or stored_citation.get("summary"),
+            "content": current_chunk.content,
+            "indexed_at": current_chunk.indexed_at or stored_citation.get("indexed_at"),
+            "image_urls": list(current_chunk.image_urls),
+            "images": [
+                {"name": url.split("/")[-1], "url": get_image_url(current_chunk.article_id, url)}
+                for url in current_chunk.image_urls
+            ] if current_chunk.image_urls else [],
+            "content_source": "full",
+        }
+        status = "ready"
+        stored_indexed_at = stored_citation.get("indexed_at")
+        if (
+            isinstance(stored_indexed_at, str)
+            and stored_indexed_at
+            and current_chunk.indexed_at
+            and stored_indexed_at != current_chunk.indexed_at
+        ):
+            status = "stale"
+
+        return {"status": status, "citation": citation}
+
+    return citation_app
+
+
 def main() -> None:
     """Run the KB Agent as an HTTP server on port 8088."""
     logger.info("[KB-AGENT] Starting agent server (port 8088)…")
@@ -289,6 +368,8 @@ def main() -> None:
     server = from_agent_framework(agent, session_repository=session_repo)
     server.app.add_middleware(JWTAuthMiddleware)
     server.app.mount("/ag-ui", _create_ag_ui_app(agent, session_repo))
+    if session_repo is not None:
+        server.app.mount("/citations", _create_citation_lookup_app(session_repo))
     server.run()
 
 

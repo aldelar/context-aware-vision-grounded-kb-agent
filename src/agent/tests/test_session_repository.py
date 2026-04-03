@@ -254,8 +254,81 @@ async def test_write_large_session_payload(repo_with_container, mock_container):
     await repo_with_container.write_to_storage("conv-large", large_session)
 
     upserted = mock_container.upsert_item.call_args[0][0]
-    assert upserted["session"] is large_session
+    assert upserted["session"] == large_session
     assert len(upserted["session"]["messages"]) == 500
+
+
+@pytest.mark.asyncio
+async def test_write_compacts_search_tool_results_for_storage(repo_with_container, mock_container):
+    session_data = {
+        "state": {
+            "messages": [
+                {
+                    "id": "tool-1",
+                    "role": "tool",
+                    "toolCallId": "tool-call-1",
+                    "toolName": "search_knowledge_base",
+                    "content": {
+                        "results": [
+                            {
+                                "ref_number": 1,
+                                "chunk_id": "article-1_0",
+                                "article_id": "article-1",
+                                "chunk_index": 0,
+                                "indexed_at": "2026-04-01T00:00:00Z",
+                                "title": "Overview",
+                                "section_header": "Intro",
+                                "summary": "Compact summary",
+                                "content": "Full chunk content that should not remain in storage.",
+                                "image_urls": ["images/overview.png"],
+                            },
+                        ],
+                        "summary": "1 result covering: Overview",
+                    },
+                },
+            ],
+        },
+    }
+
+    await repo_with_container.write_to_storage("conv-compact", session_data)
+
+    upserted = mock_container.upsert_item.call_args[0][0]
+    stored_row = upserted["session"]["state"]["messages"][0]["content"]["results"][0]
+    assert stored_row == {
+        "ref_number": 1,
+        "content_source": "summary",
+        "chunk_id": "article-1_0",
+        "article_id": "article-1",
+        "chunk_index": 0,
+        "indexed_at": "2026-04-01T00:00:00Z",
+        "title": "Overview",
+        "section_header": "Intro",
+        "summary": "Compact summary",
+        "content": "Compact summary",
+        "image_urls": ["images/overview.png"],
+    }
+
+
+@pytest.mark.asyncio
+async def test_write_leaves_non_search_tool_payloads_unchanged(repo_with_container, mock_container):
+    session_data = {
+        "state": {
+            "messages": [
+                {
+                    "id": "tool-1",
+                    "role": "tool",
+                    "toolCallId": "tool-call-1",
+                    "toolName": "other_tool",
+                    "content": {"value": "leave me alone"},
+                },
+            ],
+        },
+    }
+
+    await repo_with_container.write_to_storage("conv-other-tool", session_data)
+
+    upserted = mock_container.upsert_item.call_args[0][0]
+    assert upserted["session"] == session_data
 
 
 @pytest.mark.asyncio

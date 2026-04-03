@@ -262,7 +262,7 @@ The project also has an APIM connection resource (`apim-connection`) linking it 
 
 ### Cosmos DB (`cosmos-db.bicep`)
 
-Serverless NoSQL database for conversation persistence. The active runtime uses an agent-owned `agent-sessions` container for full turn history and a web-app-owned `conversations` container for sidebar metadata. The `messages` and `references` containers remain provisioned only as deprecated compatibility artifacts. See [Agent Memory](agent-memory.md) for the full schema.
+Serverless NoSQL database for conversation persistence. The active runtime uses an agent-owned `agent-sessions` container for full turn history and a web-app-owned `conversations` container for sidebar metadata. The `messages` and `references` containers remain provisioned only as deprecated compatibility artifacts. They are retained in IaC plus local init/clean scripts for migration-era data safety, but no live app runtime path reads from or writes to them. See [Agent Sessions](agent-sessions.md) for canonical transcript persistence and [Conversation State Model](conversations-state-model.md) for ownership boundaries.
 
 | Setting | Value |
 |---------|-------|
@@ -363,7 +363,7 @@ Provisions Azure API Management as an AI Gateway for agent traffic. Enables Foun
 | SKU | BasicV2 (parameterised for StandardV2 in prod) |
 | Identity | System-assigned managed identity |
 | API | `kb-agent-api` — proxies to agent external URL |
-| Operations | POST /responses, GET /liveness, GET /readiness |
+| Operations | POST /responses, POST /ag-ui, GET /citations/{threadId}/{toolCallId}/{refNumber}, GET /liveness, GET /readiness |
 | Subscription | Not required (auth via Entra JWT) |
 
 The APIM gateway URL is output as `APIM_GATEWAY_URL` for use by `register-agent.sh`.

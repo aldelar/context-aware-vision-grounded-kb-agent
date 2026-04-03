@@ -2,7 +2,7 @@
 
 > **Status:** In Progress
 > **Created:** March 27, 2026
-> **Updated:** March 31, 2026
+> **Updated:** April 3, 2026
 
 ## Objective
 
@@ -47,9 +47,14 @@ After this epic:
 
 - [x] `make dev-infra-up` succeeds end to end, initializes Cosmos/Azurite, and is idempotent on repeat runs
 - [x] `make dev-test` passes cleanly on the repaired local stack
+- [x] `az bicep build --file infra/azure/infra/main.bicep` succeeds after the APIM and Cosmos comment updates
+- [x] `docker build -t web-app-test src/web-app/` succeeds for the Next.js web app
+- [x] `make dev-services-app-up` starts the web-app container on port 3000 and `curl -I http://localhost:3000` returns `200 OK`
+- [x] `curl -sS -L -X POST http://localhost:8088/ag-ui/ ...` returns an AG-UI SSE stream with `RUN_STARTED`, `TEXT_MESSAGE_CONTENT`, and `RUN_FINISHED`
+- [x] `curl -sS -X POST http://localhost:8088/responses ...` still returns a valid Responses API payload
 - [x] Functions tests: `190 passed, 23 skipped`
-- [x] Agent tests: `188 passed` including AG-UI, streaming, grounding, and integration coverage
-- [x] Web-app tests: `49 passed` including auth helpers, conversation routes, image proxy route, config loading, citation/image transforms, transcript hydration, and sidebar CRUD interactions
+- [x] Agent tests: `196 passed` including AG-UI, streaming, grounding, citation lookup, and session persistence coverage
+- [x] Web-app tests: `52 passed` including auth helpers, conversation routes, image proxy route, config loading, citation/image transforms, transcript hydration, and sidebar CRUD interactions
 - [ ] Full manual browser E2E validation from the local dev stack is still pending
 
 ### Validation Criteria
@@ -60,7 +65,7 @@ Before marking this epic as Done, the following end-to-end scenarios must be man
 2. **Multi-turn conversation**: send a follow-up question in the same thread → agent recalls context from the previous turn (session loaded from `agent-sessions` Cosmos container via `threadId`)
 3. **Conversation resume**: close the browser → reopen → select a previous conversation from the sidebar → previous messages load and the conversation continues with full context
 4. **Image rendering**: answer contains `![alt](/api/images/...)` markdown → image loads from the Next.js proxy endpoint
-5. **Agent Responses API unaffected**: `curl -X POST http://localhost:8088/v1/responses ...` still returns a valid streamed response (backward compatibility)
+5. **Agent Responses API unaffected**: `curl -X POST http://localhost:8088/responses ...` still returns a valid streamed response (backward compatibility)
 
 ---
 
@@ -106,7 +111,7 @@ The web app is a **CopilotKit** + **Next.js** application communicating with the
 
 | # | Decision | Rationale |
 |---|----------|-----------|
-| 1 | **AG-UI on agent, not replacing Responses API** | The agent gains a new AG-UI endpoint via `add_agent_framework_fastapi_endpoint`. The existing `/v1/responses` endpoint stays for backward compatibility and other consumers (Foundry registration, testing). |
+| 1 | **AG-UI on agent, not replacing Responses API** | The agent gains a new AG-UI endpoint via `add_agent_framework_fastapi_endpoint`. The existing `/responses` endpoint stays for backward compatibility and other consumers (Foundry registration, testing). |
 | 2 | **Copilot Runtime as BFF** | The Copilot Runtime runs in the Next.js process, providing auth forwarding, agent routing, and AG-UI middleware. This is the recommended CopilotKit architecture and keeps agent endpoints server-side. |
 | 3 | **Native CopilotKit look** | Use default CopilotKit styles and components — `CopilotChat` with slot-based customization only for branding (colors, labels). No attempt to recreate Chainlit's layout or interaction model. |
 | 4 | **`useRenderTool` for search tool** | The `search_knowledge_base` tool call is rendered with a custom React component showing search progress and results in real time. This is the primary UX upgrade over Chainlit. |
@@ -149,7 +154,7 @@ The web app is a **CopilotKit** + **Next.js** application communicating with the
 > **Status:** Completed
 > **Depends on:** None
 
-Add the `agent-framework-ag-ui` package to the agent and register an AG-UI endpoint alongside the existing Responses API. The agent becomes dual-protocol: Responses API at `/v1/responses` and AG-UI SSE at `/ag-ui`.
+Add the `agent-framework-ag-ui` package to the agent and register an AG-UI endpoint alongside the existing Responses API. The agent becomes dual-protocol: Responses API at `/responses` and AG-UI SSE at `/ag-ui`.
 
 #### Deliverables
 
@@ -161,7 +166,7 @@ Add the `agent-framework-ag-ui` package to the agent and register an AG-UI endpo
 - [x] `search_knowledge_base` tool calls stream through the AG-UI event flow
 - [x] AG-UI `threadId` correctly maps to the session repository's `conversation_id` — multi-turn conversations persist across requests
 - [x] Existing `/responses` endpoint unaffected — agent tests pass without regressions
-- [ ] Manual verification: curl/httpie against `/ag-ui` returns SSE event stream
+- [x] Manual verification: curl/httpie against `/ag-ui` returns SSE event stream
 
 #### Notes
 
@@ -174,9 +179,9 @@ Add the `agent-framework-ag-ui` package to the agent and register an AG-UI endpo
 #### Definition of Done
 
 - [ ] `cd src/agent && uv run pytest tests/ -o addopts= -m "not uitest"` passes with zero regressions
-- [ ] `curl -N -X POST http://localhost:8088/ag-ui -H 'Content-Type: application/json' -d '{"messages":[{"role":"user","content":"What is Azure AI Search?"}],"threadId":"test-thread-1"}'` returns an SSE stream with `RUN_STARTED`, `TEXT_MESSAGE_CONTENT`, and `RUN_FINISHED` events
+- [x] `curl -N -X POST http://localhost:8088/ag-ui/ -H 'Content-Type: application/json' -d '{"messages":[{"role":"user","content":"What is Azure AI Search?"}],"threadId":"test-thread-1"}'` returns an SSE stream with `RUN_STARTED`, `TEXT_MESSAGE_CONTENT`, and `RUN_FINISHED` events
 - [ ] A second request with the same `threadId` returns an answer that references the previous turn (session persistence works)
-- [ ] `curl -X POST http://localhost:8088/v1/responses ...` (existing Responses API) still works unchanged
+- [x] `curl -X POST http://localhost:8088/responses ...` (existing Responses API) still works unchanged
 
 ---
 
@@ -356,23 +361,23 @@ Configure authentication for the CopilotKit web app — Entra Easy Auth in prod,
 
 ### Story 8 — Docker, Deployment & Infrastructure
 
-> **Status:** Not Started
+> **Status:** In Progress
 > **Depends on:** Story 2
 
 Update the Dockerfile, Docker Compose, Bicep, azure.yaml, and Makefile for the new Node.js-based web app.
 
 #### Deliverables
 
-- [ ] New `src/web-app/Dockerfile` — Node.js 20-slim base, multi-stage build (deps → build → runtime), `next start` on port 3000
-- [ ] `docker-compose.dev-services.yml` updated: web-app service builds from new Dockerfile, ports `3000:3000`
-- [ ] `azure.yaml` updated: web-app service uses `language: docker` (Node.js Docker build)
-- [ ] `infra/modules/container-app.bicep` updated: `targetPort` changes from 8080 to 3000, remove Chainlit-specific env vars (CHAINLIT_AUTH_SECRET, OAUTH_AZURE_AD_*), add CopilotKit env vars
-- [ ] Easy Auth redirect URIs updated in `scripts/setup-redirect-uris.sh` if port matters
-- [ ] Makefile targets updated: `dev-setup` installs npm dependencies for web-app, `dev-test` runs appropriate test command for web-app, `dev-ui` echoes correct URL
-- [ ] `.env.dev.template` updated: remove Chainlit vars, ensure `AGENT_ENDPOINT` points to AG-UI endpoint
+- [x] New `src/web-app/Dockerfile` — Node.js 20-slim base, multi-stage build (deps → build → runtime), `next start` on port 3000
+- [x] `docker-compose.dev-services.yml` updated: web-app service builds from new Dockerfile, ports `3000:3000`
+- [x] `azure.yaml` updated: web-app service uses `language: docker` (Node.js Docker build)
+- [x] `infra/modules/container-app.bicep` updated: `targetPort` changes from 8080 to 3000, remove Chainlit-specific env vars (CHAINLIT_AUTH_SECRET, OAUTH_AZURE_AD_*), add CopilotKit env vars
+- [x] Easy Auth redirect URIs updated in `scripts/setup-redirect-uris.sh` for the Next.js Easy Auth callback only
+- [x] Makefile targets updated: `dev-setup` installs npm dependencies for web-app, `dev-test` runs appropriate test command for web-app, `dev-ui` echoes correct URL
+- [x] `.env.dev.template` updated: remove Chainlit vars, ensure `AGENT_ENDPOINT` points to AG-UI endpoint
 - [ ] `azd deploy --service web-app` builds and deploys the new Next.js container successfully
-- [ ] `infra/modules/apim-agent-api.bicep` updated: add APIM operation for the `/ag-ui` POST endpoint (or explicitly document that the Copilot Runtime connects via the agent's internal FQDN, bypassing APIM)
-- [ ] `messages` and `references` Cosmos containers preserved in `infra/modules/cosmos-db.bicep` for backward compatibility — marked with a comment for future removal
+- [x] `infra/modules/apim-agent-api.bicep` updated: add APIM operation for the `/ag-ui` POST endpoint (and the thread-scoped citation lookup endpoint used by the web app)
+- [x] `messages` and `references` Cosmos containers preserved in `infra/modules/cosmos-db.bicep` for backward compatibility — marked with a comment for future removal
 
 #### Notes
 
@@ -381,11 +386,11 @@ Update the Dockerfile, Docker Compose, Bicep, azure.yaml, and Makefile for the n
 
 #### Definition of Done
 
-- [ ] `docker build -t web-app-test src/web-app/` succeeds
-- [ ] `docker-compose -f docker-compose.dev-services.yml up web-app` starts the Next.js container on port 3000
+- [x] `docker build -t web-app-test src/web-app/` succeeds
+- [x] `docker-compose -f docker-compose.dev-services.yml up web-app` starts the Next.js container on port 3000
 - [ ] `azd deploy --service web-app` completes without errors in a test environment
-- [ ] `make dev-services-app-up` starts the containerized web app
-- [ ] `make dev-ui` prints `http://localhost:3000`
+- [x] `make dev-services-app-up` starts the containerized web app
+- [x] `make dev-ui` prints `http://localhost:3000`
 
 ---
 
@@ -425,11 +430,13 @@ Update all documentation to reflect the CopilotKit + AG-UI architecture. Clean u
 - [x] `docs/ards/ARD-016-copilotkit-migration.md` created — documents the decision to migrate from Chainlit to CopilotKit with AG-UI
 - [x] `docs/specs/architecture.md` updated: replace Chainlit references with CopilotKit + AG-UI, update conversation flow diagram, update image flow diagram, update key design decisions table
 - [x] `docs/specs/infrastructure.md` updated: web app container port and tech stack
-- [ ] `docs/setup-and-makefile.md` updated: new setup instructions (Node.js prereqs, npm install)
-- [ ] `src/web-app/.env.sample` rewritten for Node.js environment
-- [ ] `README.md` updated if it references Chainlit
+- [x] `docs/specs/agent-sessions.md` created as the authoritative spec for canonical agent-owned transcript persistence
+- [x] Legacy broad memory spec retired; live docs now point to the session and conversation ownership specs
+- [x] `docs/setup-and-makefile.md` updated: new setup instructions (Node.js prereqs, npm install)
+- [x] `src/web-app/.env.sample` rewritten for Node.js environment
+- [x] `README.md` updated if it references Chainlit
 - [ ] Remove any orphaned Chainlit references in other epics/docs (informational, not rewriting history)
-- [ ] `messages` and `references` Cosmos containers marked as deprecated in `infra/modules/cosmos-db.bicep` with comments (containers preserved, not deleted)
+- [x] `messages` and `references` Cosmos containers marked as deprecated in `infra/modules/cosmos-db.bicep` with comments (containers preserved, not deleted)
 - [x] Epic 016 doc updated with completion status
 
 #### Definition of Done
@@ -437,7 +444,8 @@ Update all documentation to reflect the CopilotKit + AG-UI architecture. Clean u
 - [x] ARD-016 exists and documents: decision, alternatives considered, rationale, consequences
 - [x] `docs/specs/architecture.md` no longer references Chainlit in current-state sections; diagrams show CopilotKit + AG-UI flow
 - [x] `docs/specs/infrastructure.md` shows web app as Node.js/Next.js on port 3000
-- [ ] `grep -r "chainlit" docs/` returns zero hits in specs and setup docs (epics are historical — ok to keep)
+- [x] Current live docs use `agent-sessions.md` as the authoritative session persistence spec and `conversations-state-model.md` as the ownership-boundary spec
+- [x] `grep -r "chainlit" docs/` returns zero hits in specs and setup docs (epics are historical — ok to keep)
 - [ ] Epic 016 status updated to `Done` with a Validation Snapshot section
 
 ---
@@ -481,8 +489,8 @@ Upgrade the agent runtime from RC5 to RC6 and revalidate the AG-UI behavior the 
 #### Definition of Done
 
 - [x] Agent tests pass on RC6
-- [ ] Manual AG-UI verification shows the expected event stream on RC6
-- [ ] `/v1/responses` remains unaffected
+- [x] Manual AG-UI verification shows the expected event stream on RC6
+- [x] `/responses` remains unaffected
 
 ---
 
@@ -718,3 +726,115 @@ Finish the salvage work by making the branch clean, verifiable, and deployable.
 - [x] `make dev-test` passes cleanly
 - [ ] Local manual E2E passes for reasoning, tool activity, citations, images, auth, starters, sidebar CRUD, and resume
 - [ ] The epic can be closed without unresolved parity gaps versus the original app
+
+---
+
+## Conversation Ownership Cleanup Addendum
+
+These follow-on stories capture the cleanup needed after the migration landed so the docs, APIs, and future workflow support all reflect the same ownership model:
+
+- the agent owns the canonical transcript in `agent-sessions`
+- the web app owns only lightweight `conversations` metadata
+- workflows may keep internal shared or specialist-local state without creating new authoritative transcript stores
+
+### Story 23 — Split Session Persistence from Conversation Ownership Specs
+
+> **Status:** Completed
+> **Depends on:** Story 10
+
+Finish the documentation split so `agent-sessions.md` is the source of truth for agent-owned transcript persistence and `conversations-state-model.md` is the source of truth for ownership boundaries across the UI, AG-UI, workflows, and specialists.
+
+#### Deliverables
+
+- [x] Remove any remaining live-doc claims that the retired broad memory spec is the authoritative implementation spec
+- [x] Ensure live docs point to `agent-sessions.md` for canonical transcript persistence details
+- [x] Ensure live docs point to `conversations-state-model.md` for ownership boundaries and workflow semantics
+- [x] Leave historical epics and scratchpads intact unless they claim present-day authority
+- [x] Make the deprecated `messages` and `references` containers clearly read as infrastructure-only compatibility artifacts in current docs
+
+#### Definition of Done
+
+- [x] Repository docs no longer point current-state readers at the retired broad memory spec filename
+- [x] Current specs no longer describe `messages` or `references` as active runtime stores
+
+### Story 24 — Enforce Metadata-Only `conversations` Ownership
+
+> **Status:** Completed
+> **Depends on:** Stories 6, 20, 21, and 23
+
+Audit and tighten the web app conversation layer so `conversations` remains a metadata-only store for sidebar and UI state.
+
+#### Deliverables
+
+- [x] Define the allowed `conversations` schema and ownership contract in code and docs
+- [x] Verify Next.js conversation routes write only metadata fields such as thread title, timestamps, ownership, and other basic UI state
+- [x] Keep transcript hydration read-only and sourced from `agent-sessions`
+- [x] Add regression tests that fail if the web app starts writing transcript, reasoning, or tool history into `conversations`
+- [x] Remove any code comments or docs that imply web-app-owned durable message storage
+
+#### Definition of Done
+
+- [x] No web-app write path persists user, assistant, tool, or reasoning transcript content outside `agent-sessions`
+- [x] `conversations` remains sufficient for sidebar CRUD, thread selection, and other basic UI state only
+
+### Story 25 — Make Workflow Session Ownership Implementation-Ready
+
+> **Status:** Completed
+> **Depends on:** Stories 21, 23, and 24
+
+Prepare the persistence and UI contract for future MAF workflows without introducing a second transcript owner.
+
+#### Deliverables
+
+- [x] Define the top-level workflow-exposed AG-UI agent as the canonical thread owner in workflow mode
+- [x] Define how specialist attribution and inline handoff markers are surfaced without splitting the conversation or reassigning canonical ownership
+- [x] Define the allowed backend-only workflow shared state and optional specialist-local state
+- [x] Ensure all planned workflow UI models continue to bind to one user-visible `threadId`
+- [x] Identify any API or schema additions needed for workflow metadata while keeping transcript ownership agent-side
+
+#### Definition of Done
+
+- [x] Workflow mode still has exactly one authoritative transcript per user-visible thread
+- [x] Specialist-local state is explicit, optional, backend-owned, and non-canonical
+- [x] No planned workflow feature requires the UI to own a durable transcript store
+
+### Story 26 — Finalize Legacy Container Retirement Boundaries
+
+> **Status:** Completed
+> **Depends on:** Stories 23 and 24
+
+Close the loop on the old `messages` and `references` model so the runtime and docs stop carrying ambiguity about whether those containers still matter.
+
+#### Deliverables
+
+- [x] Audit active code, scripts, and runtime paths for reads or writes to `messages` and `references`
+- [x] If no active consumers remain, document them strictly as migration-era compatibility artifacts
+- [x] Record the chosen retention strategy: keep provisioned in IaC plus local init/clean scripts until an explicit export/delete cutoff is scheduled
+- [x] Ensure tests and docs reflect no active runtime dependency on those containers
+
+#### Definition of Done
+
+- [x] Active runtime paths do not depend on `messages` or `references`
+- [x] The repo has one documented retention/deprecation plan for the legacy containers
+
+### Story 27 — Compact Stored Search Results and Lazy Citation Enrichment
+
+> **Status:** Completed
+> **Depends on:** Stories 21 and 23
+
+Keep resumed conversations lightweight without losing the ability to inspect cited search chunks in the UI.
+
+#### Deliverables
+
+- [x] Persist compact `search_knowledge_base` tool results in `agent-sessions` with stable chunk handles plus summary-sized preview text
+- [x] Keep the agent as the only component that resolves chunk handles into full AI Search documents
+- [x] Add an agent-owned citation lookup endpoint scoped by `threadId`, `toolCallId`, and `refNumber`
+- [x] Add a web-app proxy route that validates conversation ownership before forwarding citation lookup requests to the agent
+- [x] Update the CopilotKit citation renderer to show stored summaries immediately and lazily load full excerpts on demand
+- [x] Add regression tests for compact persistence, citation lookup authorization boundaries, and lazy citation enrichment
+
+#### Definition of Done
+
+- [x] Resumed threads no longer require full raw chunk content in stored tool results to render citations
+- [x] The browser never sends arbitrary chunk handles directly to a search-backed endpoint
+- [x] `make dev-test` passes after the compact-result and lazy-enrichment rework

@@ -94,6 +94,19 @@ def _normalize_security_filter_for_local_search(security_filter: str | None) -> 
     return f"({joined})"
 
 
+def build_security_filter(departments: list[str]) -> str | None:
+    """Build the OData department filter used by KB search reads."""
+    if not departments:
+        return None
+
+    dept_list = ",".join(departments)
+    return f"search.in(department, '{dept_list}', ',')"
+
+
+def _escape_odata_string(value: str) -> str:
+    return value.replace("'", "''")
+
+
 def search_kb(query: str, top: int = 5, *, security_filter: str | None = None) -> list[SearchResult]:
     """Perform hybrid search (vector + keyword) against the kb-articles index.
 
@@ -166,3 +179,49 @@ def search_kb(query: str, top: int = 5, *, security_filter: str | None = None) -
         top,
     )
     return search_results
+
+
+def get_chunk_by_id(document_id: str, *, security_filter: str | None = None) -> SearchResult | None:
+    """Load a single chunk by its stable search document id."""
+    normalized_id = document_id.strip()
+    if not normalized_id:
+        return None
+
+    security_filter = _normalize_security_filter_for_local_search(security_filter)
+    filter_expression = f"id eq '{_escape_odata_string(normalized_id)}'"
+    if security_filter:
+        filter_expression = f"({filter_expression}) and ({security_filter})"
+
+    with tracer.start_as_current_span("get_chunk_by_id") as span:
+        span.set_attribute("search.document_id", normalized_id)
+        if security_filter:
+            span.set_attribute("search.filter", security_filter)
+
+        results = _get_search_client().search(
+            search_text="*",
+            select=["id", "article_id", "chunk_index", "content", "title", "section_header", "image_urls", "department", "summary", "indexed_at"],
+            top=1,
+            filter=filter_expression,
+        )
+
+        for result in results:
+            search_result = SearchResult(
+                id=result["id"],
+                article_id=result["article_id"],
+                chunk_index=result.get("chunk_index", 0),
+                content=result["content"],
+                title=result.get("title", ""),
+                section_header=result.get("section_header", ""),
+                department=result.get("department", ""),
+                summary=result.get("summary", ""),
+                indexed_at=result.get("indexed_at", ""),
+                image_urls=result.get("image_urls") or [],
+                score=result.get("@search.score", 0.0),
+            )
+            span.set_attribute("search.result_count", 1)
+            return search_result
+
+        span.set_attribute("search.result_count", 0)
+
+    logger.info("Chunk lookup for '%s' returned no results", normalized_id)
+    return None

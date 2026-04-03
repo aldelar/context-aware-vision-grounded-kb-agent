@@ -8,6 +8,7 @@ import { ConversationRecord } from "../lib/types";
 import { CitationAwareAssistantMessage } from "./CitationAwareAssistantMessage";
 import { ChatHistoryHydrator } from "./ChatHistoryHydrator";
 import { CopilotMessageRenderer } from "./CopilotMessageRenderer";
+import { ConversationThreadProvider } from "./ConversationThreadContext";
 import { ConversationSidebar } from "./ConversationSidebar";
 
 const conversationStarters = [
@@ -206,30 +207,32 @@ export function CopilotWorkspace() {
           onSelectConversation={setActiveThreadId}
         />
         <section className="chatSurface">
-          <CopilotKit
-            agent="default"
-            key={activeThreadId}
-            runtimeUrl="/api/copilotkit"
-            showDevConsole={false}
-            threadId={activeThreadId}
-          >
-            <ChatHistoryHydrator threadId={activeThreadId} />
-            <CopilotChat
-              AssistantMessage={CitationAwareAssistantMessage}
-              className="copilotCanvas"
-              instructions="Answer from the indexed knowledge base, keep citations intact, and preserve any inline /api/images markdown emitted by the agent."
-              labels={{
-                title: activeConversation?.name ?? "Azure AI Knowledge Agent",
-                initial: [
-                  "Ask about Azure AI Search, Content Understanding, or other indexed Azure AI content.",
-                ],
-                placeholder: "Ask a question about Azure AI knowledge…",
-              }}
-              onSubmitMessage={(message) => void handleSubmitMessage(message)}
-              RenderMessage={CopilotMessageRenderer as any}
-              suggestions={conversationStarters}
-            />
-          </CopilotKit>
+          <ConversationThreadProvider threadId={activeThreadId}>
+            <CopilotKit
+              agent="default"
+              key={activeThreadId}
+              runtimeUrl="/api/copilotkit"
+              showDevConsole={false}
+              threadId={activeThreadId}
+            >
+              <ChatHistoryHydrator threadId={activeThreadId} />
+              <CopilotChat
+                AssistantMessage={CitationAwareAssistantMessage}
+                className="copilotCanvas"
+                instructions="Answer from the indexed knowledge base, keep citations intact, and preserve any inline /api/images markdown emitted by the agent."
+                labels={{
+                  title: activeConversation?.name ?? "Azure AI Knowledge Agent",
+                  initial: [
+                    "Ask about Azure AI Search, Content Understanding, or other indexed Azure AI content.",
+                  ],
+                  placeholder: "Ask a question about Azure AI knowledge…",
+                }}
+                onSubmitMessage={(message) => void handleSubmitMessage(message)}
+                RenderMessage={CopilotMessageRenderer as any}
+                suggestions={conversationStarters}
+              />
+            </CopilotKit>
+          </ConversationThreadProvider>
         </section>
       </section>
     </main>

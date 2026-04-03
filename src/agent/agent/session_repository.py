@@ -17,6 +17,7 @@ from azure.ai.agentserver.agentframework.persistence import (
 )
 
 from agent.client_factories import create_async_cosmos_client
+from agent.search_result_store import compact_serialized_session_for_storage
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +84,7 @@ class CosmosAgentSessionRepository(SerializedAgentSessionRepository):
         if not conversation_id or not conversation_id.strip():
             return
         container = await self._get_container()
-        doc = {"id": conversation_id, "session": serialized_session}
+        compacted_session = compact_serialized_session_for_storage(serialized_session)
+        doc = {"id": conversation_id, "session": compacted_session}
         await container.upsert_item(doc)
         logger.info("Saved session for conversation_id=%s", conversation_id)

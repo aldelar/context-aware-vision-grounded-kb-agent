@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "6127832066435243456"
+      "templateHash": "2383625443107167338"
     }
   },
   "parameters": {
@@ -3695,7 +3695,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "15023398003171200556"
+              "templateHash": "10732280595550256907"
             }
           },
           "parameters": {
@@ -3765,6 +3765,19 @@
             {
               "type": "Microsoft.ApiManagement/service/apis/operations",
               "apiVersion": "2024-06-01-preview",
+              "name": "[format('{0}/{1}/{2}', parameters('apimName'), 'kb-agent-api', 'post-ag-ui')]",
+              "properties": {
+                "displayName": "AG-UI stream",
+                "method": "POST",
+                "urlTemplate": "/ag-ui"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis', parameters('apimName'), 'kb-agent-api')]"
+              ]
+            },
+            {
+              "type": "Microsoft.ApiManagement/service/apis/operations",
+              "apiVersion": "2024-06-01-preview",
               "name": "[format('{0}/{1}/{2}', parameters('apimName'), 'kb-agent-api', 'get-liveness')]",
               "properties": {
                 "displayName": "Liveness probe",
@@ -3783,6 +3796,36 @@
                 "displayName": "Readiness probe",
                 "method": "GET",
                 "urlTemplate": "/readiness"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis', parameters('apimName'), 'kb-agent-api')]"
+              ]
+            },
+            {
+              "type": "Microsoft.ApiManagement/service/apis/operations",
+              "apiVersion": "2024-06-01-preview",
+              "name": "[format('{0}/{1}/{2}', parameters('apimName'), 'kb-agent-api', 'get-citation-lookup')]",
+              "properties": {
+                "displayName": "Transcript-scoped citation lookup",
+                "method": "GET",
+                "urlTemplate": "/citations/{threadId}/{toolCallId}/{refNumber}",
+                "templateParameters": [
+                  {
+                    "name": "threadId",
+                    "required": true,
+                    "type": "string"
+                  },
+                  {
+                    "name": "toolCallId",
+                    "required": true,
+                    "type": "string"
+                  },
+                  {
+                    "name": "refNumber",
+                    "required": true,
+                    "type": "string"
+                  }
+                ]
               },
               "dependsOn": [
                 "[resourceId('Microsoft.ApiManagement/service/apis', parameters('apimName'), 'kb-agent-api')]"

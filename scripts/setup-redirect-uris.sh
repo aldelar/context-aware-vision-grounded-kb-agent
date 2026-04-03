@@ -36,12 +36,10 @@ fi
 WEBAPP_URL="${WEBAPP_URL%/}"
 
 EASY_AUTH_URI="${WEBAPP_URL}/.auth/login/aad/callback"
-CHAINLIT_URI="${WEBAPP_URL}/auth/oauth/azure-ad/callback"
 
 echo "Entra App: $CLIENT_ID"
 echo "Redirect URIs to ensure:"
 echo "  1) $EASY_AUTH_URI"
-echo "  2) $CHAINLIT_URI"
 
 # ---------------------------------------------------------------------------
 # Read current redirect URIs
@@ -62,7 +60,7 @@ echo "Current redirect URIs: $CURRENT_URIS"
 DESIRED_URIS=$(python3 -c "
 import json, sys
 current = json.loads('''$CURRENT_URIS''')
-needed = ['$EASY_AUTH_URI', '$CHAINLIT_URI']
+needed = ['$EASY_AUTH_URI']
 merged = list(dict.fromkeys(current + needed))  # deduplicate, preserve order
 for u in merged:
     print(u)
@@ -70,7 +68,7 @@ for u in merged:
 
 # Check if update is needed
 NEED_UPDATE=false
-for URI in "$EASY_AUTH_URI" "$CHAINLIT_URI"; do
+for URI in "$EASY_AUTH_URI"; do
   if ! echo "$CURRENT_URIS" | grep -q "$URI"; then
     NEED_UPDATE=true
     break

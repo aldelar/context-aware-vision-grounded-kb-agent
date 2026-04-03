@@ -1,5 +1,7 @@
+import userEvent from "@testing-library/user-event";
 import { render, screen } from "@testing-library/react";
 
+import { ConversationThreadProvider } from "../../components/ConversationThreadContext";
 import { SearchToolRenderer } from "../../components/SearchToolRenderer";
 
 describe("SearchToolRenderer", () => {
@@ -110,6 +112,57 @@ describe("SearchToolRenderer", () => {
     expect(screen.getByRole("img", { name: "Agentic flow" })).toHaveAttribute(
       "src",
       "/api/images/contoso/agentic-flow.png",
+    );
+  });
+
+  it("loads full source excerpts on demand for compact stored citations", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          status: "ready",
+          citation: {
+            ref_number: 1,
+            chunk_id: "article-1_0",
+            content: "Full chunk content loaded on demand.",
+            content_source: "full",
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <ConversationThreadProvider threadId="thread-123">
+        <SearchToolRenderer
+          args={{ query: "architecture" }}
+          result={{
+            results: [
+              {
+                ref_number: 1,
+                chunk_id: "article-1_0",
+                title: "Architecture guide",
+                section_header: "Diagrams",
+                summary: "Stored compact summary.",
+                content_source: "summary",
+              },
+            ],
+          }}
+          status="complete"
+          toolCallId="tool-call-1"
+        />
+      </ConversationThreadProvider>,
+    );
+
+    expect(screen.getByText("Stored compact summary.")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Load source excerpt" }));
+
+    expect(await screen.findByText("Full chunk content loaded on demand.")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/conversations/thread-123/citations/tool-call-1/1",
+      { cache: "no-store" },
     );
   });
 });

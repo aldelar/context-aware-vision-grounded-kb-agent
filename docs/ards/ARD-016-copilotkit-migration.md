@@ -60,4 +60,5 @@ Epic 016 needed a frontend that could show live tool execution, preserve the exi
 - [Epic 016](../epics/016-copilotkit-migration.md)
 - [Architecture Spec](../specs/architecture.md)
 - [Infrastructure Spec](../specs/infrastructure.md)
-- [Agent Memory Spec](../specs/agent-memory.md)
+- [Agent Sessions Spec](../specs/agent-sessions.md)
+- [Conversation State Model](../specs/conversations-state-model.md)

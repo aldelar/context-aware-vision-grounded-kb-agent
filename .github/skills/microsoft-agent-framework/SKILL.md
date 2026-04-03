@@ -38,7 +38,7 @@ When working with Microsoft Agent Framework:
 - **Agent location**: `src/agent/` — Starlette ASGI service with Agent Framework
 - **Deployment**: Azure Container Apps (see `infra/azure/infra/modules/agent-container-app.bicep`)
 - **Auth**: JWT validation via APIM gateway (see `docs/ards/ARD-010-agent-external-auth-gateway.md`)
-- **Memory**: Cosmos DB for conversation history (see `docs/specs/agent-memory.md`)
+- **Memory**: Cosmos DB for canonical agent sessions and conversation ownership boundaries (see `docs/specs/agent-sessions.md` and `docs/specs/conversations-state-model.md`)
 - **Tools**: Agent uses tools for KB search, image analysis, and other domain operations
 
 ## Migration Guidance
