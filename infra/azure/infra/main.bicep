@@ -348,6 +348,21 @@ module agentContainerApp 'modules/agent-container-app.bicep' = {
 }
 
 // ---------------------------------------------------------------------------
+// Module: MCP Web Search Server Container App (internal-only ingress)
+// ---------------------------------------------------------------------------
+module mcpWebSearchContainerApp 'modules/mcp-web-search-container-app.bicep' = {
+  name: 'mcp-web-search-container-app'
+  params: {
+    location: location
+    baseName: baseName
+    tags: defaultTags
+    containerAppsEnvId: containerAppsEnv.outputs.containerAppsEnvId
+    acrLoginServer: containerRegistry.outputs.containerRegistryLoginServer
+    environment: 'prod'
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Module: API Management — AI Gateway
 // ---------------------------------------------------------------------------
 module apim 'modules/apim.bicep' = {

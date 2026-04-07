@@ -23,6 +23,10 @@ const conversationStarters = [
     message: "How does agentic retrieval work in Azure AI Search?",
   },
   {
+    title: "Cosmos DB",
+    message: "What are the partition key strategies for Azure Cosmos DB?",
+  },
+  {
     title: "Search Security",
     message: "What are the network security options for Azure AI Search?",
   },
@@ -226,9 +230,9 @@ export function CopilotWorkspace() {
                 labels={{
                   title: activeConversation?.name ?? "Azure AI Knowledge Agent",
                   initial: [
-                    "Ask about Azure AI Search, Content Understanding, or other indexed Azure AI content.",
+                    "Ask me anything about Azure — I can search our internal knowledge base and the web.",
                   ],
-                  placeholder: "Ask a question about Azure AI knowledge…",
+                  placeholder: "Ask a question about Azure…",
                 }}
                 onSubmitMessage={(message) => void handleSubmitMessage(message)}
                 RenderMessage={CopilotMessageRenderer as any}

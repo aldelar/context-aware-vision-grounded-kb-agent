@@ -32,7 +32,7 @@ help:
 	@echo "    make dev-services-up                Build and start the full local stack"
 	@echo "      make dev-services-pipeline-up       fn-convert + fn-index only"
 	@echo "      make dev-services-app-up            web app only"
-	@echo "      make dev-services-agents-up         agent only"
+	@echo "      make dev-services-agent-up          agent only"
 	@echo "    make dev-pipeline                   Run local convert + index pipeline"
 	@echo "      make dev-pipeline-convert           Trigger local MarkItDown convert"
 	@echo "        make dev-seed-kb                   Sync kb/staging into local Azurite"
@@ -70,7 +70,7 @@ help:
 	@echo "    make prod-services-up               Deploy all services"
 	@echo "      make prod-services-pipeline-up      Pipeline services (fn-index + selected converter)"
 	@echo "      make prod-services-app-up           Web app only"
-	@echo "      make prod-services-agents-up        Agent only"
+	@echo "      make prod-services-agent-up         Agent only"
 	@echo "    make prod-pipeline                  Run Azure convert + index pipeline"
 	@echo "      make prod-seed-kb                   Upload kb/staging to Azure blob"
 	@echo "      make prod-pipeline-convert           Trigger the selected Azure converter"
@@ -188,8 +188,8 @@ dev-services-app-up:
 	fi
 	@$(DEV_SERVICES_COMPOSE) up -d --build web-app
 
-.PHONY: dev-services-agents-up
-dev-services-agents-up:
+.PHONY: dev-services-agent-up
+dev-services-agent-up:
 	@test -f $(DEV_ENV_FILE) || (echo "Missing $(DEV_ENV_FILE). Copy .env.dev.template first." >&2; exit 1)
 	@if ! $(DEV_SERVICES_COMPOSE) ps --services --status running | grep -qx agent; then \
 		bash scripts/dev-check-port-owner.sh 8088 agent; \
@@ -326,7 +326,7 @@ prod-up: prod-setup prod-infra-up prod-services-up prod-pipeline
 	@$(MAKE) prod-ui-url
 
 .PHONY: prod-services-up
-prod-services-up: prod-configure-registries prod-services-app-up prod-services-agents-up prod-services-pipeline-up
+prod-services-up: prod-configure-registries prod-services-app-up prod-services-agent-up prod-services-pipeline-up
 	@$(MAKE) prod-configure-target-ports
 
 .PHONY: prod-configure-registries
@@ -356,8 +356,8 @@ prod-services-app-up:
 	@$(AZD) deploy --service web-app
 	@$(MAKE) prod-configure-target-ports
 
-.PHONY: prod-services-agents-up
-prod-services-agents-up:
+.PHONY: prod-services-agent-up
+prod-services-agent-up:
 	@$(AZD) deploy --service agent
 	@$(MAKE) prod-configure-target-ports
 

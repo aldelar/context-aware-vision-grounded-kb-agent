@@ -1,0 +1,5 @@
+# Whitelist of allowed sites for web search.
+# Only results from these domains will be returned.
+# Adding or removing sites requires only editing this file.
+allowed_sites:
+  - learn.microsoft.com

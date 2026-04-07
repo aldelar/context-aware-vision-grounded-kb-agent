@@ -58,8 +58,8 @@ describe("CopilotWorkspace", () => {
         expect.objectContaining({
           labels: expect.objectContaining({
             title: "Azure AI chat",
-            initial: ["Ask about Azure AI Search, Content Understanding, or other indexed Azure AI content."],
-            placeholder: "Ask a question about Azure AI knowledge…",
+            initial: ["Ask me anything about Azure \u2014 I can search our internal knowledge base and the web."],
+            placeholder: "Ask a question about Azure\u2026",
           }),
         }),
       );

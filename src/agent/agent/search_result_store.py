@@ -13,6 +13,7 @@ import re
 from typing import Any, Iterator
 
 SEARCH_TOOL_NAME = "search_knowledge_base"
+WEB_SEARCH_TOOL_NAME = "web_search"
 _MAX_PREVIEW_CHARS = 280
 _MARKDOWN_IMAGE_PATTERN = re.compile(r"!\[[^\]]*\]\([^)]*\)")
 _INDEXED_IMAGE_PATTERN = re.compile(r"\[Image:\s*[^\]]+\]\([^)]*\)", re.IGNORECASE)
@@ -194,6 +195,9 @@ def _is_search_tool_message(message: dict[str, Any], payload: dict[str, Any] | N
     if tool_name == SEARCH_TOOL_NAME:
         return True
 
+    if tool_name == WEB_SEARCH_TOOL_NAME:
+        return True
+
     return _looks_like_search_payload(payload)
 
 
@@ -212,7 +216,7 @@ def _looks_like_search_payload(payload: dict[str, Any] | None) -> bool:
     if not isinstance(first, dict):
         return False
 
-    return any(key in first for key in ("article_id", "chunk_index", "chunk_id", "title", "summary"))
+    return any(key in first for key in ("article_id", "chunk_index", "chunk_id", "title", "summary", "source_url"))
 
 
 def _compact_search_payload(payload: dict[str, Any]) -> dict[str, Any] | None:
@@ -267,6 +271,14 @@ def _compact_search_result_row(row: Any, *, index: int) -> dict[str, Any]:
         value = _as_string(record.get(field))
         if value:
             compacted[field] = value
+
+    # Web search result fields
+    source_url = _as_string(record.get("source_url"))
+    if source_url:
+        compacted["source_url"] = source_url
+    anchor = _as_string(record.get("anchor"))
+    if anchor:
+        compacted["anchor"] = anchor
 
     if preview:
         compacted["summary"] = preview

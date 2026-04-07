@@ -1,6 +1,6 @@
 # Epic 017 — Multi-Agent Handoff Orchestration
 
-> **Status:** Not Started
+> **Status:** In Progress
 > **Created:** April 7, 2026
 > **Updated:** April 7, 2026
 
@@ -39,7 +39,7 @@ After this epic:
 - [ ] Both MCP implementations expose the same tool API contract
 - [ ] Bing Search resource provisioned via Bicep for prod
 - [ ] MCP server behind APIM in prod — same AI Gateway pattern as the agent (JWT auth, rate limiting, telemetry)
-- [ ] Agent handoff events visible in CopilotKit UI via native AG-UI protocol support
+- [ ] Agent handoff events (`STEP_STARTED`/`STEP_FINISHED`, `ACTIVITY_SNAPSHOT`) present in AG-UI SSE stream; `author_name` set on specialist agent messages for future CopilotKit native rendering
 - [ ] Multi-turn conversations maintain context across agent handoffs (shared session)
 - [ ] SecurityFilterMiddleware applies to internal-search-agent only
 - [ ] VisionImageMiddleware applies to both agents
@@ -187,7 +187,7 @@ The whitelist lives in the **MCP server's** service directory — the agent does
    - Non-Azure → polite decline (no handoff)
 3. Specialist agent executes its tool, streams response
 4. If internal-search-agent's results are insufficient, the orchestrator may escalate to web-search-agent for supplementary data
-5. AG-UI events include handoff transitions → CopilotKit renders them natively
+5. AG-UI events include `STEP_STARTED`/`STEP_FINISHED` and `ACTIVITY_SNAPSHOT` for executor transitions; `author_name` is set on specialist agent messages for future CopilotKit native rendering
 
 ---
 
@@ -195,7 +195,7 @@ The whitelist lives in the **MCP server's** service directory — the agent does
 
 ### Story 1 — Refactor Single Agent into Internal-Search-Agent
 
-> **Status:** Not Started
+> **Status:** ✅ Done
 > **Depends on:** —
 
 Rename and scope the existing `KBSearchAgent` to become `internal-search-agent`.
@@ -225,7 +225,7 @@ Rename and scope the existing `KBSearchAgent` to become `internal-search-agent`.
 
 ### Story 2 — Create Web-Search-Agent with MCP Tool
 
-> **Status:** Not Started
+> **Status:** ✅ Done
 > **Depends on:** Story 3
 
 Create the `web-search-agent` that uses an MCP web search tool.
@@ -255,7 +255,7 @@ Create the `web-search-agent` that uses an MCP web search tool.
 
 ### Story 3 — Create Whitelist Configuration
 
-> **Status:** Not Started
+> **Status:** ✅ Done
 > **Depends on:** —
 
 Create the YAML-based site whitelist for the MCP web search server.
@@ -277,7 +277,7 @@ Create the YAML-based site whitelist for the MCP web search server.
 
 ### Story 4 — MCP Web Search Server: Dev Implementation (Fetch/Scrape)
 
-> **Status:** Not Started
+> **Status:** ✅ Done
 > **Depends on:** Story 3
 
 Build the dev-mode MCP server that fetches and scrapes whitelisted sites.
@@ -303,7 +303,7 @@ Build the dev-mode MCP server that fetches and scrapes whitelisted sites.
 
 ### Story 5 — MCP Web Search Server: Prod Implementation (Bing Grounding)
 
-> **Status:** Not Started
+> **Status:** ✅ Done
 > **Depends on:** Story 3
 
 Build the prod-mode MCP server that uses Azure Bing Grounding API.
@@ -329,7 +329,7 @@ Build the prod-mode MCP server that uses Azure Bing Grounding API.
 
 ### Story 6 — Orchestrator Agent with HandoffBuilder
 
-> **Status:** Not Started
+> **Status:** ✅ Done
 > **Depends on:** Stories 1, 2
 
 Wire the orchestrator using `HandoffBuilder` with handoff tools to both specialist agents.
@@ -366,22 +366,25 @@ Wire the orchestrator using `HandoffBuilder` with handoff tools to both speciali
 
 ### Story 7 — AG-UI Handoff Events in CopilotKit UI
 
-> **Status:** Not Started
+> **Status:** ✅ Done
 > **Depends on:** Story 6
 
 Verify and enable AG-UI handoff event rendering in the CopilotKit frontend.
 
 #### Deliverables
 
-- [ ] Verify CopilotKit + `@ag-ui/client` natively render `AGENT_HANDOFF` events from the AG-UI stream
-- [ ] If native rendering is insufficient, document the gap and propose minimal custom rendering
+- [ ] Verify handoff works end-to-end: specialist agent responses stream correctly through the orchestrator to the CopilotKit UI
+- [ ] Verify `author_name` is set on assistant messages from specialist agents (available for future CopilotKit rendering when native support is added)
+- [ ] Verify `STEP_STARTED`/`STEP_FINISHED` and `ACTIVITY_SNAPSHOT` events flow in the AG-UI SSE stream (confirmed: these are the events the AG-UI adapter emits for executor transitions — there is no `AGENT_HANDOFF` event type in the current AG-UI protocol)
+- [ ] No custom handoff UI rendering in this epic — CopilotKit will surface handoff labels natively when it adds `author_name` rendering in a future version
 - [ ] Update welcome screen messaging to reflect the new scope: "Ask me anything about Azure — I can search our internal knowledge base and the web"
 - [ ] Conversation starters updated to showcase both agents (e.g., one Content Understanding question, one general Azure question)
 - [ ] Web-app tests updated for new welcome text and starters
 
 #### Definition of Done
 
-- [ ] Handoff transitions visible in the chat UI when switching between agents
+- [ ] Specialist agent answers arrive correctly in the chat UI (text streams, citations work)
+- [ ] `author_name` field is present on assistant messages (verifiable via debug logging)
 - [ ] Welcome screen reflects new agent scope
 - [ ] `npm test` passes with updated assertions
 
@@ -389,7 +392,7 @@ Verify and enable AG-UI handoff event rendering in the CopilotKit frontend.
 
 ### Story 8 — Infrastructure: MCP Server Container Apps + Bing Search Resource
 
-> **Status:** Not Started
+> **Status:** ✅ Done
 > **Depends on:** Story 5
 
 Add infrastructure-as-code for the MCP web search server Container Apps and Bing Search resource.
@@ -417,7 +420,7 @@ Add infrastructure-as-code for the MCP web search server Container Apps and Bing
 
 ### Story 9 — Web Search Citation References and Proxy API
 
-> **Status:** Not Started
+> **Status:** ✅ Done
 > **Depends on:** Stories 2, 4
 
 Enable web search results to be referenced and reloaded from the UI, similar to internal search chunk citations.
@@ -443,7 +446,7 @@ Enable web search results to be referenced and reloaded from the UI, similar to 
 
 ### Story 10 — End-to-End Validation and Documentation
 
-> **Status:** Not Started
+> **Status:** ✅ Done
 > **Depends on:** Stories 6, 7, 8, 9
 
 Full system validation and documentation updates.
@@ -473,7 +476,7 @@ Full system validation and documentation updates.
 
 ### Story 11 — README: MCP Server and Multi-Agent Orchestration Patterns
 
-> **Status:** Not Started
+> **Status:** ✅ Done
 > **Depends on:** Stories 6, 8
 
 Document two new Core Patterns in the README.

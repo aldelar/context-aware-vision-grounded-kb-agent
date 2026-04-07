@@ -178,7 +178,7 @@ See [docs/setup-and-makefile.md](docs/setup-and-makefile.md) for the full target
 
 ## Core Patterns
 
-This solution demonstrates eight architectural patterns for building production-quality AI agents over enterprise content. Each solves a real problem encountered when moving from prototype to production.
+This solution demonstrates ten architectural patterns for building production-quality AI agents over enterprise content. Each solves a real problem encountered when moving from prototype to production.
 
 ### 1. Pluggable Document Normalization
 
@@ -441,11 +441,54 @@ flowchart LR
 
 > See [docs/specs/contextual-tool-filtering.md](docs/specs/contextual-tool-filtering.md) for the full architecture comparison and implementation details.
 
+### 9. MCP Server as Tool Backend
+
+**Problem:** Agents need web search capabilities, but implementation varies by environment — dev has no Azure costs budget for Bing API, while prod requires enterprise-grade search with auth and rate limiting. Embedding search logic directly in the agent couples the agent to a specific search implementation.
+
+**Pattern:** Deploy an **MCP server** as a separate Container App exposing `web_search(query)` via SSE transport. Two implementations share the same MCP tool contract: **dev** uses HTTP fetch + scrape (no Azure costs), **prod** uses Bing Grounding API. The agent connects via `agent-framework` MCP client — it doesn't know which implementation is behind the tool. In prod, APIM sits in front of the MCP server providing JWT auth, rate limiting, and telemetry — the same AI Gateway pattern used for the agent itself. A YAML whitelist (`config/whitelist.yaml`) controls which domains the server will search, enforced at the search level.
+
+```mermaid
+flowchart LR
+    AGENT["Agent Container"] -->|dev: MCP SSE direct| MCP["MCP Web Search<br/>Container App"]
+    AGENT -->|prod: MCP SSE via gateway| APIM["APIM AI Gateway"]
+    APIM -->|JWT + rate limit| MCP
+    MCP -->|dev: fetch/scrape| WEB["Whitelisted<br/>Web Sites"]
+    MCP -->|prod: Bing API| BING["Bing Grounding<br/>API (whitelisted sites)"]
+
+    style AGENT fill:#3949ab,stroke:#5c6bc0,color:#ffffff
+    style MCP fill:#455a64,stroke:#546e7a,color:#ffffff
+    style BING fill:#0d47a1,stroke:#1565c0,color:#ffffff
+    style APIM fill:#6d8f6d,stroke:#8aac8a,color:#ffffff
+```
+
+### 10. Multi-Agent Handoff Orchestration
+
+**Problem:** A single agent can only answer from one knowledge source. Users ask questions spanning multiple Azure services, but the internal search index only covers Azure AI Search and Content Understanding. Adding general Azure knowledge requires a different retrieval strategy (web search vs. index search), different middleware configurations, and different citation formats — all impossible to manage in a single agent.
+
+**Pattern:** Use `HandoffBuilder` from `agent-framework-orchestrations` to create a **triage orchestrator** that routes questions to specialist agents. The orchestrator evaluates the topic and hands off to `InternalSearchAgent` (for indexed AI Search / Content Understanding content) or `WebSearchAgent` (for other Azure topics via MCP web search). Non-Azure questions are politely declined. All agents run in a **single container** — `HandoffBuilder` manages session propagation so multi-turn conversations maintain context across agent handoffs. The AG-UI adapter emits `STEP_STARTED`/`STEP_FINISHED` and `ACTIVITY_SNAPSHOT` events for executor transitions, and sets `author_name` on specialist agent messages for future CopilotKit native rendering.
+
+```mermaid
+flowchart TD
+    USER["User Question"] --> ORCH["Orchestrator<br/>(triage)"]
+    ORCH -->|"AI Search / CU"| INT["InternalSearchAgent<br/>search_knowledge_base"]
+    ORCH -->|"Other Azure"| WEB["WebSearchAgent<br/>web_search (MCP)"]
+    ORCH -->|"Non-Azure"| DECLINE["Polite Decline"]
+    INT --> ANSWER["Grounded Answer"]
+    WEB --> ANSWER
+
+    style ORCH fill:#e65100,color:#fff
+    style INT fill:#1565c0,color:#fff
+    style WEB fill:#455a64,color:#fff
+    style DECLINE fill:#b71c1c,color:#fff
+```
+
+> See [docs/ards/ARD-017-multi-agent-handoff.md](docs/ards/ARD-017-multi-agent-handoff.md) for the full decision record.
+
 ---
 
 ## Architecture
 
-A **two-stage ingestion pipeline** builds an image-aware search index, and a **conversational agent** (Container App with Foundry integration for tracing) reasons over it with vision capabilities. A **Next.js + CopilotKit thin client** calls the agent via the **AG-UI protocol** through an APIM AI Gateway, while conversation persistence is split between agent-owned `agent-sessions` and web-app-owned `conversations` metadata.
+A **two-stage ingestion pipeline** builds an image-aware search index, and a **multi-agent orchestrator** (Container App with Foundry integration for tracing) reasons over it with vision capabilities. An **orchestrator agent** routes questions to specialist agents: **InternalSearchAgent** (for Azure AI Search + Content Understanding topics via the search index) and **WebSearchAgent** (for other Azure topics via an MCP web search server). A **Next.js + CopilotKit thin client** calls the agent via the **AG-UI protocol** through an APIM AI Gateway, while conversation persistence is split between agent-owned `agent-sessions` and web-app-owned `conversations` metadata.
 
 ```mermaid
 flowchart LR

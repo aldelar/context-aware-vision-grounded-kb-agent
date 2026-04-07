@@ -1061,11 +1061,27 @@ def main() -> None:
     _patch_agentserver_streaming_converter()
 
     from agent.config import config
-    from agent.kb_agent import create_agent
     from agent.session_repository import CosmosAgentSessionRepository
 
-    agent = create_agent()
-    logger.info("[KB-AGENT] Agent created, starting server…")
+    # Use orchestrator HandoffBuilder when available, fall back to single agent.
+    # from_agent_framework() accepts Callable[[], Workflow] — it wraps it in
+    # AgentFrameworkWorkflowAdapter which calls the factory per request,
+    # creating a fresh Workflow each time (no singleton reuse issues).
+    # Note: HandoffBuilder is NOT a WorkflowBuilder subclass, so we pass
+    # builder.build as the callable factory.
+    agent_or_factory = None
+    is_workflow = False
+    try:
+        from agent.orchestrator import create_orchestrator_builder
+        builder = create_orchestrator_builder()
+        agent_or_factory = builder.build  # Callable[[], Workflow]
+        is_workflow = True
+        logger.info("[KB-AGENT] Orchestrator HandoffBuilder created (multi-agent mode)")
+    except Exception:
+        logger.warning("[KB-AGENT] Orchestrator creation failed, falling back to single agent", exc_info=True)
+        from agent.kb_agent import create_agent
+        agent_or_factory = create_agent()
+        logger.info("[KB-AGENT] Single agent created (fallback mode)")
 
     session_repo = None
     if config.cosmos_endpoint:
@@ -1078,9 +1094,58 @@ def main() -> None:
     else:
         logger.info("[KB-AGENT] Session persistence disabled (no COSMOS_ENDPOINT)")
 
-    server = from_agent_framework(agent, session_repository=session_repo)
+    # from_agent_framework() handles both Agent and Callable[[], Workflow].
+    # For callables it creates AgentFrameworkWorkflowAdapter which builds
+    # a fresh Workflow per request — no "already running" issues.
+    server = from_agent_framework(agent_or_factory, session_repository=session_repo)
     server.app.add_middleware(JWTAuthMiddleware)
-    server.app.mount("/ag-ui", _create_ag_ui_app(agent, session_repo))
+
+    # AG-UI endpoint: for workflows, create a per-request WorkflowAgent
+    # to avoid "Workflow is already running" errors on sequential calls.
+    # For single agent, use the custom _PersistedSessionAgent wrapper.
+    if is_workflow:
+        from agent.orchestrator import create_orchestrator
+
+        class _PerRequestWorkflowAgent:
+            """Creates a fresh WorkflowAgent per AG-UI run() call.
+
+            AgentFrameworkAgent expects a SupportsAgentRun, but a WorkflowAgent
+            singleton can't handle sequential requests (its Workflow keeps
+            running-state).  This wrapper creates a disposable WorkflowAgent
+            for each ``run()`` invocation.
+            """
+
+            @property
+            def name(self):
+                return "KBAgentOrchestrator"
+
+            async def create_session(self, *args, **kwargs):
+                from agent_framework import AgentSession
+                return AgentSession()
+
+            async def get_session(self, *args, **kwargs):
+                return None
+
+            def run(self, messages, **kwargs):
+                workflow = create_orchestrator()
+                agent = workflow.as_agent(name="KBAgentOrchestrator")
+                return agent.run(messages, **kwargs)
+
+        ag_ui_app = FastAPI(
+            title="KB Agent AG-UI",
+            docs_url=None, redoc_url=None, openapi_url=None,
+            redirect_slashes=False,
+        )
+        per_request_agent = _PerRequestWorkflowAgent()
+        ag_ui_agent = AgentFrameworkAgent(agent=per_request_agent, use_service_session=True)
+        add_agent_framework_fastapi_endpoint(
+            ag_ui_app, ag_ui_agent, "/",
+            dependencies=[Depends(require_jwt_auth)],
+        )
+        server.app.mount("/ag-ui", ag_ui_app)
+    else:
+        server.app.mount("/ag-ui", _create_ag_ui_app(agent_or_factory, session_repo))
+
     if session_repo is not None:
         server.app.mount("/citations", _create_citation_lookup_app(session_repo))
     server.run()
