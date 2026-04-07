@@ -54,6 +54,7 @@ def create_web_search_agent() -> Agent:
         name="mcp-web-search",
         url=mcp_endpoint,
         allowed_tools=["web_search"],
+        load_prompts=False,
     )
 
     agent = Agent(

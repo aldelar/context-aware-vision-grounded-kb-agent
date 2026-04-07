@@ -79,16 +79,24 @@ def main() -> None:
     logger.info("Starting MCP web search server (env=%s, port=%d)", _ENVIRONMENT, port)
 
     from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+    from contextlib import asynccontextmanager
+    from collections.abc import AsyncIterator
     from starlette.applications import Starlette
     from starlette.routing import Mount
     import uvicorn
 
     session_manager = StreamableHTTPSessionManager(server)
 
+    @asynccontextmanager
+    async def lifespan(app: Starlette) -> AsyncIterator[None]:
+        async with session_manager.run():
+            yield
+
     app = Starlette(
         routes=[
             Mount("/mcp", app=session_manager.handle_request),
         ],
+        lifespan=lifespan,
     )
 
     uvicorn.run(app, host="0.0.0.0", port=port)
