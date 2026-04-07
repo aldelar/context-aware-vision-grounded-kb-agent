@@ -1,6 +1,6 @@
 """KB Search Agent — conversational agent using Microsoft Agent Framework.
 
-Uses gpt-4.1 via ``AzureOpenAIChatClient`` and ``Agent`` with a single
+Uses gpt-4.1 via ``OpenAIChatCompletionClient`` and ``Agent`` with a single
 ``search_knowledge_base`` function tool to answer knowledge-base questions
 grounded in Azure AI Search results.
 
@@ -18,13 +18,13 @@ from typing import Annotated
 
 from pydantic import BeforeValidator
 
-from agent_framework import Agent
-from agent_framework._compaction import (
+from agent_framework import (
+    Agent,
     CompactionProvider,
+    InMemoryHistoryProvider,
     SlidingWindowStrategy,
     ToolResultCompactionStrategy,
 )
-from agent_framework._sessions import InMemoryHistoryProvider
 
 from agent.client_factories import create_chat_client
 from agent.image_service import get_image_url
@@ -201,7 +201,7 @@ def create_agent() -> Agent:
     """Create and return a configured Agent instance.
 
     This factory is the entry point for the hosting adapter (``main.py``).
-    It creates the ``AzureOpenAIChatClient`` with ``DefaultAzureCredential``
+    It creates the ``OpenAIChatCompletionClient`` with ``DefaultAzureCredential``
     (which includes WorkloadIdentityCredential for Foundry hosted agents,
     ManagedIdentityCredential, AzureCliCredential for local dev, etc.)
     and returns an ``Agent`` configured with the search tool and

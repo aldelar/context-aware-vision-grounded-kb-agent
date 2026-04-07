@@ -21,12 +21,12 @@ from agent.kb_agent import (
 )
 from agent.search_tool import SearchResult
 from agent.security_middleware import SecurityFilterMiddleware
-from agent_framework._compaction import (
+from agent_framework import (
     CompactionProvider,
+    InMemoryHistoryProvider,
     SlidingWindowStrategy,
     ToolResultCompactionStrategy,
 )
-from agent_framework._sessions import InMemoryHistoryProvider
 
 
 # ---------------------------------------------------------------------------

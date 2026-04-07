@@ -85,6 +85,7 @@ Composable rules auto-applied by file pattern:
 - [makefile.instructions.md](instructions/makefile.instructions.md) — Best practices for authoring GNU Make Makefiles (`**/Makefile,**/makefile,**/*.mk`)
 - [secure-coding-owasp.instructions.md](instructions/secure-coding-owasp.instructions.md) — Comprehensive secure coding based on OWASP Top 10 (`**`)
 - [context-engineering.instructions.md](instructions/context-engineering.instructions.md) — Guidelines for structuring code to maximize Copilot effectiveness (`**`)
+- [web-app.instructions.md](instructions/web-app.instructions.md) — Next.js + CopilotKit web app conventions, dependency rules, and testing patterns (`src/web-app/**`)
 
 ### Prompts (`.github/prompts/`)
 

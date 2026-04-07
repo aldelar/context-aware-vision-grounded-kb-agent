@@ -23,6 +23,22 @@ import os
 from collections.abc import AsyncGenerator, Mapping
 from typing import Any
 
+# ---------------------------------------------------------------------------
+# Compatibility shim for azure-ai-agentserver-agentframework 1.0.0b17
+#
+# The agentserver package imports ``BaseContextProvider`` and
+# ``BaseHistoryProvider`` from ``agent_framework``.  These deprecated aliases
+# were removed in MAF 1.0 GA — the canonical names are now
+# ``ContextProvider`` and ``HistoryProvider``.  Re-inject the aliases so the
+# agentserver can load without code changes on its side.
+# ---------------------------------------------------------------------------
+import agent_framework as _af
+
+if not hasattr(_af, "BaseContextProvider"):
+    _af.BaseContextProvider = _af.ContextProvider  # type: ignore[attr-defined]
+if not hasattr(_af, "BaseHistoryProvider"):
+    _af.BaseHistoryProvider = _af.HistoryProvider  # type: ignore[attr-defined]
+
 from azure.ai.agentserver.agentframework import from_agent_framework
 from azure.ai.agentserver.agentframework.persistence import AgentSessionRepository
 from agent_framework import AgentSession, Message

@@ -178,7 +178,7 @@ See [docs/setup-and-makefile.md](docs/setup-and-makefile.md) for the full target
 
 ## Core Patterns
 
-This solution demonstrates nine architectural patterns for building production-quality AI agents over enterprise content. Each solves a real problem encountered when moving from prototype to production.
+This solution demonstrates eight architectural patterns for building production-quality AI agents over enterprise content. Each solves a real problem encountered when moving from prototype to production.
 
 ### 1. Pluggable Document Normalization
 
@@ -440,72 +440,6 @@ flowchart LR
 ```
 
 > See [docs/specs/contextual-tool-filtering.md](docs/specs/contextual-tool-filtering.md) for the full architecture comparison and implementation details.
-
----
-
-### 9. AG-UI Protocol
-
-**Problem:** Traditional chat UIs treat agents as opaque text generators — the user sends a message, waits, and eventually receives a completed response. There is no visibility into what the agent is doing (calling tools, reasoning, waiting on backends), no way for the UI to render tool interactions richly, and no standard contract for resuming interrupted conversations across sessions.
-
-**Pattern:** The [AG-UI protocol](https://docs.ag-ui.com) provides a **streaming event contract** between the agent backend and the UI frontend. Instead of a single response blob, the agent emits a typed event stream (`RUN_STARTED`, `TEXT_MESSAGE_*`, `TOOL_CALL_*`, `REASONING_*`, `STATE_*`, `RUN_FINISHED`) over SSE. The UI consumes these events in real time and renders each interaction phase with purpose-built components.
-
-Core benefits of the AG-UI protocol:
-
-| Benefit | Description |
-|---------|-------------|
-| **Streaming event contract** | Typed SSE events replace opaque request/response — the UI knows exactly what the agent is doing at every moment |
-| **Rich tool rendering** | Tool calls and results are first-class events, enabling the UI to render custom cards (search results, citation pills, progress indicators) instead of raw JSON |
-| **Resumable interactions** | `threadId`-based session continuity lets conversations resume across page reloads and browser sessions — the agent replays from persisted state |
-| **Framework-agnostic** | The protocol is an open standard — any agent framework that emits AG-UI events works with any AG-UI-compatible frontend |
-| **Transparent reasoning** | `REASONING_*` events surface the agent's chain-of-thought as collapsible "Thinking" cards, giving users visibility into the decision process |
-| **State synchronization** | `STATE_SNAPSHOT` and `STATE_DELTA` events allow the agent to push structured state to the UI without embedding it in the text stream |
-
-> **Current scope:** This reference implementation showcases **tool calls and tool results** as the primary AG-UI rich integration. The `search_knowledge_base` tool emits `TOOL_CALL_START/ARGS/END` and `TOOL_CALL_RESULT` events, rendered in the UI as a custom search card with live status, query display, and interactive citation pills. Other AG-UI capabilities (state sync, custom UI widgets) are supported by the protocol but not yet exercised in the UI.
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant UI as CopilotKit UI
-    participant RT as CopilotRuntime<br/>(Next.js API route)
-    participant GW as APIM Gateway
-    participant Agent as KB Agent<br/>(AG-UI endpoint)
-    participant LLM as LLM
-    participant Tool as search_knowledge_base
-
-    User->>UI: Send message
-    UI->>RT: GraphQL mutation
-    RT->>GW: POST /ag-ui/ (SSE)
-    GW->>Agent: Forward request
-
-    Agent-->>RT: RUN_STARTED
-    Agent->>LLM: Prompt + history
-
-    Note over Agent: LLM decides to call a tool
-
-    Agent-->>RT: TOOL_CALL_START
-    Agent-->>RT: TOOL_CALL_ARGS (query, filters)
-    RT-->>UI: Stream events
-    Note over UI: Renders search card<br/>with "Searching..." status
-
-    Agent->>Tool: Execute search
-    Tool-->>Agent: Search results
-    Agent-->>RT: TOOL_CALL_END
-    Agent-->>RT: TOOL_CALL_RESULT (citations)
-    RT-->>UI: Stream events
-    Note over UI: Updates card with<br/>citation pills
-
-    Agent->>LLM: Results + conversation
-    Agent-->>RT: TEXT_MESSAGE_START
-    Agent-->>RT: TEXT_MESSAGE_CONTENT (chunks)
-    RT-->>UI: Stream text
-    Note over UI: Renders streaming<br/>markdown response
-    Agent-->>RT: TEXT_MESSAGE_END
-    Agent-->>RT: RUN_FINISHED
-```
-
-On the **agent side**, the Microsoft Agent Framework's AG-UI adapter (`AgentFrameworkAgent` + `add_agent_framework_fastapi_endpoint`) translates agent framework events into AG-UI SSE events automatically. A `_PersistedSessionAgent` wrapper maps AG-UI `threadId` values to Cosmos DB sessions, enabling seamless conversation resume.
-
-On the **UI side**, CopilotKit's `useRenderToolCall` hook lets the app register custom renderers per tool name. The `SearchToolRenderer` component receives tool call arguments and results as structured data and renders them as interactive cards — no string parsing or JSON extraction required.
 
 ---
 

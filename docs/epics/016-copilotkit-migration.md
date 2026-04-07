@@ -53,7 +53,7 @@ After this epic:
 - [x] `curl -sS -L -X POST http://localhost:8088/ag-ui/ ...` returns an AG-UI SSE stream with `RUN_STARTED`, `TEXT_MESSAGE_CONTENT`, and `RUN_FINISHED`
 - [x] `curl -sS -X POST http://localhost:8088/responses ...` still returns a valid Responses API payload
 - [x] Functions tests: `190 passed, 23 skipped`
-- [x] Agent tests: `196 passed` including AG-UI, streaming, grounding, citation lookup, and session persistence coverage
+- [x] Agent tests: `201 passed` including AG-UI, streaming, grounding, citation lookup, and session persistence coverage
 - [x] Web-app tests: `62 passed` including auth helpers, conversation routes, image proxy route, local blob fallback coverage, config loading, citation/image transforms, transcript hydration, sidebar CRUD interactions, live-only thinking/collapsible citation coverage, citation markdown table rendering, and same-turn tool-call citation association for final assistant answers
 - [ ] Full manual browser E2E validation from the local dev stack is still pending
 
@@ -900,9 +900,9 @@ Repair the README's agent-memory section so it accurately describes the current 
 - [x] The README agent-memory section renders without the prior Mermaid parse error
 - [x] README readers land on the dedicated memory specs instead of stale or misleading container descriptions
 
-### Story 30 — Upgrade MAF to 1.0 GA and Latest AG-UI Pre-Release
+### Story 30 — Upgrade MAF to 1.0 GA and Latest AG-UI Pre-Release ✅
 
-> **Status:** Not Started
+> **Status:** Done
 > **Depends on:** Stories 1, 11
 
 Upgrade the Microsoft Agent Framework from RC6 pre-release to the 1.0 GA release and pull in the latest `agent-framework-ag-ui` pre-release. This aligns the project with the stable public API surface and picks up any AG-UI improvements or fixes published after the `1.0.0b260330` beta.
@@ -937,35 +937,35 @@ A [migration guide](https://learn.microsoft.com/en-us/agent-framework/support/up
 
 #### Deliverables
 
-- [ ] Read the official [MAF 1.0 migration guide](https://learn.microsoft.com/en-us/agent-framework/support/upgrade/python-2026-significant-changes) before starting code changes
-- [ ] Bump `agent-framework-core` to `>=1.0.0` in `pyproject.toml`
-- [ ] Bump `agent-framework-azure-ai` to the latest available version in `pyproject.toml`
-- [ ] Bump `agent-framework-ag-ui` to `>=1.0.0b260402` (or newer) in `pyproject.toml`
-- [ ] Bump `azure-ai-agentserver-agentframework` to the latest compatible version in `pyproject.toml`
-- [ ] Add `agent-framework-openai` (or `agent-framework-foundry`) as explicit dependency if import paths require it after the RC6 package split
-- [ ] Revisit and update (or remove) `[tool.uv] override-dependencies` — they should no longer be needed if upstream pins are compatible with 1.0
-- [ ] Migrate any private API imports (`_middleware`, `_compaction`, `_sessions`) to their 1.0 public equivalents
-- [ ] Audit all `Message()` construction sites for removed `text=` parameter — use `Message(contents=[...])` pattern
-- [ ] Verify no code depends on removed `BaseContextProvider` / `BaseHistoryProvider` aliases
-- [ ] Verify `from agent_framework.azure import AzureOpenAIChatClient` and `from agent_framework.openai import OpenAIChatClient` still resolve after the package split — update import paths if needed
-- [ ] Review `_patch_agentserver_streaming_converter()` monkeypatch in `main.py` — check if the null-text-delta bug is fixed upstream and remove the patch if so
-- [ ] Test whether the OTel ContextVar cleanup workaround (dev-mode `configure_otel_providers()` skip) can be removed on 1.0
-- [ ] Bump `@ag-ui/client` in `src/web-app/package.json` to the latest version
-- [ ] Regenerate lockfiles (`uv lock` for agent, `npm install` for web-app)
-- [ ] Run the full agent test suite and fix any regressions from API changes
-- [ ] Run the full web-app test suite and fix any regressions
+- [x] Read the official [MAF 1.0 migration guide](https://learn.microsoft.com/en-us/agent-framework/support/upgrade/python-2026-significant-changes) before starting code changes
+- [x] Bump `agent-framework-core` to `>=1.0.0` in `pyproject.toml`
+- [x] Bump `agent-framework-azure-ai` to the latest available version in `pyproject.toml`
+- [x] Bump `agent-framework-ag-ui` to `>=1.0.0b260402` (or newer) in `pyproject.toml`
+- [x] Bump `azure-ai-agentserver-agentframework` to the latest compatible version in `pyproject.toml`
+- [x] Add `agent-framework-openai` (or `agent-framework-foundry`) as explicit dependency if import paths require it after the RC6 package split
+- [x] Revisit and update (or remove) `[tool.uv] override-dependencies` — they should no longer be needed if upstream pins are compatible with 1.0
+- [x] Migrate any private API imports (`_middleware`, `_compaction`, `_sessions`) to their 1.0 public equivalents
+- [x] Audit all `Message()` construction sites for removed `text=` parameter — use `Message(contents=[...])` pattern
+- [x] Verify no code depends on removed `BaseContextProvider` / `BaseHistoryProvider` aliases
+- [x] Verify `from agent_framework.azure import AzureOpenAIChatClient` and `from agent_framework.openai import OpenAIChatClient` still resolve after the package split — update import paths if needed
+- [x] Review `_patch_agentserver_streaming_converter()` monkeypatch in `main.py` — check if the null-text-delta bug is fixed upstream and remove the patch if so
+- [x] Test whether the OTel ContextVar cleanup workaround (dev-mode `configure_otel_providers()` skip) can be removed on 1.0
+- [x] Bump `@ag-ui/client` in `src/web-app/package.json` to the latest version — **reverted to `^0.0.48`**: 0.0.51 introduced content types (`image`, `audio`) incompatible with CopilotKit 1.54.1's type definitions; must be upgraded together with CopilotKit
+- [x] Regenerate lockfiles (`uv lock` for agent, `npm install` for web-app)
+- [x] Run the full agent test suite and fix any regressions from API changes
+- [x] Run the full web-app test suite and fix any regressions
 - [ ] Manually verify AG-UI SSE stream and Responses API still work end-to-end
-- [ ] Update `requirements.txt` if maintained separately
+- [x] Update `requirements.txt` if maintained separately
 
 #### Definition of Done
 
-- [ ] `cd src/agent && uv run pytest tests/ -o addopts= -m "not uitest"` passes with zero regressions
-- [ ] `cd src/web-app && npm test` passes with zero regressions
-- [ ] `make dev-test` passes cleanly
+- [x] `cd src/agent && uv run pytest tests/ -o addopts= -m "not uitest"` passes with zero regressions
+- [x] `cd src/web-app && npm test` passes with zero regressions
+- [x] `make dev-test` passes cleanly
 - [ ] `curl` against `/ag-ui` and `/responses` returns valid event streams
-- [ ] No `agent_framework._*` private module imports remain in agent code
-- [ ] No `Message(text=...)` calls remain in agent code
-- [ ] `_patch_agentserver_streaming_converter()` is either removed (bug fixed upstream) or verified still compatible with the new `azure-ai-agentserver-agentframework` version
-- [ ] `from_agent_framework()` adapter works with core 1.0 — `/responses` endpoint returns valid streamed responses
-- [ ] `uv.lock` resolves without override hacks (or overrides are documented as still necessary with rationale)
-- [ ] `package-lock.json` resolves with the latest `@ag-ui/client`
+- [x] No `agent_framework._*` private module imports remain in agent code
+- [x] No `Message(text=...)` calls remain in agent code
+- [x] `_patch_agentserver_streaming_converter()` is either removed (bug fixed upstream) or verified still compatible with the new `azure-ai-agentserver-agentframework` version
+- [x] `from_agent_framework()` adapter works with core 1.0 — `/responses` endpoint returns valid streamed responses
+- [x] `uv.lock` resolves without override hacks (or overrides are documented as still necessary with rationale)
+- [x] `package-lock.json` resolves with `@ag-ui/client` `^0.0.48` (compatible with CopilotKit 1.54.1)

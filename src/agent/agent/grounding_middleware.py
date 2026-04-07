@@ -14,8 +14,7 @@ import re
 from collections.abc import Sequence
 from typing import Any
 
-from agent_framework import ChatResponse, Content, Message
-from agent_framework._middleware import ChatContext, ChatMiddleware
+from agent_framework import ChatContext, ChatMiddleware, ChatResponse, Content, Message
 
 from agent.image_service import get_image_url
 

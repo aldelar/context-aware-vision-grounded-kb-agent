@@ -17,8 +17,7 @@ import json
 import logging
 from urllib.parse import unquote
 
-from agent_framework import Content, Message
-from agent_framework._middleware import ChatContext, ChatMiddleware
+from agent_framework import ChatContext, ChatMiddleware, Content, Message
 
 from agent.image_service import download_image
 

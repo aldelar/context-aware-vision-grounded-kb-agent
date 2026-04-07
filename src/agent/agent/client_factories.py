@@ -4,12 +4,11 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from agent_framework.azure import AzureOpenAIChatClient
-from agent_framework.openai import OpenAIChatClient
+from agent_framework.openai import OpenAIChatClient, OpenAIChatCompletionClient
 from azure.ai.inference import EmbeddingsClient
 from azure.core.credentials import AzureKeyCredential
 from azure.cosmos.aio import CosmosClient as AsyncCosmosClient
-from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+from azure.identity import DefaultAzureCredential
 from azure.search.documents import SearchClient
 from azure.storage.blob import BlobServiceClient
 from openai import OpenAI
@@ -96,7 +95,7 @@ def create_query_embedding_backend() -> EmbeddingBackend:
     return _AzureEmbeddingBackend(cfg)
 
 
-def create_chat_client() -> OpenAIChatClient | AzureOpenAIChatClient:
+def create_chat_client() -> OpenAIChatClient | OpenAIChatCompletionClient:
     cfg = get_config()
     if cfg.is_dev:
         return OpenAIChatClient(
@@ -105,11 +104,9 @@ def create_chat_client() -> OpenAIChatClient | AzureOpenAIChatClient:
             base_url=cfg.ollama_endpoint,
         )
 
-    credential = DefaultAzureCredential()
-    token_provider = get_bearer_token_provider(credential, _COGNITIVE_SCOPE)
-    return AzureOpenAIChatClient(
-        credential=token_provider,
-        endpoint=cfg.ai_services_endpoint,
-        deployment_name=cfg.agent_model_deployment_name,
+    return OpenAIChatCompletionClient(
+        credential=DefaultAzureCredential(),
+        azure_endpoint=cfg.ai_services_endpoint,
+        model=cfg.agent_model_deployment_name,
         api_version="2025-03-01-preview",
     )
