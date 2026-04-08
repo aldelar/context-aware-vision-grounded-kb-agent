@@ -49,12 +49,15 @@ const dialogMarkdownComponents: Components = {
 };
 
 export function CitationDialog() {
-  const { openRefNumber, closeCitation, getCitation } = useCitationDialog();
+  const { openKey, closeCitation, getCitation } = useCitationDialog();
   const [enrichment, setEnrichment] = useState<EnrichmentState>({ status: "idle" });
   const overlayRef = useRef<HTMLDivElement>(null);
-  const previousRefNumber = useRef<number | null>(null);
+  const previousKey = useRef<string | null>(null);
 
-  const entry = openRefNumber !== null ? getCitation(openRefNumber) : undefined;
+  const entry = openKey !== null ? getCitation(openKey) : undefined;
+
+  // Extract the ref number from the scoped key for display
+  const openRefNumber = openKey !== null ? parseInt(openKey.split(":").pop() ?? "0", 10) : null;
 
   const loadEnrichment = useCallback(async (threadId: string, toolCallId: string, refNumber: number) => {
     setEnrichment({ status: "loading" });
@@ -81,17 +84,23 @@ export function CitationDialog() {
   }, []);
 
   useEffect(() => {
-    if (openRefNumber === null || !entry) {
-      previousRefNumber.current = null;
+    if (openKey === null || !entry) {
+      previousKey.current = null;
       return;
     }
 
-    if (openRefNumber === previousRefNumber.current) {
+    if (openKey === previousKey.current) {
       return;
     }
 
-    previousRefNumber.current = openRefNumber;
+    previousKey.current = openKey;
     setEnrichment({ status: "idle" });
+
+    // Web citations have full content already — no enrichment needed
+    if (entry.source === "web") {
+      setEnrichment({ status: "idle" });
+      return;
+    }
 
     const needsEnrichment =
       entry.threadId &&
@@ -99,13 +108,13 @@ export function CitationDialog() {
       entry.citation.chunk_id &&
       entry.citation.content_source !== "full";
 
-    if (needsEnrichment) {
+    if (needsEnrichment && openRefNumber !== null) {
       void loadEnrichment(entry.threadId!, entry.toolCallId!, openRefNumber);
     }
-  }, [openRefNumber, entry, loadEnrichment]);
+  }, [openKey, entry, loadEnrichment, openRefNumber]);
 
   useEffect(() => {
-    if (openRefNumber === null) {
+    if (openKey === null) {
       return;
     }
 
@@ -117,9 +126,9 @@ export function CitationDialog() {
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [openRefNumber, closeCitation]);
+  }, [openKey, closeCitation]);
 
-  if (openRefNumber === null || !entry) {
+  if (openKey === null || !entry) {
     return null;
   }
 
@@ -127,6 +136,7 @@ export function CitationDialog() {
   const displayCitation = mergeCitation(citation, enrichment.citation);
   const refLabel = `Ref #${openRefNumber}`;
   const title = displayCitation.title ?? displayCitation.section_header ?? "Reference";
+  const sourceUrl = (displayCitation as any).source_url as string | undefined;
 
   const hasFull = enrichment.status === "ready" || enrichment.status === "stale" || displayCitation.content_source === "full";
   const content = hasFull
@@ -184,6 +194,13 @@ export function CitationDialog() {
           ) : null}
           {enrichment.status === "stale" ? (
             <p className="citationStatus">Source content was reloaded, but the indexed chunk has changed since this reply.</p>
+          ) : null}
+          {sourceUrl ? (
+            <p className="citationSourceUrl">
+              <a href={sourceUrl} target="_blank" rel="noopener noreferrer">
+                Open in Microsoft Learn ↗
+              </a>
+            </p>
           ) : null}
         </div>
       </div>

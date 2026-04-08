@@ -6,6 +6,7 @@ import { ReactNode } from "react";
 import { coerceMessageContent } from "../lib/messageContent";
 import { canonicalizeCitations, normalizeCitationRow, transformAssistantContent } from "./chatMessageTransforms";
 import { SearchToolRenderer } from "./SearchToolRenderer";
+import { WebSearchToolRenderer } from "./WebSearchToolRenderer";
 
 type ToolCallLike = {
   id: string;
@@ -170,6 +171,10 @@ function renderToolCall(
 
   if (toolName === "search_knowledge_base") {
     return <SearchToolRenderer args={args} result={parsedResult as any} status={status} toolCallId={toolCall.id} />;
+  }
+
+  if (toolName === "web_search") {
+    return <WebSearchToolRenderer args={args} result={parsedResult as any} status={status} toolCallId={toolCall.id} />;
   }
 
   const toolLabel = coerceMessageContent(toolName) ?? "Agent tool";

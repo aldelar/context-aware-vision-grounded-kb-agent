@@ -507,6 +507,33 @@ textarea {
   white-space: nowrap;
 }
 
+.webCitationBadge {
+  background: #e8f0fe;
+  color: #1a73e8;
+}
+
+.webCitationPill {
+  text-decoration: none;
+  color: inherit;
+}
+
+.citationSourceUrl {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--workspace-border);
+  font-size: 0.85rem;
+}
+
+.citationSourceUrl a {
+  color: #1a73e8;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.citationSourceUrl a:hover {
+  text-decoration: underline;
+}
+
 .citationCardBody {
   border-top: 1px solid var(--workspace-border);
   display: grid;

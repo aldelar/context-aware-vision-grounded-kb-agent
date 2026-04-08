@@ -224,9 +224,10 @@ from middleware.jwt_auth import JWTAuthMiddleware, require_jwt_auth
 class _PersistedSessionAgent:
     """Wrap AG-UI requests with the same session repository used by Responses."""
 
-    def __init__(self, agent: Any, session_repository: AgentSessionRepository) -> None:
+    def __init__(self, agent: Any, session_repository: AgentSessionRepository, *, is_workflow: bool = False) -> None:
         self._agent = agent
         self._session_repository = session_repository
+        self._is_workflow = is_workflow
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._agent, name)
@@ -860,7 +861,22 @@ class _PersistedSessionAgent:
         if conversation_id:
             stored_session = await self._session_repository.get(conversation_id)
 
-            if raw_messages and stored_session is not None:
+            if self._is_workflow:
+                # WorkflowAgent uses internal handoff protocol messages
+                # (request_info, confirm_changes) that normalization corrupts.
+                # Pass only the last user message — the workflow creates a fresh
+                # Workflow per request and doesn't need the replay history.
+                last_user_messages = [
+                    msg for msg in raw_messages
+                    if (self._coerce_message_dict(msg) or {}).get("role") == "user"
+                ]
+                messages = last_user_messages[-1:] if last_user_messages else raw_messages
+                if preserve_framework_messages and messages:
+                    messages = self._restore_message_objects(
+                        [self._normalize_stored_session_message(m, 0) or m for m in messages],
+                        messages,
+                    )
+            elif raw_messages and stored_session is not None:
                 missing_tool_call_ids = self._collect_missing_tool_call_ids(raw_messages)
                 if missing_tool_call_ids:
                     stored_history_messages = self._extract_session_history_messages(stored_session)
@@ -929,12 +945,13 @@ class _PersistedSessionAgent:
                     )
             kwargs["session"] = active_session
         else:
-            normalized_messages = self._normalize_replayed_messages(raw_messages)
-            messages = (
-                self._restore_message_objects(normalized_messages, raw_messages)
-                if preserve_framework_messages
-                else normalized_messages
-            )
+            if not self._is_workflow:
+                normalized_messages = self._normalize_replayed_messages(raw_messages)
+                messages = (
+                    self._restore_message_objects(normalized_messages, raw_messages)
+                    if preserve_framework_messages
+                    else normalized_messages
+                )
 
         try:
             async for update in self._agent.run(messages, **kwargs):
@@ -942,9 +959,22 @@ class _PersistedSessionAgent:
         finally:
             if conversation_id and active_session is not None:
                 active_session.service_session_id = conversation_id
-
-        if conversation_id and active_session is not None:
-            await self._session_repository.set(conversation_id, active_session)
+                state = getattr(active_session, "state", None)
+                msg_count = 0
+                if isinstance(state, dict):
+                    in_memory = state.get("in_memory", {})
+                    if isinstance(in_memory, dict):
+                        msgs = in_memory.get("messages", [])
+                        msg_count = len(msgs) if isinstance(msgs, list) else 0
+                    if not msg_count:
+                        direct_msgs = state.get("messages", [])
+                        msg_count = len(direct_msgs) if isinstance(direct_msgs, list) else 0
+                logger.info(
+                    "Persisting session for thread %s (message_count=%d)",
+                    conversation_id,
+                    msg_count,
+                )
+                await self._session_repository.set(conversation_id, active_session)
 
 
 def _create_ag_ui_app(
@@ -1112,7 +1142,8 @@ def main() -> None:
             AgentFrameworkAgent expects a SupportsAgentRun, but a WorkflowAgent
             singleton can't handle sequential requests (its Workflow keeps
             running-state).  This wrapper creates a disposable WorkflowAgent
-            for each ``run()`` invocation.
+            for each ``run()`` invocation and captures the session state
+            so _PersistedSessionAgent can persist it.
             """
 
             @property
@@ -1126,10 +1157,11 @@ def main() -> None:
             async def get_session(self, *args, **kwargs):
                 return None
 
-            def run(self, messages, **kwargs):
+            async def run(self, messages, **kwargs):
                 workflow = create_orchestrator()
                 agent = workflow.as_agent(name="KBAgentOrchestrator")
-                return agent.run(messages, **kwargs)
+                async for update in agent.run(messages, **kwargs):
+                    yield update
 
         ag_ui_app = FastAPI(
             title="KB Agent AG-UI",
@@ -1137,7 +1169,12 @@ def main() -> None:
             redirect_slashes=False,
         )
         per_request_agent = _PerRequestWorkflowAgent()
-        ag_ui_agent = AgentFrameworkAgent(agent=per_request_agent, use_service_session=True)
+        # Wrap with _PersistedSessionAgent for session persistence on AG-UI
+        # (saves/loads conversation history via Cosmos DB session repository)
+        wrapped_agent = per_request_agent
+        if session_repo is not None:
+            wrapped_agent = _PersistedSessionAgent(per_request_agent, session_repo, is_workflow=True)
+        ag_ui_agent = AgentFrameworkAgent(agent=wrapped_agent, use_service_session=True)
         add_agent_framework_fastapi_endpoint(
             ag_ui_app, ag_ui_agent, "/",
             dependencies=[Depends(require_jwt_auth)],

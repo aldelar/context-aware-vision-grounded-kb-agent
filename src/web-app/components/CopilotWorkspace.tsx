@@ -2,16 +2,31 @@
 
 import { CopilotKit } from "@copilotkit/react-core";
 import { CopilotChat } from "@copilotkit/react-ui";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { ConversationRecord } from "../lib/types";
 import { CitationAwareAssistantMessage } from "./CitationAwareAssistantMessage";
 import { CitationDialog } from "./CitationDialog";
-import { CitationDialogProvider } from "./CitationDialogContext";
+import { CitationDialogProvider, useCitationDialog } from "./CitationDialogContext";
 import { ChatHistoryHydrator } from "./ChatHistoryHydrator";
 import { CopilotMessageRenderer } from "./CopilotMessageRenderer";
 import { ConversationThreadProvider } from "./ConversationThreadContext";
 import { ConversationSidebar } from "./ConversationSidebar";
+
+/** Clears the citation registry when the active thread changes. */
+function CitationClearer({ threadId }: { threadId: string | null }) {
+  const { clearCitations } = useCitationDialog();
+  const prevThreadId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (prevThreadId.current !== null && prevThreadId.current !== threadId) {
+      clearCitations();
+    }
+    prevThreadId.current = threadId;
+  }, [threadId, clearCitations]);
+
+  return null;
+}
 
 const conversationStarters = [
   {
@@ -215,6 +230,7 @@ export function CopilotWorkspace() {
         <section className="chatSurface">
           <ConversationThreadProvider threadId={activeThreadId}>
             <CitationDialogProvider>
+            <CitationClearer threadId={activeThreadId} />
             <CopilotKit
               agent="default"
               key={activeThreadId}

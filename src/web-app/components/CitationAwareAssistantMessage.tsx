@@ -30,7 +30,11 @@ export function CitationAwareAssistantMessage(props: AssistantMessageProps) {
               className="citationInlineRef"
               onClick={(event: React.MouseEvent) => {
                 event.preventDefault();
-                citationDialog.openCitation(refNumber);
+                // Find any registered citation matching this ref number
+                const key = citationDialog.findKeyByRefNumber(refNumber);
+                if (key) {
+                  citationDialog.openCitation(key);
+                }
               }}
               type="button"
             >

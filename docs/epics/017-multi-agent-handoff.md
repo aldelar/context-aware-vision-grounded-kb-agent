@@ -493,3 +493,41 @@ Document two new Core Patterns in the README.
 - [ ] Patterns 9 and 10 follow the existing README pattern format (Problem → Pattern → diagram → link to detailed docs)
 - [ ] Architecture diagram reflects multi-agent topology
 - [ ] README intro mentions multi-agent orchestration and web search
+
+---
+
+### Story 12 — Scoped Citation System for Multi-Agent Multi-Turn
+
+> **Status:** In Progress
+> **Depends on:** Stories 6, 9
+
+Fix the citation dialog and reference system for multi-agent, multi-turn conversations. UI-only changes — no agent/backend modifications.
+
+#### Problem
+
+The citation system was designed for a single agent with one tool per turn. With multi-agent handoff:
+- **Reference collisions**: `Ref #1` from turn 1 (internal search) overwrites `Ref #1` from turn 2 (web search) in the flat registry
+- **Cross-chat leaks**: Citations registered in one conversation persist when switching to another
+- **Label mismatch**: Web search pills showed "WEB #1" but answer text referenced "[Ref #1]"
+- **No dialog for web results**: Web citation pills navigated to external URLs instead of showing a preview dialog
+
+#### Deliverables
+
+- [x] Scope citation registry keys to `toolCallId:refNumber` — prevents cross-turn collisions
+- [x] Add `source` field ("internal" | "web") to `RegisteredCitation` type
+- [x] Add `clearCitations()` method to `CitationDialogContext` for thread-switch clearing
+- [x] Add `findKeyByRefNumber()` for inline `[Ref #N]` marker click resolution
+- [x] Web search pills use citation dialog (not external navigation) — consistent with internal search
+- [x] Citation dialog shows source URL link for web citations ("Open in Microsoft Learn ↗")
+- [x] Consistent "Ref #N" labeling on all pills (internal and web)
+- [x] Add `source_url` field to `SearchCitationResult` type
+- [ ] Clear citation registry on conversation thread switch
+- [ ] Web-app tests updated for scoped citation system
+
+#### Definition of Done
+
+- [ ] Multi-turn conversation: `Ref #1` from turn 1 and `Ref #1` from turn 2 open different citations
+- [ ] Switching conversations clears stale citations
+- [ ] Web search pills open the citation dialog with snippet preview + "Open in Microsoft Learn" link
+- [ ] All pills consistently labeled "Ref #N"
+- [ ] Inline `[Ref #N]` markers in answer text are clickable and open the correct citation

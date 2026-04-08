@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef } from "react";
 
-import { useCitationDialogOptional } from "./CitationDialogContext";
+import { citationKey, useCitationDialogOptional } from "./CitationDialogContext";
 import { useConversationThreadId } from "./ConversationThreadContext";
 import { SearchCitationResult } from "../lib/types";
 import { coerceMessageContent } from "../lib/messageContent";
@@ -70,10 +70,12 @@ export function SearchToolRenderer({ status, toolCallId, args, result }: SearchT
 
     for (const row of rows) {
       if (row.ref_number !== undefined) {
-        dialog.registerCitation(row.ref_number, {
+        const key = citationKey(toolCallId, row.ref_number);
+        dialog.registerCitation(key, {
           citation: row,
           threadId,
           toolCallId,
+          source: "internal",
         });
       }
     }
@@ -94,12 +96,13 @@ export function SearchToolRenderer({ status, toolCallId, args, result }: SearchT
             const refNumber = row.ref_number ?? index + 1;
             const refLabel = `Ref #${refNumber}`;
             const pillTitle = getPillTitle(row);
+            const key = citationKey(toolCallId, refNumber);
 
             return (
               <button
                 className="citationPill"
                 key={`${refNumber}-${row.title ?? "result"}`}
-                onClick={() => citationDialog?.openCitation(refNumber)}
+                onClick={() => citationDialog?.openCitation(key)}
                 type="button"
                 aria-label={`${refLabel}: ${pillTitle}`}
               >
