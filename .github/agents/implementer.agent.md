@@ -86,6 +86,13 @@ After writing code + tests, enter a verify-fix cycle:
    - Missing edge case handling
    - Use the `debugging` skill for structured diagnosis
 
+    **Environment / infra failures** → restore the dependency, then re-run:
+    - Missing local emulator, container, seeded data, or background service
+    - Missing environment variable or broken config population
+    - Missing Azure resource, RBAC assignment, or deployment wiring
+    - Broken Docker Compose, Makefile, AZD, or local bootstrap state
+    - Do **not** change runtime code to make the required dependency optional just to satisfy the test
+
    **Design friction** → stop and escalate to Planner:
    - The fix requires changing a function signature that many callers depend on
    - Tests fail because the approach doesn't account for a fundamental constraint
@@ -141,3 +148,5 @@ When deploying or validating Azure:
 - **Update epic docs** immediately when completing a story — never leave them stale
 - **Debug before escalating** — use the `debugging` skill for first-pass diagnosis. Only escalate to Planner if the issue is design-level, not a code bug.
 - **Follow the Makefile** — check `make help` for available automation before writing scripts
+- **Do not hide missing dependencies** — never make tests pass by adding fallback behavior, disabling required features, or treating missing infrastructure as optional unless the governing spec explicitly defines that degraded mode.
+- **If infra is broken, repair infra first** — restore the expected environment with Makefile targets, Docker Compose, AZD, Bicep wiring, seed scripts, or env setup before changing product behavior.

@@ -1,4 +1,4 @@
-"""Tests for the KB Search Agent (Microsoft Agent Framework)."""
+"""Tests for the Internal Search Agent (Microsoft Agent Framework)."""
 
 from __future__ import annotations
 
@@ -11,6 +11,8 @@ import pytest
 from agent.kb_agent import (
     AgentResponse,
     Citation,
+    _SCOPE_CONFIG,
+    _SCOPED_PROMPT,
     _SYSTEM_PROMPT,
     _SYSTEM_PROMPT_PATH,
     _get_system_prompt_path,
@@ -19,6 +21,7 @@ from agent.kb_agent import (
     create_agent,
     search_knowledge_base,
 )
+from agent.scope_config import AgentScopeConfig, load_scope_config
 from agent.search_tool import SearchResult
 from agent.security_middleware import SecurityFilterMiddleware
 from agent_framework import (
@@ -97,6 +100,16 @@ class TestSystemPrompt:
 
     def test_prompt_mentions_images(self) -> None:
         assert "image" in _SYSTEM_PROMPT.lower()
+
+    def test_scoped_prompt_mentions_topics(self) -> None:
+        for topic in _SCOPE_CONFIG.topics:
+            assert topic in _SCOPED_PROMPT
+
+    def test_scoped_prompt_mentions_search_tool(self) -> None:
+        assert "search_knowledge_base" in _SCOPED_PROMPT
+
+    def test_scoped_prompt_interpolates_description(self) -> None:
+        assert _SCOPE_CONFIG.description in _SCOPED_PROMPT
 
     def test_prompt_forbids_narrating_tool_use(self) -> None:
         assert "Do NOT say things like \"let's search\"" in _SYSTEM_PROMPT
@@ -316,7 +329,7 @@ class TestCreateAgent:
         create_agent()
 
         call_kwargs = mock_agent_cls.call_args
-        assert call_kwargs.kwargs["name"] == "KBSearchAgent"
+        assert call_kwargs.kwargs["name"] == "InternalSearchAgent"
 
     @patch("agent.kb_agent.Agent")
     @patch("agent.kb_agent.create_chat_client")
@@ -360,6 +373,20 @@ class TestCreateAgent:
         assert compaction.before_strategy.keep_last_groups == 3
         assert isinstance(compaction.after_strategy, ToolResultCompactionStrategy)
         assert compaction.after_strategy.keep_last_tool_call_groups == 1
+
+    @patch("agent.kb_agent.Agent")
+    @patch("agent.kb_agent.create_chat_client")
+    def test_specialist_mode_has_no_context_providers(
+        self,
+        mock_create_chat_client: MagicMock,
+        mock_agent_cls: MagicMock,
+    ) -> None:
+        """create_agent(standalone=False) omits context providers for specialist use."""
+        mock_create_chat_client.return_value = MagicMock()
+        create_agent(standalone=False)
+
+        call_kwargs = mock_agent_cls.call_args.kwargs
+        assert call_kwargs["context_providers"] is None
 
 
 # ---------------------------------------------------------------------------
@@ -426,7 +453,7 @@ class TestSDKUpgradeValidation:
 
         agent_kwargs = mock_agent_cls.call_args.kwargs
         assert "instructions" in agent_kwargs
-        assert agent_kwargs["instructions"] == _SYSTEM_PROMPT
+        assert agent_kwargs["instructions"] == _SCOPED_PROMPT
 
     @patch("agent.kb_agent.Agent")
     @patch("agent.kb_agent.create_chat_client")

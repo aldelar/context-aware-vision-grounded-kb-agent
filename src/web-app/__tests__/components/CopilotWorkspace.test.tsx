@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CopilotWorkspace } from "../../components/CopilotWorkspace";
 
 const copilotChatSpy = vi.fn();
+const chatHistoryHydratorSpy = vi.fn();
 
 vi.mock("@copilotkit/react-core", () => ({
   CopilotKit: ({ children }: { children: React.ReactNode }) => <div data-testid="copilot-kit">{children}</div>,
@@ -17,7 +18,10 @@ vi.mock("@copilotkit/react-ui", () => ({
 }));
 
 vi.mock("../../components/ChatHistoryHydrator", () => ({
-  ChatHistoryHydrator: () => <div data-testid="history-hydrator" />,
+  ChatHistoryHydrator: (props: any) => {
+    chatHistoryHydratorSpy(props);
+    return <div data-testid="history-hydrator" />;
+  },
 }));
 
 vi.mock("../../components/CitationAwareAssistantMessage", () => ({
@@ -35,6 +39,7 @@ vi.mock("../../components/ConversationSidebar", () => ({
 describe("CopilotWorkspace", () => {
   beforeEach(() => {
     copilotChatSpy.mockReset();
+    chatHistoryHydratorSpy.mockReset();
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -48,19 +53,24 @@ describe("CopilotWorkspace", () => {
     render(<CopilotWorkspace />);
 
     await waitFor(() => {
-      expect(screen.getByText("Azure AI Knowledge")).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: "Azure AI Knowledge Agent" })).toBeInTheDocument();
       expect(
-        screen.getByText("Context-Aware Vision Grounded Knowledge Based Agent"),
+        screen.getByText(/Context-Aware Vision Grounded Knowledge Based Agent/),
       ).toBeInTheDocument();
       expect(screen.queryByText("Contoso Robotics")).not.toBeInTheDocument();
       expect(copilotChatSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           labels: expect.objectContaining({
             title: "Azure AI chat",
-            initial: ["Ask about Azure AI Search, Content Understanding, or other indexed Azure AI content."],
-            placeholder: "Ask a question about Azure AI knowledge…",
+            initial: ["Ask me anything about Azure \u2014 I can search our internal knowledge base and the web."],
+            placeholder: "Ask a question about Azure\u2026",
           }),
+        }),
+      );
+      expect(chatHistoryHydratorSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          expectPersistedHistory: true,
+          threadId: "thread-1",
         }),
       );
     });

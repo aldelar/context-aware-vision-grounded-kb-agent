@@ -89,13 +89,33 @@ HEALTHCHECK --interval=30s --timeout=3s CMD curl --fail http://localhost:8080/he
 
 ## Project-Specific Conventions
 
-This project has 6 Dockerfiles in `src/`:
-- `src/agent/Dockerfile` — KB Agent (FastAPI)
-- `src/web-app/Dockerfile` — Chainlit web app
+This project has 7 Dockerfiles in `src/`:
+- `src/agent/Dockerfile` — KB Agent (Starlette)
+- `src/mcp-web-search/Dockerfile` — MCP Web Search Server (Starlette + uvicorn)
+- `src/web-app/Dockerfile` — Next.js + CopilotKit web app
 - `src/functions/fn_index/Dockerfile` — Index function
 - `src/functions/fn_convert_*/Dockerfile` — Convert functions (3 analyzer backends)
 
-All use Python 3.12-slim with `uv` for dependency management. Follow the existing patterns when creating or modifying Dockerfiles.
+### Python + uv services
+
+Python services (agent, mcp-web-search) use `python:3.12-slim` with `uv` for dependency management.
+Follow this exact pattern when creating or modifying Dockerfiles:
+
+```dockerfile
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+# Install deps (frozen from lockfile — MUST copy uv.lock alongside pyproject.toml)
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev --no-install-project
+
+# Copy source
+COPY . .
+ENV PATH="/app/.venv/bin:$PATH"
+```
+
+**Critical**: Always copy `uv.lock` alongside `pyproject.toml` and use `--frozen`.
+Without the lockfile, `uv sync` will attempt a live resolve and fail in Docker builds.
 
 ## Review Checklist
 

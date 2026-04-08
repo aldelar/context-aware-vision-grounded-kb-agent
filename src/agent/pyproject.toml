@@ -18,9 +18,12 @@ dependencies = [
     "azure-core-tracing-opentelemetry>=1.0.0b12",
     "openai>=1.60.0",
     "python-dotenv>=1.0.0",
+    "pyyaml>=6.0",
     "starlette>=1.0.0rc1,<2.0.0",
     "PyJWT[crypto]>=2.8.0",
     "agent-framework-ag-ui>=1.0.0b260402",
+    "agent-framework-orchestrations>=1.0.0b260402",
+    "mcp>=1.0.0",
 ]
 
 [project.optional-dependencies]

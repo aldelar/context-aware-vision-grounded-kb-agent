@@ -1,6 +1,6 @@
 # Architecture
 
-> **Status:** Updated — March 30, 2026
+> **Status:** Updated — April 7, 2026
 
 ## Overview
 
@@ -129,7 +129,10 @@ The agent runs as a Starlette ASGI service on port 8088 (built with `from_agent_
 
 #### Agent Components
 
-- **KB Agent** — An `Agent` (from `agent-framework-core` + `agent-framework-azure-ai`) with a single tool: `search_knowledge_base`. Context providers: `InMemoryHistoryProvider` (multi-turn history) and `CompactionProvider` (`SlidingWindowStrategy` + `ToolResultCompactionStrategy`) for bounded context windows. In Azure the agent uses Foundry-hosted models; in local dev it runs against Ollama-backed chat/embedding models.
+- **Orchestrator** — A `HandoffBuilder` workflow (from `agent-framework-orchestrations`) that routes user questions to specialist agents via triage. The orchestrator holds `InMemoryHistoryProvider` and `CompactionProvider` for shared multi-turn context. It politely declines non-Azure questions.
+- **Internal Search Agent** — A specialist `Agent` scoped to Azure AI Search and Azure Content Understanding topics. Uses `search_knowledge_base` tool with `SecurityFilterMiddleware`, `VisionImageMiddleware`, and `GroundingMiddleware`. Scope defined in `config/internal-search-agent.yaml`.
+- **Web Search Agent** — A specialist `Agent` for other Azure topics. Connects to an MCP web search server (SSE transport) that searches Microsoft Learn documentation. Uses `VisionImageMiddleware` only (no security filter or grounding — web results are public docs).
+- **MCP Web Search Server** — A separate Container App exposing `web_search(query)` via MCP SSE transport. The same service runs in dev and prod and queries the Microsoft Learn search API directly.
 - **Session Repository** — `CosmosAgentSessionRepository` (subclass of `SerializedAgentSessionRepository`) persists `AgentSession` to Cosmos DB `agent-sessions` container. Wired via `from_agent_framework(agent, session_repository=...)` which auto-loads/saves sessions per request.
 - **Search Tool** — Embeds the agent's query with `text-embedding-3-small`, performs hybrid search via `azure-search-documents`, and returns ranked chunks with image references.
 - **Citation Lookup API** — Resolves compact stored search-result handles from `agent-sessions` and reloads the matching chunk on demand under the current department-scoped security filter. Used only for post-resume UI enrichment.

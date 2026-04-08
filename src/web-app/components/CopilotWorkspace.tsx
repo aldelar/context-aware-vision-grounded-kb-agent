@@ -2,16 +2,31 @@
 
 import { CopilotKit } from "@copilotkit/react-core";
 import { CopilotChat } from "@copilotkit/react-ui";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { ConversationRecord } from "../lib/types";
 import { CitationAwareAssistantMessage } from "./CitationAwareAssistantMessage";
 import { CitationDialog } from "./CitationDialog";
-import { CitationDialogProvider } from "./CitationDialogContext";
+import { CitationDialogProvider, useCitationDialog } from "./CitationDialogContext";
 import { ChatHistoryHydrator } from "./ChatHistoryHydrator";
 import { CopilotMessageRenderer } from "./CopilotMessageRenderer";
 import { ConversationThreadProvider } from "./ConversationThreadContext";
 import { ConversationSidebar } from "./ConversationSidebar";
+
+/** Clears the citation registry when the active thread changes. */
+function CitationClearer({ threadId }: { threadId: string | null }) {
+  const { clearCitations } = useCitationDialog();
+  const prevThreadId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (prevThreadId.current !== null && prevThreadId.current !== threadId) {
+      clearCitations();
+    }
+    prevThreadId.current = threadId;
+  }, [threadId, clearCitations]);
+
+  return null;
+}
 
 const conversationStarters = [
   {
@@ -21,6 +36,10 @@ const conversationStarters = [
   {
     title: "Agentic Retrieval",
     message: "How does agentic retrieval work in Azure AI Search?",
+  },
+  {
+    title: "Cosmos DB",
+    message: "What are the partition key strategies for Azure Cosmos DB?",
   },
   {
     title: "Search Security",
@@ -64,6 +83,18 @@ async function deleteConversation(threadId: string): Promise<void> {
   if (!response.ok && response.status !== 204) {
     throw new Error("Failed to delete conversation");
   }
+}
+
+function shouldExpectPersistedHistory(conversation: ConversationRecord | null): boolean {
+  if (!conversation) {
+    return false;
+  }
+
+  if (conversation.name !== "New conversation") {
+    return true;
+  }
+
+  return conversation.createdAt !== conversation.updatedAt;
 }
 
 export function CopilotWorkspace() {
@@ -179,6 +210,7 @@ export function CopilotWorkspace() {
   }
 
   const activeConversation = conversations.find((conversation) => conversation.id === activeThreadId) ?? null;
+  const expectPersistedHistory = shouldExpectPersistedHistory(activeConversation);
 
   if (!isReady || !activeThreadId) {
     return (
@@ -211,6 +243,7 @@ export function CopilotWorkspace() {
         <section className="chatSurface">
           <ConversationThreadProvider threadId={activeThreadId}>
             <CitationDialogProvider>
+            <CitationClearer threadId={activeThreadId} />
             <CopilotKit
               agent="default"
               key={activeThreadId}
@@ -218,7 +251,10 @@ export function CopilotWorkspace() {
               showDevConsole={false}
               threadId={activeThreadId}
             >
-              <ChatHistoryHydrator threadId={activeThreadId} />
+              <ChatHistoryHydrator
+                expectPersistedHistory={expectPersistedHistory}
+                threadId={activeThreadId}
+              />
               <CopilotChat
                 AssistantMessage={CitationAwareAssistantMessage}
                 className="copilotCanvas"
@@ -226,9 +262,9 @@ export function CopilotWorkspace() {
                 labels={{
                   title: activeConversation?.name ?? "Azure AI Knowledge Agent",
                   initial: [
-                    "Ask about Azure AI Search, Content Understanding, or other indexed Azure AI content.",
+                    "Ask me anything about Azure — I can search our internal knowledge base and the web.",
                   ],
-                  placeholder: "Ask a question about Azure AI knowledge…",
+                  placeholder: "Ask a question about Azure…",
                 }}
                 onSubmitMessage={(message) => void handleSubmitMessage(message)}
                 RenderMessage={CopilotMessageRenderer as any}

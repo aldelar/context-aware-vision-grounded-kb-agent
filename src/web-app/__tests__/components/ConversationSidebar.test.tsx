@@ -25,7 +25,7 @@ const conversations: ConversationRecord[] = [
 ];
 
 describe("ConversationSidebar", () => {
-  it("renders the simplified header and active conversation styling", () => {
+  it("renders the streamlined rail and active conversation styling", () => {
     render(
       <ConversationSidebar
         activeThreadId="thread-1"
@@ -37,11 +37,12 @@ describe("ConversationSidebar", () => {
       />,
     );
 
-    expect(screen.getByText("Conversations")).toBeInTheDocument();
+    expect(screen.queryByText("Conversations")).not.toBeInTheDocument();
     expect(screen.queryByText("Conversation history")).not.toBeInTheDocument();
     expect(screen.queryByText(/saved threads with restorable AG-UI history/i)).not.toBeInTheDocument();
     expect(screen.queryByText("Active")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "New chat" })).toBeInTheDocument();
+    expect(screen.getByText(/Powered by the AG‑UI protocol/i)).toBeInTheDocument();
     expect(screen.getByText(conversations[0].name).closest("article")).toHaveClass("active");
   });
 

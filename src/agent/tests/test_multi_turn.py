@@ -6,7 +6,6 @@ depending on whether COSMOS_ENDPOINT is configured.
 
 from __future__ import annotations
 
-import asyncio
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -19,14 +18,24 @@ def _env_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AI_SERVICES_ENDPOINT", "https://fake.openai.azure.com")
     monkeypatch.setenv("SEARCH_ENDPOINT", "https://fake.search.windows.net")
     monkeypatch.setenv("SERVING_BLOB_ENDPOINT", "https://fake.blob.core.windows.net")
+    monkeypatch.delenv("APPLICATIONINSIGHTS_CONNECTION_STRING", raising=False)
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_ENDPOINT", raising=False)
 
 
 class TestSessionRepoWiring:
     """Verify main() passes session_repository to from_agent_framework."""
 
+    @staticmethod
+    def _configure_orchestrator_builder(mock_create_builder: MagicMock) -> None:
+        mock_builder = MagicMock()
+        mock_builder.build = MagicMock(name="workflow_factory")
+        mock_create_builder.return_value = mock_builder
+
     @pytest.mark.asyncio
     async def test_streaming_patch_filters_null_text_deltas(self) -> None:
         """The startup workaround should skip null text deltas from streamed updates."""
+        import main  # noqa: F401
+
         from azure.ai.agentserver.agentframework.models.agent_framework_output_streaming_converter import (
             AgentFrameworkOutputStreamingConverter,
         )
@@ -64,6 +73,8 @@ class TestSessionRepoWiring:
         """The text-content state patch should ignore null deltas instead of crashing."""
         from types import SimpleNamespace
 
+        import main  # noqa: F401
+
         from azure.ai.agentserver.agentframework.models.agent_framework_output_streaming_converter import (
             _TextContentStreamingState,
         )
@@ -90,23 +101,22 @@ class TestSessionRepoWiring:
         done_event = next(event for event in events if getattr(event, "type", None) == "response.output_text.done")
         assert done_event.text == "Hello world"
 
+    @patch("agent.orchestrator.create_orchestrator_builder")
     @patch("main._patch_agentserver_streaming_converter")
     @patch("main.from_agent_framework")
-    @patch("agent.kb_agent.Agent")
-    @patch("agent.kb_agent.create_chat_client")
     def test_main_applies_streaming_patch_before_server_start(
         self,
-        mock_create_chat_client: MagicMock,
-        mock_agent_cls: MagicMock,
         mock_adapter: MagicMock,
         mock_patch_streaming: MagicMock,
+        mock_create_builder: MagicMock,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """main() should install the streaming workaround before creating the server."""
-        monkeypatch.setenv("COSMOS_ENDPOINT", "")
+        monkeypatch.setenv("COSMOS_ENDPOINT", "https://fake.cosmos.azure.com:443/")
 
         import agent.config
         monkeypatch.setattr("agent.config.config", agent.config._load_config())
+        self._configure_orchestrator_builder(mock_create_builder)
 
         mock_server = MagicMock()
         mock_adapter.return_value = mock_server
@@ -118,14 +128,12 @@ class TestSessionRepoWiring:
         mock_patch_streaming.assert_called_once()
         mock_adapter.assert_called_once()
 
+    @patch("agent.orchestrator.create_orchestrator_builder")
     @patch("main.from_agent_framework")
-    @patch("agent.kb_agent.Agent")
-    @patch("agent.kb_agent.create_chat_client")
     def test_cosmos_endpoint_set_creates_repo(
         self,
-        mock_create_chat_client: MagicMock,
-        mock_agent_cls: MagicMock,
         mock_adapter: MagicMock,
+        mock_create_builder: MagicMock,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """When COSMOS_ENDPOINT is set, session_repository is a CosmosAgentSessionRepository."""
@@ -135,6 +143,7 @@ class TestSessionRepoWiring:
         # Reload config to pick up new env vars
         import agent.config
         monkeypatch.setattr("agent.config.config", agent.config._load_config())
+        self._configure_orchestrator_builder(mock_create_builder)
 
         mock_server = MagicMock()
         mock_adapter.return_value = mock_server
@@ -149,41 +158,34 @@ class TestSessionRepoWiring:
         from agent.session_repository import CosmosAgentSessionRepository
         assert isinstance(repo, CosmosAgentSessionRepository)
 
+    @patch("agent.orchestrator.create_orchestrator_builder")
     @patch("main.from_agent_framework")
-    @patch("agent.kb_agent.Agent")
-    @patch("agent.kb_agent.create_chat_client")
-    def test_no_cosmos_endpoint_passes_none(
+    def test_no_cosmos_endpoint_raises(
         self,
-        mock_create_chat_client: MagicMock,
-        mock_agent_cls: MagicMock,
         mock_adapter: MagicMock,
+        mock_create_builder: MagicMock,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """When COSMOS_ENDPOINT is empty, session_repository is None."""
+        """When COSMOS_ENDPOINT is empty, startup fails instead of disabling persistence."""
         monkeypatch.setenv("COSMOS_ENDPOINT", "")
 
         import agent.config
         monkeypatch.setattr("agent.config.config", agent.config._load_config())
-
-        mock_server = MagicMock()
-        mock_adapter.return_value = mock_server
+        self._configure_orchestrator_builder(mock_create_builder)
 
         from main import main
-        main()
 
-        mock_adapter.assert_called_once()
-        call_kwargs = mock_adapter.call_args
-        repo = call_kwargs.kwargs.get("session_repository") or call_kwargs[1].get("session_repository")
-        assert repo is None
+        with pytest.raises(RuntimeError, match="COSMOS_ENDPOINT"):
+            main()
 
+        mock_adapter.assert_not_called()
+
+    @patch("agent.orchestrator.create_orchestrator_builder")
     @patch("main.from_agent_framework")
-    @patch("agent.kb_agent.Agent")
-    @patch("agent.kb_agent.create_chat_client")
     def test_repo_constructed_with_correct_params(
         self,
-        mock_create_chat_client: MagicMock,
-        mock_agent_cls: MagicMock,
         mock_adapter: MagicMock,
+        mock_create_builder: MagicMock,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """CosmosAgentSessionRepository is constructed with endpoint and database_name from config."""
@@ -192,6 +194,7 @@ class TestSessionRepoWiring:
 
         import agent.config
         monkeypatch.setattr("agent.config.config", agent.config._load_config())
+        self._configure_orchestrator_builder(mock_create_builder)
 
         mock_server = MagicMock()
         mock_adapter.return_value = mock_server
@@ -205,14 +208,12 @@ class TestSessionRepoWiring:
         assert repo._endpoint == "https://my-cosmos.documents.azure.com:443/"
         assert repo._database_name == "custom-db"
 
+    @patch("agent.orchestrator.create_orchestrator_builder")
     @patch("main.from_agent_framework")
-    @patch("agent.kb_agent.Agent")
-    @patch("agent.kb_agent.create_chat_client")
     def test_default_cosmos_database_name(
         self,
-        mock_create_chat_client: MagicMock,
-        mock_agent_cls: MagicMock,
         mock_adapter: MagicMock,
+        mock_create_builder: MagicMock,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """When COSMOS_DATABASE_NAME is not set, the default 'kb-agent' is used."""
@@ -221,6 +222,7 @@ class TestSessionRepoWiring:
 
         import agent.config
         monkeypatch.setattr("agent.config.config", agent.config._load_config())
+        self._configure_orchestrator_builder(mock_create_builder)
 
         mock_server = MagicMock()
         mock_adapter.return_value = mock_server
@@ -235,14 +237,12 @@ class TestSessionRepoWiring:
         assert isinstance(repo, CosmosAgentSessionRepository)
         assert repo._database_name == "kb-agent"
 
+    @patch("agent.orchestrator.create_orchestrator_builder")
     @patch("main.from_agent_framework")
-    @patch("agent.kb_agent.Agent")
-    @patch("agent.kb_agent.create_chat_client")
     def test_repo_uses_default_container_name(
         self,
-        mock_create_chat_client: MagicMock,
-        mock_agent_cls: MagicMock,
         mock_adapter: MagicMock,
+        mock_create_builder: MagicMock,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """CosmosAgentSessionRepository uses 'agent-sessions' as default container."""
@@ -251,6 +251,7 @@ class TestSessionRepoWiring:
 
         import agent.config
         monkeypatch.setattr("agent.config.config", agent.config._load_config())
+        self._configure_orchestrator_builder(mock_create_builder)
 
         mock_server = MagicMock()
         mock_adapter.return_value = mock_server

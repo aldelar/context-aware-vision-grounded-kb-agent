@@ -40,6 +40,12 @@ services:
         language: docker
         docker:
             path: ./Dockerfile
+    mcp-web-search:
+        project: ../../src/mcp-web-search
+        host: containerapp
+        language: python
+        docker:
+            path: ./Dockerfile
 infra:
     provider: bicep
     path: infra

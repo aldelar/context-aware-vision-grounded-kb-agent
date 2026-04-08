@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import json
+from types import SimpleNamespace
+
 from starlette.applications import Starlette
 from starlette.testclient import TestClient
 
 import pytest
 
-from agent_framework import AgentSession, Message
+from agent_framework import AgentResponse, AgentResponseUpdate, AgentSession, Content, Message
 from agent_framework.ag_ui import AgentFrameworkAgent
 
 from main import _PersistedSessionAgent, _create_ag_ui_app
@@ -33,12 +36,34 @@ class _FakeAgent:
             yield None
 
 
+class _FakeWorkflowStreamingAgent:
+    def __init__(self, updates: list[AgentResponseUpdate]) -> None:
+        self._updates = updates
+        self.captured_messages = None
+        self.captured_session = None
+        self.latest_pending_requests: dict[str, object] = {}
+
+    async def run(self, messages, **kwargs):
+        self.captured_messages = messages
+        self.captured_session = kwargs.get("session")
+        for update in self._updates:
+            yield update
+
+
 class _MessageModel:
     def __init__(self, payload: dict[str, object]) -> None:
         self._payload = payload
 
     def model_dump(self, *, exclude_none: bool = False) -> dict[str, object]:
         return self._payload
+
+
+def _parse_sse_events(response_text: str) -> list[dict[str, object]]:
+    events: list[dict[str, object]] = []
+    for line in response_text.splitlines():
+        if line.startswith("data: "):
+            events.append(json.loads(line[6:]))
+    return events
 
 
 class TestAGUIEndpoint:
@@ -81,6 +106,55 @@ class TestAGUIEndpoint:
 
         assert response.status_code == 401
         assert response.json()["detail"]["error"] == "unauthorized"
+
+    def test_connect_restores_persisted_session_snapshot(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("REQUIRE_AUTH", "false")
+
+        stored_session = AgentSession(service_session_id="thread-123")
+        stored_session.state = {
+            "in_memory": {
+                "messages": [
+                    Message(role="user", contents=["Earlier question"], message_id="user-1"),
+                    Message(role="assistant", contents=["Earlier answer"], message_id="assistant-1"),
+                ]
+            },
+            "preferences": {"department": "engineering"},
+        }
+        repository = _FakeSessionRepository(session=stored_session)
+        agent = _FakeAgent()
+
+        app = Starlette()
+        app.mount("/ag-ui", _create_ag_ui_app(agent, repository))
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.post(
+            "/ag-ui",
+            json={
+                "thread_id": "thread-123",
+                "run_id": "run-1",
+                "messages": [],
+            },
+        )
+
+        assert response.status_code == 200
+        assert repository.requested_conversation_ids == ["thread-123"]
+        assert agent.captured_messages is None
+
+        events = _parse_sse_events(response.text)
+        assert [event["type"] for event in events] == [
+            "RUN_STARTED",
+            "STATE_SNAPSHOT",
+            "MESSAGES_SNAPSHOT",
+            "RUN_FINISHED",
+        ]
+        assert events[1]["snapshot"] == {"preferences": {"department": "engineering"}}
+        assert events[2]["messages"] == [
+            {"id": "user-1", "role": "user", "content": "Earlier question"},
+            {"id": "assistant-1", "role": "assistant", "content": "Earlier answer"},
+        ]
 
 
 class _FakeSessionRepository:
@@ -174,6 +248,345 @@ class TestAGUIThreadContinuity:
         assert stored_session.state == {"in_memory": {"messages": ["persisted-history"]}}
         assert agent.captured_service_session_id == "thread-123"
         assert repository.saved == [("thread-123", stored_session)]
+
+    @pytest.mark.asyncio
+    async def test_workflow_persistence_synthesizes_history_from_stream_updates(self) -> None:
+        repository = _FakeSessionRepository(session=None)
+        workflow_agent = _FakeWorkflowStreamingAgent(
+            [
+                AgentResponseUpdate(
+                    contents=[Content.from_text(text="Azure AI Search is a cloud search service.")],
+                    role="assistant",
+                    message_id="assistant-1",
+                    response_id="run-1",
+                    created_at="2026-04-08T10:00:00.000000Z",
+                )
+            ]
+        )
+        wrapped_agent = _PersistedSessionAgent(workflow_agent, repository, is_workflow=True)
+
+        request_session = AgentSession(service_session_id="thread-123")
+        raw_messages = [
+            {"id": "user-1", "role": "user", "content": "Earlier question"},
+            {"id": "assistant-0", "role": "assistant", "content": "Earlier answer"},
+            {"id": "user-2", "role": "user", "content": "What is Azure AI Search?"},
+        ]
+
+        updates = [
+            update
+            async for update in wrapped_agent.run(
+                raw_messages,
+                session=request_session,
+            )
+        ]
+
+        assert updates == workflow_agent._updates
+        assert workflow_agent.captured_messages == [raw_messages[-1]]
+        assert repository.saved == [("thread-123", request_session)]
+
+        persisted_messages = _PersistedSessionAgent._extract_session_history_messages(request_session)
+        assert persisted_messages == [
+            {"id": "user-1", "role": "user", "content": "Earlier question"},
+            {"id": "assistant-0", "role": "assistant", "content": "Earlier answer"},
+            {"id": "user-2", "role": "user", "content": "What is Azure AI Search?"},
+            {
+                "id": "assistant-1",
+                "role": "assistant",
+                "content": "Azure AI Search is a cloud search service.",
+            },
+        ]
+
+    @pytest.mark.asyncio
+    async def test_workflow_persistence_appends_streamed_response_to_stored_history(self) -> None:
+        stored_session = AgentSession(service_session_id="thread-123")
+        stored_session.state = {
+            "in_memory": {
+                "messages": [
+                    Message(role="user", contents=["Earlier question"], message_id="stored-user-1"),
+                    Message(role="assistant", contents=["Earlier answer"], message_id="stored-assistant-1"),
+                ]
+            }
+        }
+        repository = _FakeSessionRepository(session=stored_session)
+        workflow_agent = _FakeWorkflowStreamingAgent(
+            [
+                AgentResponseUpdate(
+                    contents=[Content.from_text(text="Azure AI Search indexes content into searchable fields.")],
+                    role="assistant",
+                    message_id="assistant-2",
+                    response_id="run-2",
+                    created_at="2026-04-08T10:05:00.000000Z",
+                )
+            ]
+        )
+        wrapped_agent = _PersistedSessionAgent(workflow_agent, repository, is_workflow=True)
+
+        request_session = AgentSession(service_session_id="thread-123")
+
+        updates = [
+            update
+            async for update in wrapped_agent.run(
+                [
+                    {"id": "user-2", "role": "user", "content": "How does indexing work?"},
+                ],
+                session=request_session,
+            )
+        ]
+
+        assert updates == workflow_agent._updates
+        assert repository.saved == [("thread-123", request_session)]
+
+        persisted_messages = _PersistedSessionAgent._extract_session_history_messages(request_session)
+        assert persisted_messages == [
+            {"id": "stored-user-1", "role": "user", "content": "Earlier question"},
+            {"id": "stored-assistant-1", "role": "assistant", "content": "Earlier answer"},
+            {"id": "user-2", "role": "user", "content": "How does indexing work?"},
+            {
+                "id": "assistant-2",
+                "role": "assistant",
+                "content": "Azure AI Search indexes content into searchable fields.",
+            },
+        ]
+
+    @pytest.mark.asyncio
+    async def test_workflow_persistence_uses_pending_request_agent_response_when_updates_are_approval_only(self) -> None:
+        repository = _FakeSessionRepository(session=None)
+        workflow_agent = _FakeWorkflowStreamingAgent([])
+        workflow_agent.latest_pending_requests = {
+            "request-1": SimpleNamespace(
+                data=SimpleNamespace(
+                    agent_response=AgentResponse(
+                        messages=[
+                            Message(
+                                role="assistant",
+                                contents=[
+                                    Content.from_function_call(
+                                        call_id="tool-call-1",
+                                        name="search_knowledge_base",
+                                        arguments='{"query":"network security options for Azure AI Search"}',
+                                    )
+                                ],
+                                message_id="assistant-tool-1",
+                                author_name="InternalSearchAgent",
+                            ),
+                            Message(
+                                role="tool",
+                                contents=[
+                                    Content.from_function_result(
+                                        call_id="tool-call-1",
+                                        result='{"results":[{"title":"Security in Azure AI Search"}]}',
+                                    )
+                                ],
+                                message_id="tool-1",
+                            ),
+                            Message(
+                                role="assistant",
+                                contents=[Content.from_text(text="Use private endpoints and RBAC.")],
+                                message_id="assistant-answer-1",
+                                author_name="InternalSearchAgent",
+                            ),
+                        ],
+                        response_id="run-3",
+                        created_at="2026-04-08T10:10:00.000000Z",
+                    )
+                )
+            )
+        }
+        wrapped_agent = _PersistedSessionAgent(workflow_agent, repository, is_workflow=True)
+
+        request_session = AgentSession(service_session_id="thread-123")
+        raw_messages = [
+            {
+                "id": "user-1",
+                "role": "user",
+                "content": "network security options for Azure AI Search",
+            }
+        ]
+
+        updates = [
+            update
+            async for update in wrapped_agent.run(
+                raw_messages,
+                session=request_session,
+            )
+        ]
+
+        assert updates == []
+        assert repository.saved == [("thread-123", request_session)]
+
+        persisted_messages = _PersistedSessionAgent._extract_session_history_messages(request_session)
+        assert persisted_messages == [
+            {
+                "id": "user-1",
+                "role": "user",
+                "content": "network security options for Azure AI Search",
+            },
+            {
+                "id": "assistant-tool-1",
+                "role": "assistant",
+                "toolCalls": [
+                    {
+                        "id": "tool-call-1",
+                        "type": "function",
+                        "function": {
+                            "name": "search_knowledge_base",
+                            "arguments": '{"query":"network security options for Azure AI Search"}',
+                        },
+                    }
+                ],
+            },
+            {
+                "id": "tool-1",
+                "role": "tool",
+                "toolCallId": "tool-call-1",
+                "content": '{"results":[{"title":"Security in Azure AI Search"}]}',
+            },
+            {
+                "id": "assistant-answer-1",
+                "role": "assistant",
+                "content": "Use private endpoints and RBAC.",
+            },
+        ]
+
+    @pytest.mark.asyncio
+    async def test_workflow_persistence_uses_pending_request_agent_response_when_stream_pauses_for_approval(self) -> None:
+        repository = _FakeSessionRepository(session=None)
+        agent_response = AgentResponse(
+            messages=[
+                Message(
+                    role="assistant",
+                    contents=[
+                        Content.from_function_call(
+                            call_id="tool-call-1",
+                            name="search_knowledge_base",
+                            arguments='{"query":"network security options for Azure AI Search"}',
+                        )
+                    ],
+                    message_id="assistant-tool-1",
+                    author_name="InternalSearchAgent",
+                ),
+                Message(
+                    role="tool",
+                    contents=[
+                        Content.from_function_result(
+                            call_id="tool-call-1",
+                            result='{"results":[{"title":"Security in Azure AI Search"}]}',
+                        )
+                    ],
+                    message_id="tool-1",
+                ),
+                Message(
+                    role="assistant",
+                    contents=[Content.from_text(text="Use private endpoints and RBAC.")],
+                    message_id="assistant-answer-1",
+                    author_name="InternalSearchAgent",
+                ),
+            ],
+            response_id="run-4",
+            created_at="2026-04-08T10:15:00.000000Z",
+        )
+        workflow_agent = _FakeWorkflowStreamingAgent(
+            [
+                AgentResponseUpdate.from_dict(
+                    {
+                        "type": "agent_response_update",
+                        "contents": [
+                            {
+                                "type": "function_call",
+                                "call_id": "request-1",
+                                "name": "request_info",
+                                "arguments": {
+                                    "request_id": "request-1",
+                                    "data": {"agent_response": agent_response},
+                                },
+                            },
+                            {
+                                "type": "function_approval_request",
+                                "function_call": {
+                                    "type": "function_call",
+                                    "call_id": "request-1",
+                                    "name": "request_info",
+                                    "arguments": {
+                                        "request_id": "request-1",
+                                        "data": {"agent_response": agent_response},
+                                    },
+                                },
+                                "user_input_request": True,
+                                "id": "request-1",
+                                "additional_properties": {"request_id": "request-1"},
+                            },
+                        ],
+                        "role": "assistant",
+                        "author_name": "KBAgentOrchestrator",
+                        "response_id": "run-4",
+                        "message_id": "approval-1",
+                        "created_at": "2026-04-08T10:15:00.000000Z",
+                    }
+                )
+            ]
+        )
+        workflow_agent.latest_pending_requests = {
+            "request-1": SimpleNamespace(
+                data=SimpleNamespace(
+                    agent_response=agent_response,
+                )
+            )
+        }
+        wrapped_agent = _PersistedSessionAgent(workflow_agent, repository, is_workflow=True)
+
+        request_session = AgentSession(service_session_id="thread-123")
+        raw_messages = [
+            Message(
+                role="user",
+                contents=[Content.from_text(text="network security options for Azure AI Search")],
+                message_id="user-1",
+            )
+        ]
+
+        streamed_updates: list[AgentResponseUpdate] = []
+        stream = wrapped_agent.run(
+            raw_messages,
+            session=request_session,
+        )
+        streamed_updates.append(await anext(stream))
+        await stream.aclose()
+
+        assert streamed_updates == workflow_agent._updates
+        assert repository.saved == [("thread-123", request_session)]
+
+        persisted_messages = _PersistedSessionAgent._extract_session_history_messages(request_session)
+        assert persisted_messages == [
+            {
+                "id": "user-1",
+                "role": "user",
+                "content": "network security options for Azure AI Search",
+            },
+            {
+                "id": "assistant-tool-1",
+                "role": "assistant",
+                "toolCalls": [
+                    {
+                        "id": "tool-call-1",
+                        "type": "function",
+                        "function": {
+                            "name": "search_knowledge_base",
+                            "arguments": '{"query":"network security options for Azure AI Search"}',
+                        },
+                    }
+                ],
+            },
+            {
+                "id": "tool-1",
+                "role": "tool",
+                "toolCallId": "tool-call-1",
+                "content": '{"results":[{"title":"Security in Azure AI Search"}]}',
+            },
+            {
+                "id": "assistant-answer-1",
+                "role": "assistant",
+                "content": "Use private endpoints and RBAC.",
+            },
+        ]
 
     @pytest.mark.asyncio
     async def test_thread_id_becomes_service_session_id(self) -> None:

@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "10522478867275924873"
+      "templateHash": "15182493873455657916"
     }
   },
   "parameters": {
@@ -3275,6 +3275,9 @@
           },
           "cosmosDatabaseName": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'cosmos-db'), '2025-04-01').outputs.cosmosDatabaseName.value]"
+          },
+          "mcpWebSearchEndpoint": {
+            "value": "[format('https://{0}/mcp/', reference(resourceId('Microsoft.Resources/deployments', 'mcp-web-search-container-app'), '2025-04-01').outputs.fqdn.value)]"
           }
         },
         "template": {
@@ -3284,7 +3287,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "15143160019384504377"
+              "templateHash": "11671820513073363883"
             }
           },
           "parameters": {
@@ -3409,6 +3412,13 @@
               "metadata": {
                 "description": "Cosmos DB database name"
               }
+            },
+            "mcpWebSearchEndpoint": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "MCP Web Search server endpoint (internal Container App URL)"
+              }
             }
           },
           "variables": {
@@ -3501,6 +3511,10 @@
                         {
                           "name": "REQUIRE_AUTH",
                           "value": "true"
+                        },
+                        {
+                          "name": "WEB_SEARCH_MCP_ENDPOINT",
+                          "value": "[parameters('mcpWebSearchEndpoint')]"
                         }
                       ]
                     }
@@ -3553,9 +3567,204 @@
         "[resourceId('Microsoft.Resources/deployments', 'container-registry')]",
         "[resourceId('Microsoft.Resources/deployments', 'cosmos-db')]",
         "[resourceId('Microsoft.Resources/deployments', 'foundry-project')]",
+        "[resourceId('Microsoft.Resources/deployments', 'mcp-web-search-container-app')]",
         "[resourceId('Microsoft.Resources/deployments', 'monitoring')]",
         "[resourceId('Microsoft.Resources/deployments', 'search')]",
         "[resourceId('Microsoft.Resources/deployments', 'serving-storage')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "mcp-web-search-container-app",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "baseName": {
+            "value": "[variables('baseName')]"
+          },
+          "tags": {
+            "value": "[variables('defaultTags')]"
+          },
+          "environmentName": {
+            "value": "[parameters('environmentName')]"
+          },
+          "containerAppsEnvId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'container-apps-env'), '2025-04-01').outputs.containerAppsEnvId.value]"
+          },
+          "acrLoginServer": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'container-registry'), '2025-04-01').outputs.containerRegistryLoginServer.value]"
+          },
+          "acrResourceId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'container-registry'), '2025-04-01').outputs.containerRegistryId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "4734393439588447178"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for resources"
+              }
+            },
+            "baseName": {
+              "type": "string",
+              "metadata": {
+                "description": "Base name used for resource naming"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags to apply to all resources"
+              }
+            },
+            "containerAppsEnvId": {
+              "type": "string",
+              "metadata": {
+                "description": "Container Apps Environment ID"
+              }
+            },
+            "acrLoginServer": {
+              "type": "string",
+              "metadata": {
+                "description": "ACR login server"
+              }
+            },
+            "acrResourceId": {
+              "type": "string",
+              "metadata": {
+                "description": "ACR resource ID (for AcrPull role assignment)"
+              }
+            },
+            "imageName": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Docker image name and tag"
+              }
+            },
+            "environmentName": {
+              "type": "string",
+              "metadata": {
+                "description": "Application environment name (dev or prod)"
+              }
+            }
+          },
+          "variables": {
+            "containerAppName": "[format('mcp-ws-{0}', parameters('baseName'))]",
+            "useAcrImage": "[not(empty(parameters('imageName')))]",
+            "envVars": [
+              {
+                "name": "ENVIRONMENT",
+                "value": "[parameters('environmentName')]"
+              },
+              {
+                "name": "MCP_PORT",
+                "value": "8089"
+              }
+            ],
+            "acrPullRoleId": "7f951dda-4ed3-4680-a7ca-43fe172d538d"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.App/containerApps",
+              "apiVersion": "2024-03-01",
+              "name": "[variables('containerAppName')]",
+              "location": "[parameters('location')]",
+              "tags": "[union(parameters('tags'), createObject('azd-service-name', 'mcp-web-search'))]",
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {
+                "managedEnvironmentId": "[parameters('containerAppsEnvId')]",
+                "configuration": {
+                  "ingress": {
+                    "external": false,
+                    "targetPort": 8089,
+                    "transport": "auto"
+                  },
+                  "secrets": [],
+                  "registries": "[if(variables('useAcrImage'), createArray(createObject('server', parameters('acrLoginServer'), 'identity', 'system')), createArray())]"
+                },
+                "template": {
+                  "containers": [
+                    {
+                      "name": "mcp-web-search",
+                      "image": "[if(variables('useAcrImage'), format('{0}/{1}', parameters('acrLoginServer'), parameters('imageName')), 'mcr.microsoft.com/azurelinux/base/core:3.0')]",
+                      "resources": {
+                        "cpu": "[json('0.5')]",
+                        "memory": "1Gi"
+                      },
+                      "env": "[variables('envVars')]"
+                    }
+                  ],
+                  "scale": {
+                    "minReplicas": 1,
+                    "maxReplicas": 3
+                  }
+                }
+              }
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.ContainerRegistry/registries', split(parameters('acrResourceId'), '/')[8])]",
+              "name": "[guid(parameters('acrResourceId'), resourceId('Microsoft.App/containerApps', variables('containerAppName')), variables('acrPullRoleId'))]",
+              "properties": {
+                "principalId": "[reference(resourceId('Microsoft.App/containerApps', variables('containerAppName')), '2024-03-01', 'full').identity.principalId]",
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('acrPullRoleId'))]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.App/containerApps', variables('containerAppName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "fqdn": {
+              "type": "string",
+              "metadata": {
+                "description": "Container App FQDN"
+              },
+              "value": "[reference(resourceId('Microsoft.App/containerApps', variables('containerAppName')), '2024-03-01').configuration.ingress.fqdn]"
+            },
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "Container App name"
+              },
+              "value": "[variables('containerAppName')]"
+            },
+            "principalId": {
+              "type": "string",
+              "metadata": {
+                "description": "System-assigned managed identity principal ID"
+              },
+              "value": "[reference(resourceId('Microsoft.App/containerApps', variables('containerAppName')), '2024-03-01', 'full').identity.principalId]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'container-apps-env')]",
+        "[resourceId('Microsoft.Resources/deployments', 'container-registry')]"
       ]
     },
     {
@@ -7648,6 +7857,10 @@
     "AGENT_EXTERNAL_URL": {
       "type": "string",
       "value": "[reference(resourceId('Microsoft.Resources/deployments', 'agent-container-app'), '2025-04-01').outputs.agentExternalUrl.value]"
+    },
+    "MCP_WEB_SEARCH_NAME": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'mcp-web-search-container-app'), '2025-04-01').outputs.name.value]"
     },
     "APIM_NAME": {
       "type": "string",

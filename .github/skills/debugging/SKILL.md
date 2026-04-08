@@ -34,6 +34,13 @@ When a test fails or an error occurs, follow these steps **before** giving up or
 | `DefaultAzureCredential` failure | Missing `az login` or wrong subscription | Run `az account show`, `az login` |
 | 403 from Azure service | Missing RBAC role assignment | Check `infra/azure/infra/main.bicep` role assignments |
 | Container fails to start | Dockerfile issue or missing env var | Check Container App logs with Azure CLI (`az containerapp logs show`) or the portal |
+| Connection refused / missing service | Required emulator, container, or backend is not available | Restore the service, seed data, or env wiring — do not add a fallback path |
+
+### 3a. Validate Required Dependencies
+
+- If the failure involves Cosmos, Search, Blob, orchestrator startup, MCP services, Docker services, emulators, or auth, verify the dependency is actually provisioned and reachable before changing product code.
+- Restore the missing piece with the repo's supported setup path (`make`, Docker Compose, AZD, Bicep, seed scripts, env setup) instead of weakening the runtime contract.
+- If the dependency is required by spec and cannot be restored in the current session, report it as a blocker rather than implementing degraded behavior.
 
 ### 4. Apply the Minimal Fix
 
@@ -41,6 +48,7 @@ When a test fails or an error occurs, follow these steps **before** giving up or
 - If it's a test bug: fix the test (wrong mock, wrong assertion, missing setup)
 - If it's a code bug: fix the code, then re-run the test
 - If it's an environment issue: fix the config/env, document what was missing
+- If it's a missing required dependency: restore the dependency first, then rerun the test before changing runtime behavior
 
 ### 5. Validate
 
@@ -63,3 +71,4 @@ If you cannot resolve the issue after **one full debugging pass** (Steps 1–5),
 - **Don't add broad try/except** — suppressing errors hides bugs
 - **Don't disable tests** — fix the test or the code, never `@pytest.mark.skip` to make the suite green
 - **Don't refactor while debugging** — fix the bug, nothing more
+- **Don't turn missing infra into product behavior** — never add fallback defaults, empty-success responses, or feature-disable branches just to make a failing test pass unless a spec explicitly requires that degraded mode

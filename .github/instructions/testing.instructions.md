@@ -47,6 +47,12 @@ Run with `make dev-test` once the appropriate environment is configured, or use 
 - Require environment variables: `AGENT_ENDPOINT`, `COSMOS_ENDPOINT`, `SERVING_BLOB_ENDPOINT`, etc.
 - Test against real deployed Azure services
 
+## Failure Semantics
+
+- If a test covers a required integration path and fails because infra or config is missing, restore the missing service, emulator, deployment wiring, or environment setup instead of changing product code to tolerate the missing dependency.
+- Do not weaken assertions, add empty-success behavior, or make required components optional just to get the suite green.
+- Only add degraded-mode tests when an epic, spec, or ARD explicitly defines that fallback, and make the backing source clear in the test name, docstring, or nearby comment.
+
 ## Test Conventions
 
 - File naming: `test_{module_name}.py`

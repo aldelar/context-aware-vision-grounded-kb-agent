@@ -88,7 +88,7 @@ describe("SearchToolRenderer", () => {
       />,
     );
 
-    expect(screen.getByText("Ref #1")).toBeInTheDocument();
+    expect(screen.getByText("Ref 1.1")).toBeInTheDocument();
     expect(screen.getByText("The service returns…")).toHaveClass("citationPillTitle");
   });
 

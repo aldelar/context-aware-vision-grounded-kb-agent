@@ -20,6 +20,7 @@ import copy
 import json
 import logging
 import os
+from uuid import uuid4
 from collections.abc import AsyncGenerator, Mapping
 from typing import Any
 
@@ -41,7 +42,7 @@ if not hasattr(_af, "BaseHistoryProvider"):
 
 from azure.ai.agentserver.agentframework import from_agent_framework
 from azure.ai.agentserver.agentframework.persistence import AgentSessionRepository
-from agent_framework import AgentSession, Message
+from agent_framework import AgentResponse, AgentResponseUpdate, AgentSession, Message
 
 # Setup observability — two paths:
 #   1. APPLICATIONINSIGHTS_CONNECTION_STRING set → use Azure Monitor (traces + logs + metrics)
@@ -53,9 +54,8 @@ from agent_framework import AgentSession, Message
 # agent framework to emit spans for tool calls, model invocations, etc.
 _appinsights_conn = os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING")
 _otlp_endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT")
-_environment = os.environ.get("ENVIRONMENT", "prod").strip().lower() or "prod"
 _observability_enabled = False
-if _environment != "dev" and _appinsights_conn:
+if _appinsights_conn:
     from azure.monitor.opentelemetry import configure_azure_monitor
 
     configure_azure_monitor(
@@ -64,10 +64,9 @@ if _environment != "dev" and _appinsights_conn:
         logging_level=logging.INFO,  # export INFO+ to App Insights (default is WARNING)
     )
     _observability_enabled = True
-elif _environment != "dev" and _otlp_endpoint:
-    # Only enable generic OTLP instrumentation outside local dev. RC6 currently
-    # raises a ContextVar cleanup error on streamed responses when the fallback
-    # OTel path is active locally.
+elif _otlp_endpoint:
+    # Generic OTLP export — used in Docker dev (Aspire Dashboard) and any
+    # environment that sets OTEL_EXPORTER_OTLP_ENDPOINT explicitly.
     from agent_framework.observability import configure_otel_providers
 
     configure_otel_providers()
@@ -210,8 +209,13 @@ def _patch_agentserver_streaming_converter() -> None:
 # ---------------------------------------------------------------------------
 
 
-from agent_framework.ag_ui import AgentFrameworkAgent, add_agent_framework_fastapi_endpoint
-from fastapi import Depends, FastAPI
+from ag_ui.core import MessagesSnapshotEvent, RunErrorEvent, RunFinishedEvent, RunStartedEvent, StateSnapshotEvent
+from ag_ui.encoder import EventEncoder
+from agent_framework.ag_ui import AgentFrameworkAgent
+from agent_framework_ag_ui._message_adapters import agui_messages_to_snapshot_format
+from agent_framework_ag_ui._types import AGUIRequest
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 
 from agent.group_resolver import resolve_departments
 from agent.image_service import get_image_url
@@ -224,9 +228,10 @@ from middleware.jwt_auth import JWTAuthMiddleware, require_jwt_auth
 class _PersistedSessionAgent:
     """Wrap AG-UI requests with the same session repository used by Responses."""
 
-    def __init__(self, agent: Any, session_repository: AgentSessionRepository) -> None:
+    def __init__(self, agent: Any, session_repository: AgentSessionRepository, *, is_workflow: bool = False) -> None:
         self._agent = agent
         self._session_repository = session_repository
+        self._is_workflow = is_workflow
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._agent, name)
@@ -849,6 +854,258 @@ class _PersistedSessionAgent:
 
         return merged
 
+    @staticmethod
+    def _get_session_message_count(session: AgentSession | None) -> int:
+        if session is None:
+            return 0
+
+        state = getattr(session, "state", None)
+        if not isinstance(state, dict):
+            return 0
+
+        in_memory = state.get("in_memory", {})
+        if isinstance(in_memory, dict):
+            messages = in_memory.get("messages", [])
+            if isinstance(messages, list) and messages:
+                return len(messages)
+
+        direct_messages = state.get("messages", [])
+        if isinstance(direct_messages, list):
+            return len(direct_messages)
+
+        return 0
+
+    @classmethod
+    def _extract_visible_request_messages(cls, raw_messages: list[Any]) -> list[dict[str, Any]]:
+        normalized_messages = [
+            message
+            for index, raw_message in enumerate(raw_messages)
+            if (message := cls._normalize_stored_session_message(raw_message, index)) is not None
+        ]
+        if not normalized_messages:
+            return []
+
+        return cls._normalize_replayed_messages(normalized_messages)
+
+    @classmethod
+    def _extract_workflow_response_messages(cls, updates: list[Any]) -> list[Message]:
+        response_updates = [update for update in updates if isinstance(update, AgentResponseUpdate)]
+        if not response_updates:
+            return []
+
+        response = AgentResponse.from_updates(response_updates)
+        normalized_messages = [
+            message
+            for index, raw_message in enumerate(response.messages)
+            if (message := cls._normalize_stored_session_message(raw_message, index)) is not None
+        ]
+        if not normalized_messages:
+            return []
+
+        normalized_messages = cls._normalize_replayed_messages(normalized_messages)
+        return [cls._message_to_framework_message(message) for message in normalized_messages]
+
+    @classmethod
+    def _coerce_framework_messages(cls, candidate: Any) -> list[Message]:
+        if isinstance(candidate, AgentResponse):
+            messages = getattr(candidate, "messages", None)
+            return list(messages) if isinstance(messages, list) else []
+
+        if isinstance(candidate, Message):
+            return [candidate]
+
+        normalized_message = cls._normalize_stored_session_message(candidate, 0)
+        if normalized_message is not None:
+            return [cls._message_to_framework_message(normalized_message)]
+
+        if isinstance(candidate, list):
+            coerced_messages: list[Message] = []
+            for index, item in enumerate(candidate):
+                if isinstance(item, Message):
+                    coerced_messages.append(item)
+                    continue
+
+                normalized_item = cls._normalize_stored_session_message(item, index)
+                if normalized_item is None:
+                    return []
+                coerced_messages.append(cls._message_to_framework_message(normalized_item))
+
+            return coerced_messages
+
+        return []
+
+    @classmethod
+    def _extract_request_payload_messages(cls, payload: Any) -> list[Message]:
+        direct_messages = cls._coerce_framework_messages(payload)
+        if direct_messages:
+            return direct_messages
+
+        if isinstance(payload, Mapping):
+            for key in ("agent_response", "response", "full_conversation", "messages", "data"):
+                nested_payload = payload.get(key)
+                if nested_payload is None:
+                    continue
+
+                nested_messages = cls._extract_request_payload_messages(nested_payload)
+                if nested_messages:
+                    return nested_messages
+
+            return []
+
+        for attr in ("agent_response", "response", "full_conversation", "messages", "data"):
+            nested_payload = getattr(payload, attr, None)
+            if nested_payload is None or nested_payload is payload:
+                continue
+
+            nested_messages = cls._extract_request_payload_messages(nested_payload)
+            if nested_messages:
+                return nested_messages
+
+        return []
+
+    @classmethod
+    def _extract_workflow_pending_request_messages(
+        cls,
+        pending_requests: Mapping[str, Any] | None,
+    ) -> list[Message]:
+        if not isinstance(pending_requests, Mapping):
+            return []
+
+        extracted_messages: list[Message] = []
+        for request_event in pending_requests.values():
+            request_messages = cls._extract_request_payload_messages(getattr(request_event, "data", request_event))
+            for message in request_messages:
+                cls._append_history_message_if_new(extracted_messages, message)
+
+        return extracted_messages
+
+    @classmethod
+    def _extract_workflow_approval_update_messages(cls, updates: list[Any]) -> list[Message]:
+        extracted_messages: list[Message] = []
+
+        for update in updates:
+            update_message = cls._coerce_message_dict(update)
+            if update_message is None:
+                continue
+
+            for block in cls._get_content_blocks(update_message):
+                if block.get("type") != "function_approval_request":
+                    continue
+
+                function_call = block.get("function_call")
+                if not isinstance(function_call, Mapping):
+                    continue
+
+                function_name = function_call.get("name")
+                if not isinstance(function_name, str) or function_name not in {"request_info", "confirm_changes"}:
+                    continue
+
+                for message in cls._extract_request_payload_messages(function_call.get("arguments")):
+                    cls._append_history_message_if_new(extracted_messages, message)
+
+        return extracted_messages
+
+    @classmethod
+    def _append_history_message_if_new(cls, history: list[Message], message: Message) -> None:
+        normalized_message = cls._normalize_stored_session_message(message, len(history))
+        if normalized_message is None:
+            return
+
+        if history:
+            last_message = cls._normalize_stored_session_message(history[-1], len(history) - 1)
+            if last_message is not None and cls._messages_equivalent(last_message, normalized_message):
+                return
+
+        history.append(message)
+
+    @classmethod
+    def _append_workflow_history_message_if_new(
+        cls,
+        history: list[Message],
+        message: Message,
+        turn_start_index: int,
+    ) -> None:
+        normalized_message = cls._normalize_stored_session_message(message, len(history))
+        if normalized_message is None:
+            return
+
+        for index in range(max(turn_start_index, 0), len(history)):
+            existing_message = cls._normalize_stored_session_message(history[index], index)
+            if existing_message is not None and cls._messages_equivalent(existing_message, normalized_message):
+                return
+
+        history.append(message)
+
+    @classmethod
+    def _seed_workflow_history_from_updates(
+        cls,
+        active_session: AgentSession,
+        stored_session: AgentSession | None,
+        raw_messages: list[Any],
+        updates: list[Any],
+        pending_request_events: Mapping[str, Any] | None = None,
+    ) -> int:
+        base_history = cls._extract_session_history_messages(stored_session)
+        using_stored_history = bool(base_history)
+        if not base_history:
+            base_history = cls._extract_visible_request_messages(raw_messages)
+
+        synthesized_history = [cls._message_to_framework_message(message) for message in base_history]
+
+        if using_stored_history:
+            visible_request_messages = cls._extract_visible_request_messages(raw_messages)
+            latest_user_message = next(
+                (message for message in reversed(visible_request_messages) if message.get("role") == "user"),
+                None,
+            )
+            if latest_user_message is not None:
+                cls._append_history_message_if_new(
+                    synthesized_history,
+                    cls._message_to_framework_message(latest_user_message),
+                )
+
+        current_turn_start_index = len(synthesized_history)
+        for index in range(len(synthesized_history) - 1, -1, -1):
+            existing_message = cls._normalize_stored_session_message(synthesized_history[index], index)
+            if existing_message is not None and existing_message.get("role") == "user":
+                current_turn_start_index = index
+                break
+
+        for message in cls._extract_workflow_response_messages(updates):
+            cls._append_workflow_history_message_if_new(
+                synthesized_history,
+                message,
+                current_turn_start_index,
+            )
+
+        for message in cls._extract_workflow_pending_request_messages(pending_request_events):
+            cls._append_workflow_history_message_if_new(
+                synthesized_history,
+                message,
+                current_turn_start_index,
+            )
+
+        for message in cls._extract_workflow_approval_update_messages(updates):
+            cls._append_workflow_history_message_if_new(
+                synthesized_history,
+                message,
+                current_turn_start_index,
+            )
+
+        if not synthesized_history:
+            return 0
+
+        if not isinstance(active_session.state, dict):
+            active_session.state = {}
+
+        in_memory = active_session.state.get("in_memory")
+        if not isinstance(in_memory, dict):
+            in_memory = {}
+            active_session.state["in_memory"] = in_memory
+
+        in_memory["messages"] = synthesized_history
+        return len(synthesized_history)
+
     async def run(self, messages: list[dict[str, Any]], **kwargs: Any) -> AsyncGenerator[Any, None]:
         raw_messages = messages
         preserve_framework_messages = all(isinstance(message, Message) for message in raw_messages)
@@ -856,11 +1113,27 @@ class _PersistedSessionAgent:
         conversation_id = getattr(session, "service_session_id", None)
         active_session = session
         provider_conversation_id = conversation_id if not raw_messages else None
+        stored_session: AgentSession | None = None
 
         if conversation_id:
             stored_session = await self._session_repository.get(conversation_id)
 
-            if raw_messages and stored_session is not None:
+            if self._is_workflow:
+                # WorkflowAgent uses internal handoff protocol messages
+                # (request_info, confirm_changes) that normalization corrupts.
+                # Pass only the last user message — the workflow creates a fresh
+                # Workflow per request and doesn't need the replay history.
+                last_user_messages = [
+                    msg for msg in raw_messages
+                    if (self._coerce_message_dict(msg) or {}).get("role") == "user"
+                ]
+                messages = last_user_messages[-1:] if last_user_messages else raw_messages
+                if preserve_framework_messages and messages:
+                    messages = self._restore_message_objects(
+                        [self._normalize_stored_session_message(m, 0) or m for m in messages],
+                        messages,
+                    )
+            elif raw_messages and stored_session is not None:
                 missing_tool_call_ids = self._collect_missing_tool_call_ids(raw_messages)
                 if missing_tool_call_ids:
                     stored_history_messages = self._extract_session_history_messages(stored_session)
@@ -929,22 +1202,203 @@ class _PersistedSessionAgent:
                     )
             kwargs["session"] = active_session
         else:
-            normalized_messages = self._normalize_replayed_messages(raw_messages)
-            messages = (
-                self._restore_message_objects(normalized_messages, raw_messages)
-                if preserve_framework_messages
-                else normalized_messages
-            )
+            if not self._is_workflow:
+                normalized_messages = self._normalize_replayed_messages(raw_messages)
+                messages = (
+                    self._restore_message_objects(normalized_messages, raw_messages)
+                    if preserve_framework_messages
+                    else normalized_messages
+                )
 
+        captured_updates: list[Any] = []
+        run_completed = False
         try:
             async for update in self._agent.run(messages, **kwargs):
+                if self._is_workflow:
+                    captured_updates.append(update)
                 yield update
+            run_completed = True
         finally:
             if conversation_id and active_session is not None:
                 active_session.service_session_id = conversation_id
+                msg_count = self._get_session_message_count(active_session)
+                pending_request_events = None
+                if self._is_workflow:
+                    maybe_pending_requests = getattr(self._agent, "latest_pending_requests", None)
+                    if isinstance(maybe_pending_requests, Mapping):
+                        pending_request_events = maybe_pending_requests
+                should_synthesize_workflow_history = self._is_workflow and msg_count == 0 and (
+                    run_completed or bool(captured_updates) or bool(pending_request_events)
+                )
+                if should_synthesize_workflow_history:
+                    msg_count = self._seed_workflow_history_from_updates(
+                        active_session,
+                        stored_session,
+                        raw_messages,
+                        captured_updates,
+                        pending_request_events,
+                    )
+                    if msg_count:
+                        if run_completed:
+                            logger.warning(
+                                "Synthesized workflow session history for thread %s from streamed updates (message_count=%d)",
+                                conversation_id,
+                                msg_count,
+                            )
+                        else:
+                            logger.warning(
+                                "Synthesized workflow session history for thread %s after AG-UI interrupted the workflow stream (message_count=%d)",
+                                conversation_id,
+                                msg_count,
+                            )
+                logger.info(
+                    "Persisting session for thread %s (message_count=%d)",
+                    conversation_id,
+                    msg_count,
+                )
+                await self._session_repository.set(conversation_id, active_session)
 
-        if conversation_id and active_session is not None:
-            await self._session_repository.set(conversation_id, active_session)
+
+async def _build_ag_ui_connect_restore_events(
+    input_data: Mapping[str, Any],
+    session_repository: AgentSessionRepository | None,
+) -> tuple[str, list[Any]] | None:
+    """Build AG-UI restore events for an existing thread connect request.
+
+    CopilotKit clears the local AG-UI agent messages and state before calling
+    ``connectAgent``. When the request is only reattaching to an existing
+    thread, stream the persisted session snapshot directly so the connect flow
+    restores the current transcript instead of wiping the UI to empty.
+    """
+    if session_repository is None:
+        return None
+
+    thread_id = input_data.get("thread_id")
+    if not isinstance(thread_id, str) or not thread_id.strip():
+        return None
+
+    if input_data.get("messages") or input_data.get("resume") is not None:
+        return None
+
+    stored_session = await session_repository.get(thread_id)
+    if stored_session is None:
+        return None
+
+    restored_state = _PersistedSessionAgent._merge_session_state(
+        stored_session,
+        None,
+        include_history=False,
+    )
+    restored_messages = _PersistedSessionAgent._extract_session_history_messages(stored_session)
+    if not restored_state and not restored_messages:
+        return None
+
+    run_id = input_data.get("run_id")
+    if not isinstance(run_id, str) or not run_id.strip():
+        run_id = uuid4().hex
+
+    restore_events: list[Any] = [RunStartedEvent(thread_id=thread_id, run_id=run_id)]
+    if restored_state:
+        restore_events.append(StateSnapshotEvent(snapshot=restored_state))
+    if restored_messages:
+        restore_events.append(MessagesSnapshotEvent(messages=agui_messages_to_snapshot_format(restored_messages)))
+    restore_events.append(RunFinishedEvent(thread_id=thread_id, run_id=run_id))
+    return thread_id, restore_events
+
+
+def _add_persisted_ag_ui_endpoint(
+    app: FastAPI,
+    protocol_runner: AgentFrameworkAgent,
+    *,
+    path: str = "/",
+    session_repository: AgentSessionRepository | None = None,
+) -> None:
+    """Register the AG-UI endpoint with persisted connect-state restoration."""
+
+    @app.post(path, tags=["AG-UI"], dependencies=[Depends(require_jwt_auth)], response_model=None)  # type: ignore[arg-type]
+    async def agent_endpoint(request_body: AGUIRequest) -> StreamingResponse:
+        try:
+            input_data = request_body.model_dump(exclude_none=True)
+            logger.debug(
+                f"[{path}] Received request - Run ID: {input_data.get('run_id', 'no-run-id')}, "
+                f"Thread ID: {input_data.get('thread_id', 'no-thread-id')}, "
+                f"Messages: {len(input_data.get('messages', []))}"
+            )
+            logger.info(f"Received request at {path}: {input_data.get('run_id', 'no-run-id')}")
+
+            async def event_generator() -> AsyncGenerator[str]:
+                encoder = EventEncoder()
+                event_count = 0
+                try:
+                    connect_restore = await _build_ag_ui_connect_restore_events(input_data, session_repository)
+                    if connect_restore is not None:
+                        thread_id, restore_events = connect_restore
+                        logger.info(
+                            "[%s] Restoring persisted AG-UI connect snapshot for thread %s",
+                            path,
+                            thread_id,
+                        )
+                        for event in restore_events:
+                            event_count += 1
+                            yield encoder.encode(event)
+                        logger.info("[%s] Completed streaming %d restore events", path, event_count)
+                        return
+
+                    async for event in protocol_runner.run(input_data):
+                        event_count += 1
+                        event_type_name = getattr(event, "type", type(event).__name__)
+                        if "TOOL_CALL" in str(event_type_name) or "RUN" in str(event_type_name):
+                            if hasattr(event, "model_dump"):
+                                event_data = event.model_dump(exclude_none=True)
+                                logger.info(f"[{path}] Event {event_count}: {event_type_name} - {event_data}")
+                            else:
+                                logger.info(f"[{path}] Event {event_count}: {event_type_name}")
+
+                        try:
+                            encoded = encoder.encode(event)
+                        except Exception as encode_error:
+                            logger.exception("[%s] Failed to encode event %s", path, event_type_name)
+                            run_error = RunErrorEvent(
+                                message="An internal error has occurred while streaming events.",
+                                code=type(encode_error).__name__,
+                            )
+                            try:
+                                yield encoder.encode(run_error)
+                            except Exception:
+                                logger.exception("[%s] Failed to encode RUN_ERROR event", path)
+                            return
+
+                        logger.debug(
+                            f"[{path}] Encoded as: {encoded[:200]}..."
+                            if len(encoded) > 200
+                            else f"[{path}] Encoded as: {encoded}"
+                        )
+                        yield encoded
+
+                    logger.info(f"[{path}] Completed streaming {event_count} events")
+                except Exception as stream_error:
+                    logger.exception("[%s] Streaming failed", path)
+                    run_error = RunErrorEvent(
+                        message="An internal error has occurred while streaming events.",
+                        code=type(stream_error).__name__,
+                    )
+                    try:
+                        yield encoder.encode(run_error)
+                    except Exception:
+                        logger.exception("[%s] Failed to encode RUN_ERROR event", path)
+
+            return StreamingResponse(
+                event_generator(),
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                    "X-Accel-Buffering": "no",
+                },
+            )
+        except Exception as e:
+            logger.error(f"Error in agent endpoint: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail="An internal error has occurred.") from e
 
 
 def _create_ag_ui_app(
@@ -964,11 +1418,11 @@ def _create_ag_ui_app(
         wrapped_agent = _PersistedSessionAgent(agent, session_repository)
 
     ag_ui_agent = AgentFrameworkAgent(agent=wrapped_agent, use_service_session=True)
-    add_agent_framework_fastapi_endpoint(
+    _add_persisted_ag_ui_endpoint(
         ag_ui_app,
         ag_ui_agent,
-        "/",
-        dependencies=[Depends(require_jwt_auth)],
+        path="/",
+        session_repository=session_repository,
     )
     return ag_ui_app
 
@@ -1061,26 +1515,104 @@ def main() -> None:
     _patch_agentserver_streaming_converter()
 
     from agent.config import config
-    from agent.kb_agent import create_agent
     from agent.session_repository import CosmosAgentSessionRepository
 
-    agent = create_agent()
-    logger.info("[KB-AGENT] Agent created, starting server…")
+    # Use the orchestrator HandoffBuilder. Multi-agent mode is required by spec.
+    # from_agent_framework() accepts Callable[[], Workflow] — it wraps it in
+    # AgentFrameworkWorkflowAdapter which calls the factory per request,
+    # creating a fresh Workflow each time (no singleton reuse issues).
+    # Note: HandoffBuilder is NOT a WorkflowBuilder subclass, so we pass
+    # builder.build as the callable factory.
+    from agent.orchestrator import create_orchestrator_builder
 
-    session_repo = None
-    if config.cosmos_endpoint:
-        session_repo = CosmosAgentSessionRepository(
-            endpoint=config.cosmos_endpoint,
-            database_name=config.cosmos_database_name,
-            container_name=config.cosmos_sessions_container,
-        )
-        logger.info("[KB-AGENT] Session persistence enabled (Cosmos DB)")
-    else:
-        logger.info("[KB-AGENT] Session persistence disabled (no COSMOS_ENDPOINT)")
+    builder = create_orchestrator_builder()
+    agent_or_factory = builder.build  # Callable[[], Workflow]
+    is_workflow = True
+    logger.info("[KB-AGENT] Orchestrator HandoffBuilder created (multi-agent mode)")
 
-    server = from_agent_framework(agent, session_repository=session_repo)
+    if not config.cosmos_endpoint:
+        raise RuntimeError("[KB-AGENT] COSMOS_ENDPOINT is required; session persistence is mandatory")
+
+    session_repo = CosmosAgentSessionRepository(
+        endpoint=config.cosmos_endpoint,
+        database_name=config.cosmos_database_name,
+        container_name=config.cosmos_sessions_container,
+    )
+    logger.info("[KB-AGENT] Session persistence enabled (Cosmos DB)")
+
+    # from_agent_framework() handles both Agent and Callable[[], Workflow].
+    # For callables it creates AgentFrameworkWorkflowAdapter which builds
+    # a fresh Workflow per request — no "already running" issues.
+    server = from_agent_framework(agent_or_factory, session_repository=session_repo)
     server.app.add_middleware(JWTAuthMiddleware)
-    server.app.mount("/ag-ui", _create_ag_ui_app(agent, session_repo))
+
+    # AG-UI endpoint: for workflows, create a per-request WorkflowAgent
+    # to avoid "Workflow is already running" errors on sequential calls.
+    # For single agent, use the custom _PersistedSessionAgent wrapper.
+    if is_workflow:
+        from agent.orchestrator import create_orchestrator
+
+        class _PerRequestWorkflowAgent:
+            """Creates a fresh WorkflowAgent per AG-UI run() call.
+
+            AgentFrameworkAgent expects a SupportsAgentRun, but a WorkflowAgent
+            singleton can't handle sequential requests (its Workflow keeps
+            running-state).  This wrapper creates a disposable WorkflowAgent
+            for each ``run()`` invocation and captures the session state
+            so _PersistedSessionAgent can persist it.
+            """
+
+            def __init__(self) -> None:
+                self.latest_pending_requests: dict[str, Any] = {}
+
+            @property
+            def name(self):
+                return "KBAgentOrchestrator"
+
+            async def create_session(self, *args, **kwargs):
+                from agent_framework import AgentSession
+                return AgentSession()
+
+            async def get_session(self, *args, **kwargs):
+                return None
+
+            async def run(self, messages, **kwargs):
+                self.latest_pending_requests = {}
+                workflow = create_orchestrator()
+                agent = workflow.as_agent(name="KBAgentOrchestrator")
+                try:
+                    async for update in agent.run(messages, **kwargs):
+                        pending_requests = getattr(agent, "pending_requests", None)
+                        if isinstance(pending_requests, dict) and pending_requests:
+                            self.latest_pending_requests = dict(pending_requests)
+                        yield update
+                finally:
+                    pending_requests = getattr(agent, "pending_requests", None)
+                    if isinstance(pending_requests, dict):
+                        self.latest_pending_requests = dict(pending_requests)
+
+        ag_ui_app = FastAPI(
+            title="KB Agent AG-UI",
+            docs_url=None, redoc_url=None, openapi_url=None,
+            redirect_slashes=False,
+        )
+        per_request_agent = _PerRequestWorkflowAgent()
+        # Wrap with _PersistedSessionAgent for session persistence on AG-UI
+        # (saves/loads conversation history via Cosmos DB session repository)
+        wrapped_agent = per_request_agent
+        if session_repo is not None:
+            wrapped_agent = _PersistedSessionAgent(per_request_agent, session_repo, is_workflow=True)
+        ag_ui_agent = AgentFrameworkAgent(agent=wrapped_agent, use_service_session=True)
+        _add_persisted_ag_ui_endpoint(
+            ag_ui_app,
+            ag_ui_agent,
+            path="/",
+            session_repository=session_repo,
+        )
+        server.app.mount("/ag-ui", ag_ui_app)
+    else:
+        server.app.mount("/ag-ui", _create_ag_ui_app(agent_or_factory, session_repo))
+
     if session_repo is not None:
         server.app.mount("/citations", _create_citation_lookup_app(session_repo))
     server.run()

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef } from "react";
 
-import { useCitationDialogOptional } from "./CitationDialogContext";
+import { citationKey, useCitationDialogOptional } from "./CitationDialogContext";
 import { useConversationThreadId } from "./ConversationThreadContext";
 import { SearchCitationResult } from "../lib/types";
 import { coerceMessageContent } from "../lib/messageContent";
@@ -14,6 +14,7 @@ import {
 type SearchToolRendererProps = {
   status?: string;
   toolCallId?: string;
+  turnNumber?: number;
   args?: {
     query?: unknown;
   } | null;
@@ -47,7 +48,7 @@ export function getPillTitle(row: SearchCitationResult): string {
   return `${words.slice(0, 3).join(" ")}…`;
 }
 
-export function SearchToolRenderer({ status, toolCallId, args, result }: SearchToolRendererProps) {
+export function SearchToolRenderer({ status, toolCallId, args, result, turnNumber }: SearchToolRendererProps) {
   const threadId = useConversationThreadId();
   const citationDialog = useCitationDialogOptional();
   const citationDialogRef = useRef(citationDialog);
@@ -70,10 +71,15 @@ export function SearchToolRenderer({ status, toolCallId, args, result }: SearchT
 
     for (const row of rows) {
       if (row.ref_number !== undefined) {
-        dialog.registerCitation(row.ref_number, {
+        const key = citationKey(toolCallId, row.ref_number);
+        const t = turnNumber ?? 1;
+        dialog.registerCitation(key, {
           citation: row,
           threadId,
           toolCallId,
+          source: "internal",
+          displayLabel: `Ref ${t}.${row.ref_number}`,
+          turnNumber: t,
         });
       }
     }
@@ -92,14 +98,16 @@ export function SearchToolRenderer({ status, toolCallId, args, result }: SearchT
         <div className="citationPillDeck">
           {rows.map((row, index) => {
             const refNumber = row.ref_number ?? index + 1;
-            const refLabel = `Ref #${refNumber}`;
+            const t = turnNumber ?? 1;
+            const refLabel = `Ref ${t}.${refNumber}`;
             const pillTitle = getPillTitle(row);
+            const key = citationKey(toolCallId, refNumber);
 
             return (
               <button
                 className="citationPill"
                 key={`${refNumber}-${row.title ?? "result"}`}
-                onClick={() => citationDialog?.openCitation(refNumber)}
+                onClick={() => citationDialog?.openCitation(key)}
                 type="button"
                 aria-label={`${refLabel}: ${pillTitle}`}
               >

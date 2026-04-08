@@ -45,6 +45,7 @@ Use the `architecture-check` skill to verify:
 - [ ] Config via environment variables, not hardcoded values
 - [ ] `DefaultAzureCredential` for all Azure service access
 - [ ] File placement follows service conventions
+- [ ] Required components fail fast when unavailable unless a spec explicitly defines degraded mode
 
 ### 3. Security Review
 Use the `security-review` skill to check:
@@ -61,6 +62,7 @@ Use the `security-review` skill to check:
 - [ ] Edge cases and error paths tested
 - [ ] Tests follow conventions in `testing.instructions.md`
 - [ ] Tests pass: check with `problems` tool for any failures
+- [ ] Tests were not made green by hiding missing infra, weakening the contract, or adding unspec'd fallback behavior
 
 ### 5. Code Quality
 - [ ] Type annotations on public functions
@@ -129,6 +131,7 @@ If the verdict is `✅ Approve` and no actionable fixes remain, do not recommend
 - **Acknowledge good work** — note well-implemented patterns
 - **Prioritize clearly** — Critical > Warning > Suggestion
 - **Check the full picture** — don't just review the diff, check how it integrates with existing code
+- **Treat unspec'd fallbacks as Critical Issues** — if code introduces a fallback, silent downgrade, or empty-success path for a spec-required dependency without explicit spec backing, reject the change.
 
 ## Termination Point
 

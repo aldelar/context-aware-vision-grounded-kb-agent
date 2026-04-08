@@ -47,10 +47,32 @@ services:
       - ./.env.dev
     environment:
       OTEL_SERVICE_NAME: kb-agent
+      WEB_SEARCH_MCP_ENDPOINT: http://mcp-web-search:8089/mcp/
     ports:
       - "8088:8088"
     healthcheck:
       test: ["CMD", "python", "-c", "import socket; s=socket.create_connection(('127.0.0.1', 8088), 2); s.close()"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    depends_on:
+      mcp-web-search:
+        condition: service_healthy
+    networks:
+      - kb-agent-dev
+
+  mcp-web-search:
+    build:
+      context: ./src/mcp-web-search
+      dockerfile: ./Dockerfile
+    environment:
+      ENVIRONMENT: dev
+      MCP_PORT: "8089"
+    ports:
+      - "8089:8089"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s=socket.create_connection(('127.0.0.1', 8089), 2); s.close()"]
       interval: 10s
       timeout: 5s
       retries: 20

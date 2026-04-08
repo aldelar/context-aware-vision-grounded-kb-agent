@@ -1,0 +1,16 @@
+# Internal Search Agent — scope configuration
+# This file defines the topics and scope for the internal search agent.
+# Changing scope requires only editing this file — no code changes needed.
+
+name: InternalSearchAgent
+id: internal-search-agent
+description: >
+  Searches the internal knowledge base for articles about
+  Azure AI Search and Azure Content Understanding.
+topics:
+  - Azure AI Search
+  - Azure Content Understanding
+example_questions:
+  - "What is agentic retrieval in Azure AI Search?"
+  - "How does Azure Content Understanding analyze images?"
+  - "What are the networking options for Azure AI Search?"

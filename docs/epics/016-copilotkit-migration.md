@@ -2,7 +2,7 @@
 
 > **Status:** In Progress
 > **Created:** March 27, 2026
-> **Updated:** April 3, 2026
+> **Updated:** April 8, 2026
 
 ## Objective
 
@@ -56,6 +56,15 @@ After this epic:
 - [x] Agent tests: `201 passed` including AG-UI, streaming, grounding, citation lookup, and session persistence coverage
 - [x] Web-app tests: `62 passed` including auth helpers, conversation routes, image proxy route, local blob fallback coverage, config loading, citation/image transforms, transcript hydration, sidebar CRUD interactions, live-only thinking/collapsible citation coverage, citation markdown table rendering, and same-turn tool-call citation association for final assistant answers
 - [ ] Full manual browser E2E validation from the local dev stack is still pending
+
+### Recent Regression Repairs
+
+- Regression repair (2026-04-08): the web app no longer treats the first empty `/api/conversations/{threadId}/messages` response as authoritative for existing threads. `ChatHistoryHydrator` now retries transient empty history loads before clearing the chat, which covers delayed session writes that previously required toggling between conversations to get history to appear.
+- Regression repair (2026-04-08): persisted-thread hydration now waits for the AG-UI connect cycle to finish before falling back to `/api/conversations/{threadId}/messages`. This prevents a restored local conversation from being cleared a second later by the hydrator after CopilotKit already replayed the thread from the AG-UI connect snapshot.
+- Regression repair (2026-04-08): workflow-backed AG-UI runs now synthesize replayable `session.state.in_memory.messages` from stored history plus streamed workflow updates when the workflow returns a visible answer but leaves provider history empty. This prevents answered conversations from being persisted with `message_count=0` and keeps sidebar reloads aligned with the live transcript.
+- Regression repair (2026-04-08): AG-UI empty-message thread connects now stream the persisted session state and `MESSAGES_SNAPSHOT` directly from the agent endpoint before CopilotKit finishes its connect cycle. This fixes the deeper local root cause where the UI could briefly show restored history and then lose it when `connectAgent()` cleared the message buffer for an existing thread.
+- Regression repair (2026-04-08): handoff/request-info workflow turns no longer persist as empty sessions when the visible assistant answer only exists inside a pending workflow request payload. The AG-UI workflow wrapper now exposes pending `request_info` events to the persistence layer, and workflow history synthesis extracts replayable assistant/tool messages from the nested `agent_response` before saving to Cosmos.
+- Regression repair (2026-04-08): workflow history synthesis now deduplicates equivalent assistant/tool messages across the current handoff turn before saving. This prevents the same `request_info` answer from being persisted multiple times when the workflow exposes overlapping streamed updates and pending approval payloads; live validation on `persist-debug-20260408-5` now saves and reloads a single 6-message transcript instead of a duplicated 12-message replay.
 
 ### Validation Criteria
 

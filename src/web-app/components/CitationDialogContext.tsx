@@ -8,30 +8,45 @@ export type RegisteredCitation = {
   citation: SearchCitationResult;
   threadId: string | null;
   toolCallId: string | undefined;
+  /** "internal" for search_knowledge_base, "web" for web_search */
+  source: "internal" | "web";
+  /** Display label like "Ref 1.3" */
+  displayLabel?: string;
+  /** Turn number this citation belongs to */
+  turnNumber?: number;
 };
 
+/** Build a scoped key that prevents collisions across tool calls and turns. */
+export function citationKey(toolCallId: string | undefined, refNumber: number): string {
+  return `${toolCallId ?? "unknown"}:${refNumber}`;
+}
+
 type CitationDialogState = {
-  /** The ref number currently open in the dialog, or null if closed. */
-  openRefNumber: number | null;
-  /** Open the dialog for a given ref number. */
-  openCitation: (refNumber: number) => void;
+  /** The composite key currently open in the dialog, or null if closed. */
+  openKey: string | null;
+  /** Open the dialog for a given scoped citation key. */
+  openCitation: (key: string) => void;
   /** Close the dialog. */
   closeCitation: () => void;
-  /** Register a citation so the dialog can look it up by ref number. */
-  registerCitation: (refNumber: number, entry: RegisteredCitation) => void;
-  /** Look up a registered citation by ref number. */
-  getCitation: (refNumber: number) => RegisteredCitation | undefined;
+  /** Register a citation with a scoped key. */
+  registerCitation: (key: string, entry: RegisteredCitation) => void;
+  /** Look up a registered citation by scoped key. */
+  getCitation: (key: string) => RegisteredCitation | undefined;
+  /** Find the first registered key matching a ref number (for inline [Ref #N] clicks). */
+  findKeyByRefNumber: (refNumber: number, turnNumber?: number) => string | null;
+  /** Clear all registered citations (call on thread switch). */
+  clearCitations: () => void;
 };
 
 const CitationDialogContext = createContext<CitationDialogState | null>(null);
 
 export function CitationDialogProvider({ children }: { children: ReactNode }) {
-  const [openRefNumber, setOpenRefNumber] = useState<number | null>(null);
-  const [registry, setRegistry] = useState<Map<number, RegisteredCitation>>(new Map());
+  const [openKey, setOpenKey] = useState<string | null>(null);
+  const [registry, setRegistry] = useState<Map<string, RegisteredCitation>>(new Map());
 
-  const registerCitation = useCallback((refNumber: number, entry: RegisteredCitation) => {
+  const registerCitation = useCallback((key: string, entry: RegisteredCitation) => {
     setRegistry((current) => {
-      const existing = current.get(refNumber);
+      const existing = current.get(key);
       if (
         existing &&
         existing.citation === entry.citation &&
@@ -42,27 +57,56 @@ export function CitationDialogProvider({ children }: { children: ReactNode }) {
       }
 
       const next = new Map(current);
-      next.set(refNumber, entry);
+      next.set(key, entry);
       return next;
     });
   }, []);
 
   const getCitation = useCallback(
-    (refNumber: number) => registry.get(refNumber),
+    (key: string) => registry.get(key),
     [registry],
   );
 
-  const openCitation = useCallback((refNumber: number) => {
-    setOpenRefNumber(refNumber);
+  const openCitation = useCallback((key: string) => {
+    setOpenKey(key);
   }, []);
 
   const closeCitation = useCallback(() => {
-    setOpenRefNumber(null);
+    setOpenKey(null);
   }, []);
 
+  const clearCitations = useCallback(() => {
+    setRegistry(new Map());
+    setOpenKey(null);
+  }, []);
+
+  const findKeyByRefNumber = useCallback(
+    (refNumber: number, turnNumber?: number): string | null => {
+      const suffix = `:${refNumber}`;
+      // If turnNumber is provided, prefer entries from that turn
+      if (turnNumber !== undefined) {
+        for (const [key, entry] of registry.entries()) {
+          if (key.endsWith(suffix) && entry.turnNumber === turnNumber) {
+            return key;
+          }
+        }
+      }
+      // Fallback: return the last key matching this ref number
+      // (last registered = most recent turn)
+      let lastKey: string | null = null;
+      for (const key of registry.keys()) {
+        if (key.endsWith(suffix)) {
+          lastKey = key;
+        }
+      }
+      return lastKey;
+    },
+    [registry],
+  );
+
   const value = useMemo<CitationDialogState>(
-    () => ({ openRefNumber, openCitation, closeCitation, registerCitation, getCitation }),
-    [openRefNumber, openCitation, closeCitation, registerCitation, getCitation],
+    () => ({ openKey, openCitation, closeCitation, registerCitation, getCitation, findKeyByRefNumber, clearCitations }),
+    [openKey, openCitation, closeCitation, registerCitation, getCitation, findKeyByRefNumber, clearCitations],
   );
 
   return (
