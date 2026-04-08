@@ -24,13 +24,9 @@ param acrResourceId string
 @description('Docker image name and tag')
 param imageName string = ''
 
-@description('Application environment name (dev or prod)')
-param environmentName string
-
 var containerAppName = 'mcp-ws-${baseName}'
 var useAcrImage = !empty(imageName)
 var envVars = [
-  { name: 'ENVIRONMENT', value: environmentName }
   { name: 'MCP_PORT', value: '8089' }
 ]
 

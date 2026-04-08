@@ -498,22 +498,50 @@ flowchart TD
 
 ### 11. AG-UI Protocol Integration
 
-**Problem:** Traditional chat APIs use request/response patterns that can't stream tool calls, agent handoffs, reasoning traces, and structured state updates as they happen. Building a real-time multi-agent UI requires a protocol that surfaces these internal agent activities to the frontend without custom WebSocket plumbing.
+**Problem:** Traditional chat APIs use request/response patterns that can't stream tool calls, agent handoffs, reasoning traces, and structured state updates as they happen.
 
-**Pattern:** Use the **AG-UI protocol** — an open standard that defines a streaming event contract between agents and UIs. The agent server emits typed SSE events (`TEXT_MESSAGE_*`, `TOOL_CALL_*`, `STEP_STARTED/FINISHED`, `ACTIVITY_SNAPSHOT`, `RUN_STARTED/FINISHED`) and the CopilotKit runtime consumes them. The `from_agent_framework()` adapter from `azure-ai-agentserver-agentframework` bridges the Microsoft Agent Framework to AG-UI automatically — no custom event mapping needed. For multi-agent workflows, `HandoffBuilder` executor transitions emit `STEP_STARTED/FINISHED` events that flow through AG-UI transparently. The web app's Next.js runtime route (`/api/copilotkit`) proxies AG-UI events between the CopilotKit UI and the agent via APIM.
+**Pattern:** Use the **AG-UI protocol** as the streaming contract between the UI and the agent.
+
+- **Native AG-UI support** — Microsoft Agent Framework has built-in AG-UI support and exposes an AG-UI endpoint directly via `from_agent_framework()` (`azure-ai-agentserver-agentframework`), so no custom protocol adapter is needed.
+- **Request flow** — CopilotKit sends a single AG-UI request to the web app's runtime route (`/api/copilotkit`), which forwards it to the agent's AG-UI endpoint and relays the typed SSE stream back to the browser.
+- **Automatic event mapping** — Framework updates are translated into AG-UI events automatically: `TEXT_MESSAGE_*`, `TOOL_CALL_*`, `STEP_STARTED/FINISHED`, `ACTIVITY_SNAPSHOT`, and `RUN_STARTED/FINISHED` — no custom event mapping needed.
+- **Multi-agent transparency** — `HandoffBuilder` executor transitions surface as protocol events, and specialist responses preserve `author_name` for UI rendering.
+
+The diagram below omits APIM and other network intermediaries to focus on the event contract.
 
 ```mermaid
-flowchart LR
-    UI["CopilotKit UI\nReact"] -->|AG-UI events| RUNTIME["Next.js Runtime\n/api/copilotkit"]
-    RUNTIME -->|AG-UI SSE| APIM["APIM\nAI Gateway"]
-    APIM -->|AG-UI SSE| AGENT["Agent Server\nfrom_agent_framework"]
-    AGENT -->|run| WF["WorkflowAgent\nHandoffBuilder"]
+sequenceDiagram
+    autonumber
+    participant UI as CopilotKit UI
+    participant Runtime as Next.js /api/copilotkit
+    participant Agent as Agent Server (from_agent_framework)
+    participant Workflow as WorkflowAgent / HandoffBuilder
 
-    style UI fill:#455a64,stroke:#546e7a,color:#ffffff
-    style RUNTIME fill:#455a64,stroke:#546e7a,color:#ffffff
-    style APIM fill:#6d8f6d,stroke:#8aac8a,color:#ffffff
-    style AGENT fill:#3949ab,stroke:#5c6bc0,color:#ffffff
-    style WF fill:#e65100,color:#fff
+    UI->>Runtime: Send user message + thread state
+    Runtime->>Agent: Forward AG-UI request
+    Agent-->>Runtime: RUN_STARTED
+    Runtime-->>UI: RUN_STARTED
+
+    Agent->>Workflow: run(messages, session)
+    Workflow-->>Agent: Route to specialist
+    Agent-->>Runtime: STEP_STARTED(WebSearchAgent)
+    Runtime-->>UI: STEP_STARTED(WebSearchAgent)
+    Agent-->>Runtime: ACTIVITY_SNAPSHOT(executor=in_progress)
+    Runtime-->>UI: ACTIVITY_SNAPSHOT(executor=in_progress)
+
+    Workflow-->>Agent: Invoke tool
+    Agent-->>Runtime: TOOL_CALL_START(web_search)
+    Runtime-->>UI: TOOL_CALL_START(web_search)
+    Agent-->>Runtime: TOOL_CALL_RESULT(web_search)
+    Runtime-->>UI: TOOL_CALL_RESULT(web_search)
+
+    Workflow-->>Agent: Stream specialist answer
+    Agent-->>Runtime: TEXT_MESSAGE_START / CONTENT / END
+    Runtime-->>UI: TEXT_MESSAGE_START / CONTENT / END
+    Agent-->>Runtime: STEP_FINISHED(WebSearchAgent)
+    Runtime-->>UI: STEP_FINISHED(WebSearchAgent)
+    Agent-->>Runtime: RUN_FINISHED
+    Runtime-->>UI: RUN_FINISHED
 ```
 
 > See the [AG-UI protocol specification](https://docs.ag-ui.com) for the full event type reference.
