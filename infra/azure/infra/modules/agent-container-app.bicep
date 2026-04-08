@@ -62,6 +62,9 @@ param cosmosEndpoint string = ''
 @description('Cosmos DB database name')
 param cosmosDatabaseName string = 'kb-agent'
 
+@description('MCP Web Search server endpoint (internal Container App URL)')
+param mcpWebSearchEndpoint string = ''
+
 // Use a public placeholder image on first deploy (before AZD pushes the real image).
 // The placeholder listens on port 80, so provision with that port and switch to 8088 on the real deploy.
 var useAcrImage = !empty(imageName)
@@ -123,6 +126,7 @@ resource agentApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'COSMOS_DATABASE_NAME', value: cosmosDatabaseName }
             { name: 'OTEL_SERVICE_NAME', value: 'kb-agent' }
             { name: 'REQUIRE_AUTH', value: 'true' }
+            { name: 'WEB_SEARCH_MCP_ENDPOINT', value: mcpWebSearchEndpoint }
           ]
         }
       ]

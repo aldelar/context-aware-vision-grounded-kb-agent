@@ -58,6 +58,7 @@ main() {
     configure_registry FUNC_CONVERT_MARKITDOWN_NAME
     configure_registry FUNC_CONVERT_MISTRAL_NAME
     configure_registry FUNC_INDEX_NAME
+    configure_registry MCP_WEB_SEARCH_NAME
 
     echo "=== Done ==="
 }

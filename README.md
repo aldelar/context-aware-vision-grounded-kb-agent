@@ -48,6 +48,7 @@ block-beta
     PI5["Azure Monitor · App Insights<br/><i>OpenTelemetry</i>"]
     PI6["API Management · AI Gateway"]
     PI7["Azure Container Registry"]
+    PI8["Bing Grounding API"]
   end
 
   block:DEV_SVC:2
@@ -56,6 +57,7 @@ block-beta
     DS1["fn-convert"]
     DS2["fn-index"]
     DS3["agent<br/><i>Microsoft Agent Framework</i>"]
+    DS5["mcp-web-search<br/><i>MCP Server · MS Learn</i>"]
     DS4["web-app<br/><i>CopilotKit · AG-UI protocol</i>"]
   end
 
@@ -68,6 +70,7 @@ block-beta
     PF2["fn-index"]
     PS_TITLE["☁️ Services · Azure Container Apps"]
     PS3["agent<br/><i>Microsoft Agent Framework</i>"]
+    PS5["mcp-web-search<br/><i>MCP Server · MS Learn + Bing</i>"]
     PS4["web-app<br/><i>CopilotKit · AG-UI protocol</i>"]
   end
 
@@ -95,16 +98,19 @@ block-beta
   style PI5 fill:#4e342e,stroke:#5d4037,color:#efebe9
   style PI6 fill:#4e342e,stroke:#5d4037,color:#efebe9
   style PI7 fill:#4e342e,stroke:#5d4037,color:#efebe9
+  style PI8 fill:#4e342e,stroke:#5d4037,color:#efebe9
 
   style DS1 fill:#37474f,stroke:#455a64,color:#eceff1
   style DS2 fill:#37474f,stroke:#455a64,color:#eceff1
   style DS3 fill:#37474f,stroke:#455a64,color:#eceff1
   style DS4 fill:#37474f,stroke:#455a64,color:#eceff1
+  style DS5 fill:#37474f,stroke:#455a64,color:#eceff1
 
   style PF1 fill:#4e342e,stroke:#5d4037,color:#efebe9
   style PF2 fill:#4e342e,stroke:#5d4037,color:#efebe9
   style PS3 fill:#4e342e,stroke:#5d4037,color:#efebe9
   style PS4 fill:#4e342e,stroke:#5d4037,color:#efebe9
+  style PS5 fill:#4e342e,stroke:#5d4037,color:#efebe9
 ```
 
 ## Getting Started
@@ -484,6 +490,28 @@ flowchart TD
 
 > See [docs/ards/ARD-017-multi-agent-handoff.md](docs/ards/ARD-017-multi-agent-handoff.md) for the full decision record.
 
+### 11. AG-UI Protocol Integration
+
+**Problem:** Traditional chat APIs use request/response patterns that can't stream tool calls, agent handoffs, reasoning traces, and structured state updates as they happen. Building a real-time multi-agent UI requires a protocol that surfaces these internal agent activities to the frontend without custom WebSocket plumbing.
+
+**Pattern:** Use the **AG-UI protocol** — an open standard that defines a streaming event contract between agents and UIs. The agent server emits typed SSE events (`TEXT_MESSAGE_*`, `TOOL_CALL_*`, `STEP_STARTED/FINISHED`, `ACTIVITY_SNAPSHOT`, `RUN_STARTED/FINISHED`) and the CopilotKit runtime consumes them. The `from_agent_framework()` adapter from `azure-ai-agentserver-agentframework` bridges the Microsoft Agent Framework to AG-UI automatically — no custom event mapping needed. For multi-agent workflows, `HandoffBuilder` executor transitions emit `STEP_STARTED/FINISHED` events that flow through AG-UI transparently. The web app's Next.js runtime route (`/api/copilotkit`) proxies AG-UI events between the CopilotKit UI and the agent via APIM.
+
+```mermaid
+flowchart LR
+    UI["CopilotKit UI\nReact"] -->|AG-UI events| RUNTIME["Next.js Runtime\n/api/copilotkit"]
+    RUNTIME -->|AG-UI SSE| APIM["APIM\nAI Gateway"]
+    APIM -->|AG-UI SSE| AGENT["Agent Server\nfrom_agent_framework"]
+    AGENT -->|run| WF["WorkflowAgent\nHandoffBuilder"]
+
+    style UI fill:#455a64,stroke:#546e7a,color:#ffffff
+    style RUNTIME fill:#455a64,stroke:#546e7a,color:#ffffff
+    style APIM fill:#6d8f6d,stroke:#8aac8a,color:#ffffff
+    style AGENT fill:#3949ab,stroke:#5c6bc0,color:#ffffff
+    style WF fill:#e65100,color:#fff
+```
+
+> See the [AG-UI protocol specification](https://docs.ag-ui.com) for the full event type reference.
+
 ---
 
 ## Architecture
@@ -500,17 +528,18 @@ flowchart LR
     IDX --> AIS["AI Search<br/>kb-articles index"]
 
     subgraph AgentSvc["KB Agent"]
-        AGENT["<b>Agent</b>"]
+        ORCH["<b>Agent Orchestrator</b>"]
         VIS["<b>Vision Middleware</b>"]
     end
 
-    AGENT -->|query| AIS
-    AGENT -->|reason| AF["Foundry<br/>GPT-4.1 + Embeddings"]
+    ORCH -->|query| AIS
+    ORCH -->|query| WEB["Web Search<br/>whitelisted sites"]
+    ORCH -->|reason| AF["Foundry<br/>GPT-4.1 + Embeddings"]
     VIS -->|fetch| IMG
-    VIS -->|inject| AGENT
-    AGENT -->|sessions| COSMOS["Cosmos DB"]
+    VIS -->|inject| ORCH
+    ORCH -->|sessions| COSMOS["Cosmos DB"]
 
-    CHAT["CopilotKit UI"] -->|AG-UI + citation lookups| APIM["APIM"] --> AGENT
+    CHAT["CopilotKit UI"] -->|AG-UI + citation lookups| APIM["APIM"] --> ORCH
     CHAT -->|conversation metadata| COSMOS
 
     style AgentSvc fill:#3949ab,stroke:#5c6bc0,color:#ffffff
@@ -520,6 +549,7 @@ flowchart LR
     style SA2 fill:#1565c0,stroke:#1976d2,color:#ffffff
     style SA1 fill:#90a4ae,stroke:#b0bec5,color:#1a237e
     style AIS fill:#0d47a1,stroke:#1565c0,color:#ffffff
+    style WEB fill:#0d47a1,stroke:#1565c0,color:#ffffff
     style VIS fill:#8b7535,stroke:#a6893f,color:#ffffff
     style IMG fill:#8b7535,stroke:#a6893f,color:#ffffff
     style AF fill:#4a148c,stroke:#6a1b9a,color:#ffffff

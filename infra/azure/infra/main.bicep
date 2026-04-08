@@ -344,6 +344,7 @@ module agentContainerApp 'modules/agent-container-app.bicep' = {
     applicationInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
     cosmosEndpoint: cosmosDb.outputs.cosmosEndpoint
     cosmosDatabaseName: cosmosDb.outputs.cosmosDatabaseName
+    mcpWebSearchEndpoint: 'http://${mcpWebSearchContainerApp.outputs.fqdn}/mcp'
   }
 }
 
@@ -693,6 +694,9 @@ output FOUNDRY_PROJECT_ENDPOINT string = foundryProject.outputs.projectEndpoint
 output AGENT_APP_NAME string = agentContainerApp.outputs.agentAppName
 output AGENT_ENDPOINT string = agentContainerApp.outputs.agentEndpoint
 output AGENT_EXTERNAL_URL string = agentContainerApp.outputs.agentExternalUrl
+
+// MCP Web Search Container App
+output MCP_WEB_SEARCH_NAME string = mcpWebSearchContainerApp.outputs.name
 
 // API Management (AI Gateway)
 output APIM_NAME string = apim.outputs.apimName

@@ -326,7 +326,7 @@ prod-up: prod-setup prod-infra-up prod-services-up prod-pipeline
 	@$(MAKE) prod-ui-url
 
 .PHONY: prod-services-up
-prod-services-up: prod-configure-registries prod-services-app-up prod-services-agent-up prod-services-pipeline-up
+prod-services-up: prod-configure-registries prod-services-app-up prod-services-mcp-up prod-services-agent-up prod-services-pipeline-up
 	@$(MAKE) prod-configure-target-ports
 
 .PHONY: prod-configure-registries
@@ -360,6 +360,10 @@ prod-services-app-up:
 prod-services-agent-up:
 	@$(AZD) deploy --service agent
 	@$(MAKE) prod-configure-target-ports
+
+.PHONY: prod-services-mcp-up
+prod-services-mcp-up:
+	@$(AZD) deploy --service mcp-web-search
 
 .PHONY: prod-ui-url
 prod-ui-url:

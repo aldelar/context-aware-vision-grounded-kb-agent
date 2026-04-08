@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "17778470106301980832"
+      "templateHash": "18053537005875273757"
     }
   },
   "parameters": {
@@ -3275,6 +3275,9 @@
           },
           "cosmosDatabaseName": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'cosmos-db'), '2025-04-01').outputs.cosmosDatabaseName.value]"
+          },
+          "mcpWebSearchEndpoint": {
+            "value": "[format('http://{0}/mcp', reference(resourceId('Microsoft.Resources/deployments', 'mcp-web-search-container-app'), '2025-04-01').outputs.fqdn.value)]"
           }
         },
         "template": {
@@ -3284,7 +3287,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "15143160019384504377"
+              "templateHash": "11671820513073363883"
             }
           },
           "parameters": {
@@ -3409,6 +3412,13 @@
               "metadata": {
                 "description": "Cosmos DB database name"
               }
+            },
+            "mcpWebSearchEndpoint": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "MCP Web Search server endpoint (internal Container App URL)"
+              }
             }
           },
           "variables": {
@@ -3501,6 +3511,10 @@
                         {
                           "name": "REQUIRE_AUTH",
                           "value": "true"
+                        },
+                        {
+                          "name": "WEB_SEARCH_MCP_ENDPOINT",
+                          "value": "[parameters('mcpWebSearchEndpoint')]"
                         }
                       ]
                     }
@@ -3553,6 +3567,7 @@
         "[resourceId('Microsoft.Resources/deployments', 'container-registry')]",
         "[resourceId('Microsoft.Resources/deployments', 'cosmos-db')]",
         "[resourceId('Microsoft.Resources/deployments', 'foundry-project')]",
+        "[resourceId('Microsoft.Resources/deployments', 'mcp-web-search-container-app')]",
         "[resourceId('Microsoft.Resources/deployments', 'monitoring')]",
         "[resourceId('Microsoft.Resources/deployments', 'search')]",
         "[resourceId('Microsoft.Resources/deployments', 'serving-storage')]"
@@ -3594,7 +3609,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "10683810772033657346"
+              "templateHash": "9814009911887141738"
             }
           },
           "parameters": {
@@ -3653,7 +3668,8 @@
           },
           "variables": {
             "containerAppName": "[format('mcp-ws-{0}', parameters('baseName'))]",
-            "envVars": [
+            "hasBingKey": "[not(empty(parameters('bingSearchApiKey')))]",
+            "baseEnvVars": [
               {
                 "name": "ENVIRONMENT",
                 "value": "[parameters('environment')]"
@@ -3661,12 +3677,9 @@
               {
                 "name": "MCP_PORT",
                 "value": "8089"
-              },
-              {
-                "name": "BING_SEARCH_API_KEY",
-                "secretRef": "bing-search-api-key"
               }
-            ]
+            ],
+            "envVars": "[if(variables('hasBingKey'), union(variables('baseEnvVars'), createArray(createObject('name', 'BING_SEARCH_API_KEY', 'secretRef', 'bing-search-api-key'))), variables('baseEnvVars'))]"
           },
           "resources": [
             {
@@ -3674,7 +3687,7 @@
               "apiVersion": "2024-03-01",
               "name": "[variables('containerAppName')]",
               "location": "[parameters('location')]",
-              "tags": "[parameters('tags')]",
+              "tags": "[union(parameters('tags'), createObject('azd-service-name', 'mcp-web-search'))]",
               "identity": {
                 "type": "SystemAssigned"
               },
@@ -3686,12 +3699,7 @@
                     "targetPort": 8089,
                     "transport": "auto"
                   },
-                  "secrets": [
-                    {
-                      "name": "bing-search-api-key",
-                      "value": "[parameters('bingSearchApiKey')]"
-                    }
-                  ],
+                  "secrets": "[if(variables('hasBingKey'), createArray(createObject('name', 'bing-search-api-key', 'value', parameters('bingSearchApiKey'))), createArray())]",
                   "registries": "[if(not(empty(parameters('acrLoginServer'))), createArray(createObject('server', parameters('acrLoginServer'), 'identity', 'system')), createArray())]"
                 },
                 "template": {
@@ -7834,6 +7842,10 @@
     "AGENT_EXTERNAL_URL": {
       "type": "string",
       "value": "[reference(resourceId('Microsoft.Resources/deployments', 'agent-container-app'), '2025-04-01').outputs.agentExternalUrl.value]"
+    },
+    "MCP_WEB_SEARCH_NAME": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'mcp-web-search-container-app'), '2025-04-01').outputs.name.value]"
     },
     "APIM_NAME": {
       "type": "string",

@@ -29,16 +29,21 @@ param environment string = 'prod'
 param bingSearchApiKey string = ''
 
 var containerAppName = 'mcp-ws-${baseName}'
-var envVars = [
+var hasBingKey = !empty(bingSearchApiKey)
+var baseEnvVars = [
   { name: 'ENVIRONMENT', value: environment }
   { name: 'MCP_PORT', value: '8089' }
-  { name: 'BING_SEARCH_API_KEY', secretRef: 'bing-search-api-key' }
 ]
+var envVars = hasBingKey ? union(baseEnvVars, [
+  { name: 'BING_SEARCH_API_KEY', secretRef: 'bing-search-api-key' }
+]) : baseEnvVars
 
 resource mcpWebSearch 'Microsoft.App/containerApps@2024-03-01' = {
   name: containerAppName
   location: location
-  tags: tags
+  tags: union(tags, {
+    'azd-service-name': 'mcp-web-search'
+  })
   identity: {
     type: 'SystemAssigned'
   }
@@ -50,9 +55,9 @@ resource mcpWebSearch 'Microsoft.App/containerApps@2024-03-01' = {
         targetPort: 8089
         transport: 'auto'
       }
-      secrets: [
+      secrets: hasBingKey ? [
         { name: 'bing-search-api-key', value: bingSearchApiKey }
-      ]
+      ] : []
       registries: !empty(acrLoginServer) ? [
         {
           server: acrLoginServer

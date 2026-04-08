@@ -53,9 +53,8 @@ from agent_framework import AgentSession, Message
 # agent framework to emit spans for tool calls, model invocations, etc.
 _appinsights_conn = os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING")
 _otlp_endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT")
-_environment = os.environ.get("ENVIRONMENT", "prod").strip().lower() or "prod"
 _observability_enabled = False
-if _environment != "dev" and _appinsights_conn:
+if _appinsights_conn:
     from azure.monitor.opentelemetry import configure_azure_monitor
 
     configure_azure_monitor(
@@ -64,10 +63,9 @@ if _environment != "dev" and _appinsights_conn:
         logging_level=logging.INFO,  # export INFO+ to App Insights (default is WARNING)
     )
     _observability_enabled = True
-elif _environment != "dev" and _otlp_endpoint:
-    # Only enable generic OTLP instrumentation outside local dev. RC6 currently
-    # raises a ContextVar cleanup error on streamed responses when the fallback
-    # OTel path is active locally.
+elif _otlp_endpoint:
+    # Generic OTLP export — used in Docker dev (Aspire Dashboard) and any
+    # environment that sets OTEL_EXPORTER_OTLP_ENDPOINT explicitly.
     from agent_framework.observability import configure_otel_providers
 
     configure_otel_providers()
