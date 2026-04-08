@@ -134,7 +134,7 @@ export function CitationDialog() {
 
   const { citation } = entry;
   const displayCitation = mergeCitation(citation, enrichment.citation);
-  const refLabel = `Ref #${openRefNumber}`;
+  const refLabel = entry.displayLabel ?? `Ref #${openRefNumber}`;
   const title = displayCitation.title ?? displayCitation.section_header ?? "Reference";
   const sourceUrl = (displayCitation as any).source_url as string | undefined;
 

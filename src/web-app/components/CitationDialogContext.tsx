@@ -10,6 +10,10 @@ export type RegisteredCitation = {
   toolCallId: string | undefined;
   /** "internal" for search_knowledge_base, "web" for web_search */
   source: "internal" | "web";
+  /** Display label like "Ref 1.3" */
+  displayLabel?: string;
+  /** Turn number this citation belongs to */
+  turnNumber?: number;
 };
 
 /** Build a scoped key that prevents collisions across tool calls and turns. */
@@ -29,7 +33,7 @@ type CitationDialogState = {
   /** Look up a registered citation by scoped key. */
   getCitation: (key: string) => RegisteredCitation | undefined;
   /** Find the first registered key matching a ref number (for inline [Ref #N] clicks). */
-  findKeyByRefNumber: (refNumber: number) => string | null;
+  findKeyByRefNumber: (refNumber: number, turnNumber?: number) => string | null;
   /** Clear all registered citations (call on thread switch). */
   clearCitations: () => void;
 };
@@ -77,14 +81,25 @@ export function CitationDialogProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const findKeyByRefNumber = useCallback(
-    (refNumber: number): string | null => {
+    (refNumber: number, turnNumber?: number): string | null => {
       const suffix = `:${refNumber}`;
-      for (const key of registry.keys()) {
-        if (key.endsWith(suffix)) {
-          return key;
+      // If turnNumber is provided, prefer entries from that turn
+      if (turnNumber !== undefined) {
+        for (const [key, entry] of registry.entries()) {
+          if (key.endsWith(suffix) && entry.turnNumber === turnNumber) {
+            return key;
+          }
         }
       }
-      return null;
+      // Fallback: return the last key matching this ref number
+      // (last registered = most recent turn)
+      let lastKey: string | null = null;
+      for (const key of registry.keys()) {
+        if (key.endsWith(suffix)) {
+          lastKey = key;
+        }
+      }
+      return lastKey;
     },
     [registry],
   );

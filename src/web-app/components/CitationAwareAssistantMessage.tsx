@@ -10,7 +10,7 @@ import { useCitationDialogOptional } from "./CitationDialogContext";
 import { coerceMessageContent } from "../lib/messageContent";
 import { linkCitationMarkers } from "./chatMessageTransforms";
 
-const citationRefPattern = /^#citation-ref-(\d+)$/;
+const citationRefPattern = /^#citation-ref-(?:(\d+)-)?(\d+)$/;
 
 export function CitationAwareAssistantMessage(props: AssistantMessageProps) {
   const content = coerceMessageContent(props.message?.content);
@@ -23,15 +23,15 @@ export function CitationAwareAssistantMessage(props: AssistantMessageProps) {
       a: ({ node, href, children, ...rest }: any) => {
         const match = typeof href === "string" ? href.match(citationRefPattern) : null;
         if (match && citationDialog) {
-          const refNumber = Number(match[1]);
+          const turnNumber = match[1] ? Number(match[1]) : undefined;
+          const refNumber = Number(match[2]);
           return (
             <button
               {...rest}
               className="citationInlineRef"
               onClick={(event: React.MouseEvent) => {
                 event.preventDefault();
-                // Find any registered citation matching this ref number
-                const key = citationDialog.findKeyByRefNumber(refNumber);
+                const key = citationDialog.findKeyByRefNumber(refNumber, turnNumber);
                 if (key) {
                   citationDialog.openCitation(key);
                 }

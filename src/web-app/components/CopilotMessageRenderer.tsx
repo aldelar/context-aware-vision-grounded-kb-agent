@@ -86,6 +86,17 @@ function getTurnBounds(messages: AgUiMessageLike[], index: number): { start: num
   return { start, end };
 }
 
+/** Count the number of user-message turns up to and including the given index. */
+function getTurnNumber(messages: AgUiMessageLike[], index: number): number {
+  let turn = 0;
+  for (let i = 0; i <= index && i < messages.length; i++) {
+    if (messages[i]?.role === "user") {
+      turn++;
+    }
+  }
+  return Math.max(turn, 1);
+}
+
 function getAssistantSearchCitations(message: AgUiMessageLike, messages: AgUiMessageLike[], index: number) {
   const { start, end } = getTurnBounds(messages, index);
   const toolCalls = messages
@@ -162,6 +173,7 @@ function renderToolCall(
   toolCall: ToolCallLike,
   messages: AgUiMessageLike[],
   isInProgress: boolean,
+  turnNumber: number,
 ): ReactNode {
   const toolName = toolCall.function?.name ?? "unknown_tool";
   const args = parseToolArgs(toolCall);
@@ -170,11 +182,11 @@ function renderToolCall(
   const status = toolResultMessage ? "complete" : isInProgress ? "executing" : "inProgress";
 
   if (toolName === "search_knowledge_base") {
-    return <SearchToolRenderer args={args} result={parsedResult as any} status={status} toolCallId={toolCall.id} />;
+    return <SearchToolRenderer args={args} result={parsedResult as any} status={status} toolCallId={toolCall.id} turnNumber={turnNumber} />;
   }
 
   if (toolName === "web_search") {
-    return <WebSearchToolRenderer args={args} result={parsedResult as any} status={status} toolCallId={toolCall.id} />;
+    return <WebSearchToolRenderer args={args} result={parsedResult as any} status={status} toolCallId={toolCall.id} turnNumber={turnNumber} />;
   }
 
   const toolLabel = coerceMessageContent(toolName) ?? "Agent tool";
@@ -268,7 +280,8 @@ export function CopilotMessageRenderer({
 
   const visibleContent = coerceMessageContent(message.content)?.trim();
   const searchCitations = getAssistantSearchCitations(message, messages, index);
-  const transformedContent = visibleContent ? transformAssistantContent(visibleContent, searchCitations) : visibleContent;
+  const messageTurnNumber = getTurnNumber(messages, index);
+  const transformedContent = visibleContent ? transformAssistantContent(visibleContent, searchCitations, messageTurnNumber) : visibleContent;
   const toolCalls = Array.isArray(message.toolCalls) ? message.toolCalls : [];
   const isLoading = inProgress && isCurrentMessage && !visibleContent && toolCalls.length === 0;
   const shouldRenderAssistantMessage = Boolean(visibleContent) || Boolean(message.generativeUI) || isLoading;
@@ -301,6 +314,7 @@ export function CopilotMessageRenderer({
     (toolCall) => findToolResultMessage(messages, toolCall.id) !== undefined,
   );
   const isAwaitingAnswer = inProgress && isCurrentMessage && allToolCallsComplete && !visibleContent;
+  const turnNumber = getTurnNumber(messages, index);
 
   return (
     <>
@@ -308,7 +322,7 @@ export function CopilotMessageRenderer({
       <div className="toolCallStack">
         {toolCalls.map((toolCall) => (
           <div className="toolCallStackItem" key={toolCall.id}>
-            {renderToolCall(toolCall, messages, inProgress && isCurrentMessage)}
+            {renderToolCall(toolCall, messages, inProgress && isCurrentMessage, turnNumber)}
           </div>
         ))}
       </div>

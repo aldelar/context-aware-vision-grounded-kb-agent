@@ -430,17 +430,28 @@ export function getCitationMarkdownContent(
   return normalizedContent ? `${normalizedContent}\n\n${fallbackMarkdown}` : fallbackMarkdown;
 }
 
-export function linkCitationMarkers(content: string): string {
+export function linkCitationMarkers(content: string, turnNumber?: number): string {
+  const t = turnNumber ?? 0;  // 0 = legacy (no turn prefix)
+  const refDisplay = (n: string) => t > 0 ? `Ref ${t}.${n}` : `Ref #${n}`;
+  const refLink = (n: string) => t > 0 ? `#citation-ref-${t}-${n}` : `#citation-ref-${n}`;
+
   // First, handle multi-ref brackets like [Ref #1, Ref #2] or [Ref #1, #2]
   const expandedMultiRefs = content.replace(
     /\[Ref\s*#\d+(?:\s*,\s*(?:Ref\s*)?#\s*\d+)+\](?!\()/gi,
     (match) => {
       const refs = [...match.matchAll(/#\s*(\d+)/g)];
-      return refs.map((r) => `[Ref #${r[1]}](#citation-ref-${r[1]})`).join(", ");
+      return refs.map((r) => `[${refDisplay(r[1])}](${refLink(r[1])})`).join(", ");
     },
   );
+  // Handle [Web Ref #N] markers from web search agent
+  const expandedWebRefs = expandedMultiRefs.replace(
+    /\[Web\s+Ref\s*#(\d+)\]/gi,
+    (_, n) => `[${refDisplay(n)}](${refLink(n)})`,
+  );
   // Then handle single-ref brackets [Ref #N]
-  const linkedBracketedMarkers = expandedMultiRefs.replace(citationMarkerPattern, "[$1](#citation-ref-$2)");
+  const linkedBracketedMarkers = expandedWebRefs.replace(citationMarkerPattern, (_, fullMatch, refNum) => {
+    return `[${refDisplay(refNum)}](${refLink(refNum)})`;
+  });
   // Finally handle bare Ref #N not already linked
   return linkedBracketedMarkers.replace(/\bRef #(\d+)\b/g, (match, refNumber, offset, value) => {
     const previousCharacter = value[offset - 1];
@@ -449,11 +460,11 @@ export function linkCitationMarkers(content: string): string {
       return match;
     }
 
-    return `[Ref #${refNumber}](#citation-ref-${refNumber})`;
+    return `[${refDisplay(refNumber)}](${refLink(refNumber)})`;
   });
 }
 
-export function transformAssistantContent(content: string, rawCitations: SearchCitationResult[]): string {
+export function transformAssistantContent(content: string, rawCitations: SearchCitationResult[], turnNumber?: number): string {
   const { citations, refNumberMap } = canonicalizeCitations(rawCitations);
 
   let transformedContent = normalizeRefMentions(content);
@@ -462,6 +473,6 @@ export function transformAssistantContent(content: string, rawCitations: SearchC
     rewriteIndexedImageRefs(transformedContent, citations),
     citations,
   );
-  transformedContent = linkCitationMarkers(transformedContent);
+  transformedContent = linkCitationMarkers(transformedContent, turnNumber);
   return transformedContent;
 }

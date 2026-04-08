@@ -16,6 +16,7 @@ type WebSearchResult = {
 type WebSearchToolRendererProps = {
   status?: string;
   toolCallId?: string;
+  turnNumber?: number;
   args?: {
     query?: unknown;
   } | null;
@@ -51,7 +52,7 @@ function normalizeWebRow(raw: unknown): WebSearchResult {
   };
 }
 
-export function WebSearchToolRenderer({ status, toolCallId, args, result }: WebSearchToolRendererProps) {
+export function WebSearchToolRenderer({ status, toolCallId, args, result, turnNumber }: WebSearchToolRendererProps) {
   const threadId = useConversationThreadId();
   const citationDialog = useCitationDialogOptional();
   const citationDialogRef = useRef(citationDialog);
@@ -73,6 +74,7 @@ export function WebSearchToolRenderer({ status, toolCallId, args, result }: WebS
     for (const row of rows) {
       if (row.ref_number !== undefined) {
         const key = citationKey(toolCallId, row.ref_number);
+        const t = turnNumber ?? 1;
         dialog.registerCitation(key, {
           citation: {
             ref_number: row.ref_number,
@@ -85,6 +87,8 @@ export function WebSearchToolRenderer({ status, toolCallId, args, result }: WebS
           threadId,
           toolCallId,
           source: "web",
+          displayLabel: `Ref ${t}.${row.ref_number}`,
+          turnNumber: t,
         });
       }
     }
@@ -103,7 +107,8 @@ export function WebSearchToolRenderer({ status, toolCallId, args, result }: WebS
         <div className="citationPillDeck">
           {rows.map((row, index) => {
             const refNumber = row.ref_number ?? index + 1;
-            const refLabel = `Ref #${refNumber}`;
+            const t = turnNumber ?? 1;
+            const refLabel = `Ref ${t}.${refNumber}`;
             const pillTitle = getWebPillTitle(row);
             const key = citationKey(toolCallId, refNumber);
 
