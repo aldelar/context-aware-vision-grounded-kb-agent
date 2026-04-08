@@ -1,7 +1,7 @@
 """Prod-mode web search using Azure Bing Web Search API.
 
 Filters results to whitelisted domains using the ``site:`` operator.
-Uses ``DefaultAzureCredential`` for API access.
+Requires ``BING_SEARCH_API_KEY`` environment variable.
 """
 
 from __future__ import annotations
@@ -10,7 +10,6 @@ import json
 import logging
 import os
 from typing import Any
-from urllib.parse import quote_plus
 
 import httpx
 
@@ -23,31 +22,29 @@ _BING_ENDPOINT = os.environ.get(
 _MAX_RESULTS = 5
 
 
+def validate_prod_search_configuration() -> str:
+    """Validate required prod-mode configuration and return the API key."""
+    api_key = os.environ.get("BING_SEARCH_API_KEY", "").strip()
+    if not api_key:
+        raise RuntimeError("BING_SEARCH_API_KEY is required for prod web search")
+    return api_key
+
+
 async def prod_web_search(query: str, whitelist: list[str]) -> str:
     """Search using Bing Web Search API, filtering to whitelisted sites.
 
     Returns JSON matching the MCP tool contract.
     """
     if not whitelist:
-        return json.dumps({"results": [], "summary": "No whitelisted sites configured"})
+        raise RuntimeError("No whitelisted sites configured for prod web search")
 
     # Build site-scoped query
     site_filter = " OR ".join(f"site:{site}" for site in whitelist)
     scoped_query = f"{query} ({site_filter})"
 
-    api_key = os.environ.get("BING_SEARCH_API_KEY", "")
-    if not api_key:
-        # Fall back to DefaultAzureCredential if no API key set
-        try:
-            from azure.identity import DefaultAzureCredential
-            credential = DefaultAzureCredential()
-            token = credential.get_token("https://api.bing.microsoft.com/.default")
-            headers = {"Authorization": f"Bearer {token.token}"}
-        except Exception:
-            logger.error("No BING_SEARCH_API_KEY and DefaultAzureCredential failed", exc_info=True)
-            return json.dumps({"results": [], "summary": "Bing API auth failed"})
-    else:
-        headers = {"Ocp-Apim-Subscription-Key": api_key}
+    api_key = validate_prod_search_configuration()
+
+    headers = {"Ocp-Apim-Subscription-Key": api_key}
 
     results: list[dict[str, Any]] = []
     try:
@@ -69,9 +66,9 @@ async def prod_web_search(query: str, whitelist: list[str]) -> str:
                     "source_url": page.get("url", ""),
                     "anchor": "",
                 })
-    except Exception:
+    except Exception as exc:
         logger.error("Bing web search failed", exc_info=True)
-        return json.dumps({"results": [], "summary": "Bing search failed"})
+        raise RuntimeError("Bing search failed") from exc
 
     summary = f"{len(results)} results from {', '.join(whitelist)}"
     return json.dumps({"results": results, "summary": summary}, ensure_ascii=False)

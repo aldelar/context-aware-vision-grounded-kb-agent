@@ -98,7 +98,7 @@ describe("CopilotMessageRenderer", () => {
     );
 
     expect(screen.getByTestId("assistant-message")).toHaveTextContent(
-      "See [Ref #1](#citation-ref-1) and [Ref #2](#citation-ref-2) for details.",
+      "See [Ref 1.1](#citation-ref-1-1) and [Ref 1.2](#citation-ref-1-2) for details.",
     );
   });
 

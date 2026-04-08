@@ -57,6 +57,7 @@ append should contain real findings, not a "starting research" placeholder.
 - Read the relevant epic/story docs in `docs/epics/`
 - Read the [architecture spec](../../docs/specs/architecture.md) and [infrastructure spec](../../docs/specs/infrastructure.md) for context
 - Understand the current state of the codebase in the affected areas
+- Identify which dependencies are required by spec and which ones are explicitly optional
 
 ### 3. Research the Codebase
 - Check existing implementations for similar features (find precedents)
@@ -146,3 +147,4 @@ If asked to resume, check `shared-scratchpads/` for an existing scratchpad file.
 - **ALWAYS create TODOs** — every plan must end with `#todos` creating one TODO per implementation step. The Implementer depends on this.
 - **NEVER include code** — no snippets, no function signatures, no class definitions. Describe what and where, not how. The Implementer writes the code.
 - **Scratchpad is APPEND ONLY** — never edit or rewrite existing scratchpad content. Only add new timestamped entries at the end.
+- **No unspec'd fallbacks in plans** — if a required component is missing or failing, plan restoration of the dependency first. Only propose degraded behavior when an epic, spec, or ARD explicitly defines it, and cite that source in the plan.

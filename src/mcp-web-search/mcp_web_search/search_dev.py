@@ -29,7 +29,7 @@ async def dev_web_search(query: str, whitelist: list[str]) -> str:
     Returns JSON matching the MCP tool contract.
     """
     if not whitelist:
-        return json.dumps({"results": [], "summary": "No whitelisted sites configured"})
+        raise RuntimeError("No whitelisted sites configured for dev web search")
 
     results: list[dict[str, Any]] = []
     try:
@@ -63,9 +63,9 @@ async def dev_web_search(query: str, whitelist: list[str]) -> str:
                 })
                 if idx >= _MAX_RESULTS:
                     break
-    except Exception:
+    except Exception as exc:
         logger.error("Dev web search failed", exc_info=True)
-        return json.dumps({"results": [], "summary": "Search failed"})
+        raise RuntimeError("Search failed") from exc
 
     summary = f"{len(results)} results from {', '.join(whitelist)}"
     return json.dumps({"results": results, "summary": summary}, ensure_ascii=False)

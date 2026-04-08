@@ -85,6 +85,18 @@ async function deleteConversation(threadId: string): Promise<void> {
   }
 }
 
+function shouldExpectPersistedHistory(conversation: ConversationRecord | null): boolean {
+  if (!conversation) {
+    return false;
+  }
+
+  if (conversation.name !== "New conversation") {
+    return true;
+  }
+
+  return conversation.createdAt !== conversation.updatedAt;
+}
+
 export function CopilotWorkspace() {
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<ConversationRecord[]>([]);
@@ -198,6 +210,7 @@ export function CopilotWorkspace() {
   }
 
   const activeConversation = conversations.find((conversation) => conversation.id === activeThreadId) ?? null;
+  const expectPersistedHistory = shouldExpectPersistedHistory(activeConversation);
 
   if (!isReady || !activeThreadId) {
     return (
@@ -238,7 +251,10 @@ export function CopilotWorkspace() {
               showDevConsole={false}
               threadId={activeThreadId}
             >
-              <ChatHistoryHydrator threadId={activeThreadId} />
+              <ChatHistoryHydrator
+                expectPersistedHistory={expectPersistedHistory}
+                threadId={activeThreadId}
+              />
               <CopilotChat
                 AssistantMessage={CitationAwareAssistantMessage}
                 className="copilotCanvas"

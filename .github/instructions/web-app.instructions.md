@@ -57,6 +57,8 @@ npm ls @ag-ui/client   # shows CopilotKit's internal pin
 - **Environment-driven**: `ENVIRONMENT=dev` enables local emulator paths (Azurite, Cosmos emulator)
 - `AGENT_ENDPOINT` points to the agent container (default: `http://localhost:8088`)
 - AG-UI endpoint derived from `AGENT_ENDPOINT` + `/ag-ui/` path
+- Do not change runtime behavior to silently skip required backend dependencies just because local services or tests are broken; restore mocks, env, or local services first
+- Only keep degraded or emulator-specific defaults when they are part of the documented local-dev contract or explicitly called for by an epic, spec, or ARD
 
 ## Authentication
 

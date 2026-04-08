@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "18053537005875273757"
+      "templateHash": "553704001345117024"
     }
   },
   "parameters": {
@@ -3277,7 +3277,7 @@
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'cosmos-db'), '2025-04-01').outputs.cosmosDatabaseName.value]"
           },
           "mcpWebSearchEndpoint": {
-            "value": "[format('http://{0}/mcp', reference(resourceId('Microsoft.Resources/deployments', 'mcp-web-search-container-app'), '2025-04-01').outputs.fqdn.value)]"
+            "value": "[format('http://{0}/mcp/', reference(resourceId('Microsoft.Resources/deployments', 'mcp-web-search-container-app'), '2025-04-01').outputs.fqdn.value)]"
           }
         },
         "template": {
@@ -3592,14 +3592,17 @@
           "tags": {
             "value": "[variables('defaultTags')]"
           },
+          "environmentName": {
+            "value": "[parameters('environmentName')]"
+          },
           "containerAppsEnvId": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'container-apps-env'), '2025-04-01').outputs.containerAppsEnvId.value]"
           },
           "acrLoginServer": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'container-registry'), '2025-04-01').outputs.containerRegistryLoginServer.value]"
           },
-          "environment": {
-            "value": "prod"
+          "acrResourceId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'container-registry'), '2025-04-01').outputs.containerRegistryId.value]"
           }
         },
         "template": {
@@ -3609,7 +3612,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "9814009911887141738"
+              "templateHash": "4734393439588447178"
             }
           },
           "parameters": {
@@ -3644,6 +3647,12 @@
                 "description": "ACR login server"
               }
             },
+            "acrResourceId": {
+              "type": "string",
+              "metadata": {
+                "description": "ACR resource ID (for AcrPull role assignment)"
+              }
+            },
             "imageName": {
               "type": "string",
               "defaultValue": "",
@@ -3651,35 +3660,27 @@
                 "description": "Docker image name and tag"
               }
             },
-            "environment": {
+            "environmentName": {
               "type": "string",
-              "defaultValue": "prod",
               "metadata": {
-                "description": "Environment: dev or prod"
-              }
-            },
-            "bingSearchApiKey": {
-              "type": "securestring",
-              "defaultValue": "",
-              "metadata": {
-                "description": "Bing Search API key (for prod)"
+                "description": "Application environment name (dev or prod)"
               }
             }
           },
           "variables": {
             "containerAppName": "[format('mcp-ws-{0}', parameters('baseName'))]",
-            "hasBingKey": "[not(empty(parameters('bingSearchApiKey')))]",
-            "baseEnvVars": [
+            "useAcrImage": "[not(empty(parameters('imageName')))]",
+            "envVars": [
               {
                 "name": "ENVIRONMENT",
-                "value": "[parameters('environment')]"
+                "value": "[parameters('environmentName')]"
               },
               {
                 "name": "MCP_PORT",
                 "value": "8089"
               }
             ],
-            "envVars": "[if(variables('hasBingKey'), union(variables('baseEnvVars'), createArray(createObject('name', 'BING_SEARCH_API_KEY', 'secretRef', 'bing-search-api-key'))), variables('baseEnvVars'))]"
+            "acrPullRoleId": "7f951dda-4ed3-4680-a7ca-43fe172d538d"
           },
           "resources": [
             {
@@ -3699,14 +3700,14 @@
                     "targetPort": 8089,
                     "transport": "auto"
                   },
-                  "secrets": "[if(variables('hasBingKey'), createArray(createObject('name', 'bing-search-api-key', 'value', parameters('bingSearchApiKey'))), createArray())]",
-                  "registries": "[if(not(empty(parameters('acrLoginServer'))), createArray(createObject('server', parameters('acrLoginServer'), 'identity', 'system')), createArray())]"
+                  "secrets": [],
+                  "registries": "[if(variables('useAcrImage'), createArray(createObject('server', parameters('acrLoginServer'), 'identity', 'system')), createArray())]"
                 },
                 "template": {
                   "containers": [
                     {
                       "name": "mcp-web-search",
-                      "image": "[if(not(empty(parameters('imageName'))), format('{0}/{1}', parameters('acrLoginServer'), parameters('imageName')), 'mcr.microsoft.com/azurelinux/base/core:3.0')]",
+                      "image": "[if(variables('useAcrImage'), format('{0}/{1}', parameters('acrLoginServer'), parameters('imageName')), 'mcr.microsoft.com/azurelinux/base/core:3.0')]",
                       "resources": {
                         "cpu": "[json('0.5')]",
                         "memory": "1Gi"
@@ -3715,11 +3716,25 @@
                     }
                   ],
                   "scale": {
-                    "minReplicas": 0,
+                    "minReplicas": 1,
                     "maxReplicas": 3
                   }
                 }
               }
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.ContainerRegistry/registries', split(parameters('acrResourceId'), '/')[8])]",
+              "name": "[guid(parameters('acrResourceId'), resourceId('Microsoft.App/containerApps', variables('containerAppName')), variables('acrPullRoleId'))]",
+              "properties": {
+                "principalId": "[reference(resourceId('Microsoft.App/containerApps', variables('containerAppName')), '2024-03-01', 'full').identity.principalId]",
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('acrPullRoleId'))]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.App/containerApps', variables('containerAppName'))]"
+              ]
             }
           ],
           "outputs": {

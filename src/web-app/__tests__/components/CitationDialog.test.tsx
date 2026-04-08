@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import React, { useEffect } from "react";
 
 import { CitationDialog } from "../../components/CitationDialog";
-import { CitationDialogProvider, useCitationDialog } from "../../components/CitationDialogContext";
+import { CitationDialogProvider, citationKey, useCitationDialog } from "../../components/CitationDialogContext";
 
 function SetupCitation({
   refNumber,
@@ -22,13 +22,15 @@ function SetupCitation({
   const ctx = useCitationDialog();
 
   useEffect(() => {
-    ctx.registerCitation(refNumber, {
+    const key = citationKey(toolCallId, refNumber);
+    ctx.registerCitation(key, {
       citation,
       threadId: threadId ?? null,
       toolCallId,
+      source: "internal",
     });
     if (autoOpen) {
-      ctx.openCitation(refNumber);
+      ctx.openCitation(key);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

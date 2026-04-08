@@ -28,6 +28,13 @@
 - **Tests before commit** — run `make dev-test` to validate the current repo test suite
 - **Docs match code** — epic docs must always reflect the actual implementation state
 
+## Failure Policy
+
+- **No implicit degraded mode** — orchestrator, persistence, auth, search, storage, MCP backends, and other spec-required capabilities are required unless an epic, spec, or ARD explicitly says otherwise.
+- **Fix missing dependencies at the source** — if tests fail because a required service, emulator, deployment, role assignment, or environment variable is missing, restore that dependency or report the blocker. Do not change application code to make the required dependency optional just to get tests green.
+- **Fallbacks require an explicit source of truth** — any new fallback, stub path, or feature-disable branch must cite the governing epic, spec, or ARD and include tests for both the primary and degraded paths.
+- **Hidden fallback paths are regressions** — silent startup downgrade, swallowing required-service failures, or returning empty-success results for broken dependencies should be treated as bugs, not resilience improvements.
+
 ## Agent-Driven Development
 
 This repo uses a **3-agent handoff model** with skills, instructions, and prompts for structured development:

@@ -46,9 +46,11 @@ applyTo: "src/**/*.py"
 - Trust internal code and framework guarantees — don't defensively catch everything
 - Use specific exception types, never bare `except:`
 - Log errors with structured context: `logger.error("msg", exc_info=True, extra={...})`
+- Do not add fallback behavior that hides missing required infrastructure or configuration; fail fast unless an epic, spec, or ARD explicitly defines degraded mode
 
 ## Environment Variables
 
 - Load via `python-dotenv` in local dev (`.env` files per service)
 - Config modules (e.g., `agent/config.py`, `shared/config.py`) evaluate at import time
 - Test conftest.py sets `os.environ.setdefault(...)` before imports to avoid config failures
+- Required service endpoints and credentials for spec-mandated flows should not silently downgrade to disabled behavior in production code unless that degraded mode is explicitly documented

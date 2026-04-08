@@ -178,27 +178,26 @@ class TestCreateOrchestrator:
         assert workflow is not None
 
 
-class TestMainFallback:
-    """Test that main.py handles orchestrator creation gracefully."""
+class TestMainStartup:
+    """Test that main.py fails fast when required startup dependencies are unavailable."""
 
     @patch("main.from_agent_framework")
     @patch("agent.orchestrator.create_orchestrator_builder", side_effect=RuntimeError("test error"))
-    @patch("agent.kb_agent.create_agent")
-    def test_falls_back_to_single_agent(
+    def test_raises_when_orchestrator_creation_fails(
         self,
-        mock_create_agent: MagicMock,
         mock_create_orchestrator: MagicMock,
         mock_from_framework: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """main() falls back to single agent when orchestrator fails."""
-        mock_agent = MagicMock()
-        mock_create_agent.return_value = mock_agent
-        mock_server = MagicMock()
-        mock_server.app = MagicMock()
-        mock_from_framework.return_value = mock_server
+        """main() fails instead of downgrading to single-agent mode."""
+        monkeypatch.setenv("COSMOS_ENDPOINT", "https://fake.cosmos.azure.com:443/")
+
+        import agent.config
+        monkeypatch.setattr("agent.config.config", agent.config._load_config())
 
         from main import main
-        # main() will call server.run() which we mock
-        # Just verify it doesn't crash
-        main()
-        mock_create_agent.assert_called_once()
+
+        with pytest.raises(RuntimeError, match="test error"):
+            main()
+
+        mock_from_framework.assert_not_called()

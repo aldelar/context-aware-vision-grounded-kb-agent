@@ -46,7 +46,7 @@ def create_web_search_agent() -> Agent:
     """
     client = create_chat_client()
 
-    mcp_endpoint = os.environ.get("WEB_SEARCH_MCP_ENDPOINT", "http://localhost:8089/mcp")
+    mcp_endpoint = os.environ.get("WEB_SEARCH_MCP_ENDPOINT", "http://localhost:8089/mcp/")
 
     prompt = _load_web_search_prompt()
 
