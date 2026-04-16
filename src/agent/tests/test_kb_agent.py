@@ -26,10 +26,12 @@ from agent.search_tool import SearchResult
 from agent.security_middleware import SecurityFilterMiddleware
 from agent_framework import (
     CompactionProvider,
+    FunctionInvocationContext,
     InMemoryHistoryProvider,
     SlidingWindowStrategy,
     ToolResultCompactionStrategy,
 )
+from agent_framework._tools import FunctionTool
 
 
 # ---------------------------------------------------------------------------
@@ -515,3 +517,39 @@ class TestSecurityFilterWiring:
 
         call_kwargs = mock_search.call_args
         assert call_kwargs.kwargs["security_filter"] is None
+
+    @patch("agent.kb_agent.search_kb")
+    def test_reads_departments_from_function_invocation_context(self, mock_search: MagicMock) -> None:
+        """When the framework injects a FunctionInvocationContext, departments come from ctx.kwargs."""
+        mock_search.return_value = []
+
+        ctx = MagicMock(spec=FunctionInvocationContext)
+        ctx.kwargs = {"departments": ["engineering"], "roles": ["contributor"], "tenant_id": "t1"}
+
+        search_knowledge_base("query", ctx=ctx)
+
+        call_kwargs = mock_search.call_args
+        assert call_kwargs.kwargs["security_filter"] == "search.in(department, 'engineering', ',')"
+
+    @patch("agent.kb_agent.search_kb")
+    def test_ctx_takes_precedence_over_kwargs(self, mock_search: MagicMock) -> None:
+        """ctx.kwargs should be preferred when both ctx and **kwargs provide departments."""
+        mock_search.return_value = []
+
+        ctx = MagicMock(spec=FunctionInvocationContext)
+        ctx.kwargs = {"departments": ["research"]}
+
+        # Even if departments= is also passed via **kwargs, ctx wins
+        search_knowledge_base("query", ctx=ctx, departments=["engineering"])
+
+        call_kwargs = mock_search.call_args
+        assert call_kwargs.kwargs["security_filter"] == "search.in(department, 'research', ',')"
+
+    def test_ctx_not_in_llm_tool_schema(self) -> None:
+        """The ctx parameter must not be exposed to the LLM as a tool parameter."""
+        tool = FunctionTool(func=search_knowledge_base, name="search_knowledge_base")
+        schema_properties = tool.parameters().get("properties", {})
+
+        assert "ctx" not in schema_properties, (
+            "ctx (FunctionInvocationContext) should be auto-detected and hidden from LLM schema"
+        )

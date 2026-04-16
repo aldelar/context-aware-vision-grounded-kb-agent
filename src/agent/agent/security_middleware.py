@@ -4,7 +4,7 @@ Reads JWT claims from :data:`middleware.request_context.user_claims_var`,
 resolves Entra group GUIDs to department names via
 :func:`agent.group_resolver.resolve_departments`, and writes the resolved
 values into ``context.kwargs`` so that tool functions receive them via
-``**kwargs``.
+``FunctionInvocationContext`` (agent-framework 1.0.0+).
 
 Adds OTel span attributes so department filters are visible in traces.
 """

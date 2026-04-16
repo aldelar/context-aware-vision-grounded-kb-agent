@@ -445,6 +445,10 @@ flowchart LR
 
 > See [docs/specs/contextual-tool-filtering.md](docs/specs/contextual-tool-filtering.md) for the full architecture comparison and implementation details.
 
+Open Telemetry showcasing the `department` filter applied at the search tool level:
+
+![Open Telemetry showcasing 'department' filter applied at the tool level](docs/assets/otel.png)
+
 ### 9. MCP Server as Tool Backend
 
 **Problem:** Agents need web search capabilities, but embedding search logic directly in the agent couples it to a specific provider and makes retrieval harder to test, deploy, and evolve independently.

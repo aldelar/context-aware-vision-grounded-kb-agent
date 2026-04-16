@@ -95,6 +95,57 @@ if not _observability_enabled:
     logger.info("Agent framework observability disabled for local runtime")
 
 
+def _patch_handoff_clone_middleware() -> None:
+    """Fix HandoffAgentExecutor._clone_chat_agent dropping FunctionMiddleware.
+
+    agent-framework-orchestrations 1.0.0b260402 passes ``agent.agent_middleware``
+    (agent-type only) when cloning participants.  This silently strips any
+    ``FunctionMiddleware`` (e.g. ``SecurityFilterMiddleware``) and
+    ``ChatMiddleware`` registered on the original agent.
+
+    The patch replaces the single line so the full ``agent.middleware`` list
+    (which ``BaseAgent`` stores unfiltered) is forwarded to the clone.
+
+    Remove this patch once the upstream package ships a fix.
+    Upstream: https://github.com/microsoft/agent-framework/issues/5173
+    """
+    from agent_framework_orchestrations._handoff import HandoffAgentExecutor
+
+    if getattr(HandoffAgentExecutor, "_kb_agent_middleware_patch", False):
+        return
+
+    def _clone_chat_agent_fixed(self, agent):  # noqa: ANN001, ANN202
+        from copy import deepcopy
+
+        from agent_framework import Agent
+
+        options = agent.default_options
+        tools_from_options = options.pop("tools", [])
+        new_tools = [*tools_from_options, *(agent.mcp_tools if agent.mcp_tools else [])]
+
+        cloned_options = deepcopy(options)
+        cloned_options["allow_multiple_tool_calls"] = False
+        cloned_options["store"] = False
+        cloned_options["tools"] = new_tools
+
+        options["tools"] = tools_from_options
+
+        return Agent(
+            client=agent.client,
+            id=agent.id,
+            name=agent.name,
+            description=agent.description,
+            context_providers=agent.context_providers,
+            middleware=agent.middleware,  # FIX: use full middleware list, not agent_middleware
+            require_per_service_call_history_persistence=agent.require_per_service_call_history_persistence,
+            default_options=cloned_options,
+        )
+
+    HandoffAgentExecutor._clone_chat_agent = _clone_chat_agent_fixed
+    HandoffAgentExecutor._kb_agent_middleware_patch = True  # type: ignore[attr-defined]
+    logger.info("Patched HandoffAgentExecutor._clone_chat_agent to preserve FunctionMiddleware")
+
+
 def _patch_agentserver_streaming_converter() -> None:
     """Work around null text deltas emitted by some local streaming responses."""
     from azure.ai.agentserver.agentframework.models.agent_framework_output_streaming_converter import (
@@ -1512,6 +1563,7 @@ def _create_citation_lookup_app(session_repository) -> FastAPI:
 def main() -> None:
     """Run the KB Agent as an HTTP server on port 8088."""
     logger.info("[KB-AGENT] Starting agent server (port 8088)…")
+    _patch_handoff_clone_middleware()
     _patch_agentserver_streaming_converter()
 
     from agent.config import config

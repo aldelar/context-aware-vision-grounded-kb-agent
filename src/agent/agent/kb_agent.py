@@ -21,6 +21,7 @@ from pydantic import BeforeValidator
 from agent_framework import (
     Agent,
     CompactionProvider,
+    FunctionInvocationContext,
     InMemoryHistoryProvider,
     SlidingWindowStrategy,
     ToolResultCompactionStrategy,
@@ -138,6 +139,7 @@ def search_knowledge_base(
         BeforeValidator(_coerce_search_query),
         "The search query — use natural language describing what information is needed",
     ],
+    ctx: FunctionInvocationContext | None = None,
     **kwargs,
 ) -> str:
     """Search the knowledge base for articles about Azure services, features, and how-to guides.
@@ -150,8 +152,13 @@ def search_knowledge_base(
 
     logger.info("search_knowledge_base(query='%s')", normalized_query[:80])
 
-    # Build OData filter from departments injected by SecurityFilterMiddleware
-    departments = kwargs.get("departments", [])
+    # Build OData filter from departments injected by SecurityFilterMiddleware.
+    # The framework injects a FunctionInvocationContext when middleware is active;
+    # fall back to direct **kwargs for unit-test convenience.
+    if ctx is not None:
+        departments = ctx.kwargs.get("departments", [])
+    else:
+        departments = kwargs.get("departments", [])
     security_filter = build_security_filter(departments)
     if security_filter:
         logger.info("Applying security filter: %s", security_filter)
