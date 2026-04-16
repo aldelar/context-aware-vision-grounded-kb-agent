@@ -539,6 +539,10 @@ sequenceDiagram
 
 > See the [AG-UI protocol specification](https://docs.ag-ui.com) for the full event type reference.
 
+AG-UI events emmitted by the agent are automatically translated into CopilotKit UI updates and rendered in real-time as the agent thinks, calls tools, and hands off between specialists. The user sees a seamless conversation with grounded answers, tool call transparency, and multi-agent orchestration — all powered by the AG-UI protocol.
+
+![AG-UI Protocol in action](docs/assets/ag-ui.png)
+
 ---
 
 ## Architecture
