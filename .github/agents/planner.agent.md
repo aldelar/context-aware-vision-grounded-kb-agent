@@ -2,14 +2,11 @@
 name: Planner
 description: 'Research-first planning agent. Analyzes the codebase, architecture, and requirements to produce detailed implementation plans. Only creates/edits scratchpad files — does not modify source code.'
 tools:
+  - read
+  - edit
   - search
-  - readFile
-  - listDirectory
-  - editFiles
-  - createFile
-  - fetch
-  - problems
-  - todos
+  - web
+  - todo
 handoffs:
   - label: Start Implementation
     agent: Implementer

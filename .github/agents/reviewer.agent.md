@@ -2,13 +2,11 @@
 name: Reviewer
 description: 'Read-only code review agent. Checks architecture compliance, security, test coverage, and code quality. Only modifies scratchpad files.'
 tools:
+  - read
+  - edit
   - search
-  - readFile
-  - listDirectory
-  - editFiles
-  - fetch
-  - problems
-  - todos
+  - web
+  - todo
 handoffs:
   - label: Quick Fix
     agent: Implementer

@@ -2,14 +2,12 @@
 name: Implementer
 description: 'Full-capability implementation agent. Writes code, manages infrastructure, runs tests, debugs failures, and updates documentation following project conventions.'
 tools:
+  - read
+  - edit
   - search
-  - editFiles
-  - runInTerminal
-  - readFile
-  - listDirectory
-  - problems
-  - fetch
-  - todos
+  - execute
+  - web
+  - todo
 handoffs:
   - label: Request Review
     agent: Reviewer
