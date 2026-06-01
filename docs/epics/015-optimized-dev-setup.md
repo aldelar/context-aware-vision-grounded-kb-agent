@@ -41,6 +41,10 @@ After this epic:
 - [x] Browser tests remain under `@pytest.mark.uitest` and stay out of default `dev-test`
 - [x] `e2e` terminology removed from test strategy/docs where practical; service-backed tests use `integration`
 - [x] Makefile rewritten with `dev-*` / `prod-*` targets
+- [x] `make system-check` categorizes host setup as macOS/Homebrew, apt Linux, pacman Linux, or other Linux
+- [x] Host dependency installs are centralized in `scripts/install-package.sh` so setup scripts stay OS-generic
+- [x] Dev infra starts CPU-compatible by default on macOS; NVIDIA GPU passthrough is isolated to `DEV_USE_GPU=1` with an override compose file
+- [x] ARM hosts pull native ARM images where available; amd64-only Search Simulator and Azure Functions services are explicitly pinned with `SEARCH_SIMULATOR_PLATFORM=linux/amd64` and `AZURE_FUNCTIONS_PLATFORM=linux/amd64`
 - [x] `CONVERTER` maps to existing prod AZD service names without changing the current 3-service Azure topology
 - [x] `make dev-infra-up && make dev-services-up` brings up full working local environment
 - [x] `make dev-test` runs unit + integration tests against local Docker infra
@@ -359,7 +363,7 @@ Replace the current Makefile with clean `dev-*` / `prod-*` target namespaces.
 - [x] `dev-services-down` — stops all dev app containers
 - [x] `dev-services-pipeline-up` — builds + starts fn-convert + fn-index only
 - [x] `dev-services-app-up` — builds + starts web-app only
-- [x] `dev-services-agents-up` — builds + starts agent only
+- [x] `dev-services-agent-up` — builds + starts agent only
 - [x] `dev-test` — runs unit + integration tests
 - [x] `dev-test-ui` — runs optional browser-based UI tests
 - [x] `dev-ui` — opens browser to `http://localhost:8080`
@@ -370,10 +374,11 @@ Replace the current Makefile with clean `dev-*` / `prod-*` target namespaces.
 - [x] `prod-infra-down` — deletes Azure prod RG (with confirmation)
 - [x] `prod-services-up` — deploys web-app, agent, fn-index, and the selected converter service for the current workflow to Azure Container Apps
 - [x] `prod-services-down` — prints scale-down guidance for deployed services
-- [x] `prod-services-pipeline-up`, `prod-services-app-up`, `prod-services-agents-up` — sub-targets
+- [x] `prod-services-pipeline-up`, `prod-services-app-up`, `prod-services-agent-up` — sub-targets
 - [x] `prod-ui-url` — prints production web app URL
 - [x] `prod-pipeline`, `prod-pipeline-convert`, `prod-pipeline-index` — prod pipeline triggers
 - [x] `help` — shows all targets grouped by environment
+- [x] `system-check` — reports host OS/package-manager category and required setup tool availability
 - [x] `set-project` — sets `PROJECT_NAME` in AZD env
 - [x] `set-converter` — sets `CONVERTER` in AZD env for prod targets
 - [x] Old targets removed (`azure-up`, `setup-azure`, `azure-kb`, `azure-test`, `test-ui`, etc.)
@@ -384,6 +389,13 @@ Replace the current Makefile with clean `dev-*` / `prod-*` target namespaces.
 | File | Change |
 |------|--------|
 | `Makefile` | **REWRITE** — full replacement with dev/prod namespacing |
+| `scripts/lib/system.sh` | **NEW** — shared host OS and package-manager detection helpers |
+| `scripts/install-package.sh` | **NEW** — centralized logical package installer for Homebrew, apt, pacman, and Linux-other managers |
+| `scripts/system-check.sh` | **NEW** — host setup categorization and tool availability check |
+| `scripts/dev-setup.sh` | **UPDATE** — request logical packages through the centralized installer |
+| `scripts/prod-setup.sh` | **UPDATE** — request logical packages through the centralized installer |
+| `scripts/dev-setup-gpu.sh` | **UPDATE** — delegate NVIDIA toolkit installation to the centralized installer |
+| `infra/docker/docker-compose.dev-infra.gpu.yml` | **NEW** — optional NVIDIA GPU override for Linux dev infra |
 
 ---
 

@@ -4,13 +4,10 @@ set -euo pipefail
 
 readonly COMMAND="${1:-status}"
 readonly PORT="${2:-3001}"
+readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-port_owner_pid() {
-    local requested_port="$1"
-
-    ss -ltnp "( sport = :${requested_port} )" 2>/dev/null \
-        | awk -F'pid=' 'NR > 1 && NF > 1 { split($2, parts, ","); print parts[1]; exit }'
-}
+# shellcheck source=lib/system.sh
+source "${ROOT_DIR}/scripts/lib/system.sh"
 
 describe_pid() {
     local pid="$1"
@@ -50,7 +47,7 @@ print_server_details() {
 status() {
     local pid cmd
 
-    pid="$(port_owner_pid "${PORT}")"
+    pid="$(system_port_owner_pid "${PORT}")"
     if [[ -z "${pid}" ]]; then
         echo "No Next.js hot-reload server is running on http://localhost:${PORT}"
         return 0
@@ -72,7 +69,7 @@ status() {
 stop() {
     local pid cmd
 
-    pid="$(port_owner_pid "${PORT}")"
+    pid="$(system_port_owner_pid "${PORT}")"
     if [[ -z "${pid}" ]]; then
         echo "No Next.js hot-reload server is running on http://localhost:${PORT}"
         return 0

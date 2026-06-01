@@ -6,15 +6,11 @@ readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly ENV_FILE="${ROOT_DIR}/.env.dev"
 readonly AZURITE_ACCOUNT_KEY="Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
 
+# shellcheck source=lib/system.sh
+source "${ROOT_DIR}/scripts/lib/system.sh"
+
 port="${1:-3001}"
 log_file="${2:-${ROOT_DIR}/.tmp/logs/dev-ui-live.log}"
-
-port_owner_pid() {
-    local requested_port="$1"
-
-    ss -ltnp "( sport = :${requested_port} )" 2>/dev/null \
-        | awk -F'pid=' 'NR > 1 && NF > 1 { split($2, parts, ","); print parts[1]; exit }'
-}
 
 describe_pid() {
     local pid="$1"
@@ -33,7 +29,7 @@ if [[ ! -f "${ENV_FILE}" ]]; then
     exit 1
 fi
 
-existing_pid="$(port_owner_pid "${port}")"
+existing_pid="$(system_port_owner_pid "${port}")"
 if [[ -n "${existing_pid}" ]]; then
     existing_cmd="$(describe_pid "${existing_pid}")"
     if [[ "${existing_cmd}" == *"next-server"* || "${existing_cmd}" == *"next dev"* ]]; then

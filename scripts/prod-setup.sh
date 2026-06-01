@@ -4,6 +4,11 @@
 
 set -euo pipefail
 
+readonly REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# shellcheck source=lib/system.sh
+source "${REPO_ROOT}/scripts/lib/system.sh"
+
 ensure_non_root() {
     if [[ ${EUID} -eq 0 || -n "${SUDO_USER:-}" ]]; then
         echo "Run 'make prod-setup' as your normal user." >&2
@@ -11,28 +16,12 @@ ensure_non_root() {
     fi
 }
 
-has_command() {
-    command -v "$1" >/dev/null 2>&1
-}
-
 install_azure_cli() {
-    if has_command az; then
-        echo "  az          already installed ($(az --version 2>&1 | head -1))"
-        return
-    fi
-
-    echo "  az          installing..."
-    curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+    system_install_tool az azure-cli "az" "az --version" "make prod-setup"
 }
 
 install_azd() {
-    if has_command azd; then
-        echo "  azd         already installed ($(azd version 2>&1 | head -1))"
-        return
-    fi
-
-    echo "  azd         installing..."
-    curl -fsSL https://aka.ms/install-azd.sh | bash
+    system_install_tool azd azd "azd" "azd version" "make prod-setup"
 }
 
 main() {

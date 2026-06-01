@@ -7,9 +7,14 @@ PROD_PIPELINE_TRIGGER := bash scripts/prod-pipeline-request.sh
 PROD_DOWN_CLEANUP := bash scripts/prod-post-down-cleanup.sh
 DEV_INFRA_PROJECT := kb-agent-infra
 DEV_SERVICES_PROJECT := kb-agent-services
+DEV_USE_GPU ?= 0
 WEB_APP_DEV_PORT ?= 3001
 WEB_APP_DEV_LOG ?= .tmp/logs/dev-ui-live.log
-DEV_INFRA_COMPOSE := docker compose -p $(DEV_INFRA_PROJECT) --project-directory . --env-file $(DEV_ENV_FILE) -f infra/docker/docker-compose.dev-infra.yml
+DEV_INFRA_COMPOSE_FILES := -f infra/docker/docker-compose.dev-infra.yml
+ifeq ($(DEV_USE_GPU),1)
+DEV_INFRA_COMPOSE_FILES += -f infra/docker/docker-compose.dev-infra.gpu.yml
+endif
+DEV_INFRA_COMPOSE := docker compose -p $(DEV_INFRA_PROJECT) --project-directory . --env-file $(DEV_ENV_FILE) $(DEV_INFRA_COMPOSE_FILES)
 DEV_SERVICES_COMPOSE := docker compose -p $(DEV_SERVICES_PROJECT) --project-directory . --env-file $(DEV_ENV_FILE) -f infra/docker/docker-compose.dev-services.yml
 CONVERTER ?= $(shell $(AZD) env get-value CONVERTER 2>/dev/null || echo markitdown)
 PROD_PIPELINE_RETRY_ATTEMPTS ?= 60
@@ -20,11 +25,13 @@ help:
 	@echo ""
 	@echo "━━━ Shared ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo ""
+	@echo "  make system-check                  Print host OS/package-manager/tool status"
 	@echo "  make set-converter name=<name>      Set CONVERTER to cu, markitdown, or mistral"
 	@echo ""
 	@echo "━━━ Dev ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo ""
 	@echo "  sudo make dev-setup-gpu             Configure Docker GPU for local LLM support (Linux only)"
+	@echo "  DEV_USE_GPU=1 make dev-infra-up     Start dev infra with NVIDIA GPU passthrough (Linux only)"
 	@echo ""
 	@echo "  make dev-up                         Full local bring-up (calls targets below)"
 	@echo "    make dev-setup                      Install local tools and Python dependencies"
@@ -87,6 +94,10 @@ help:
 	@echo "  make prod-down                      Tear down Azure environment (calls targets below)"
 	@echo "    make prod-services-down             Print scale-down guidance for deployed services"
 	@echo "    make prod-infra-down                Delete Azure infrastructure with confirmation"
+
+.PHONY: system-check
+system-check:
+	@bash scripts/system-check.sh
 
 .PHONY: dev-setup
 dev-setup:
@@ -253,7 +264,7 @@ dev-pipeline-convert:
 
 .PHONY: dev-pipeline-index
 dev-pipeline-index:
-	@article_ids="$$(find kb/staging -mindepth 2 -maxdepth 2 -type d -printf '%f\n' | sort)"; \
+	@article_ids="$$(for dir in kb/staging/*/*; do [ -d "$$dir" ] || continue; basename "$$dir"; done | sort)"; \
 	if [ -z "$$article_ids" ]; then \
 		echo "No staged articles found under kb/staging." >&2; \
 		exit 1; \

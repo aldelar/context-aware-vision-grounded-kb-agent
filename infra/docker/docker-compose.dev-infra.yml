@@ -39,6 +39,7 @@ services:
 
   search-simulator:
     image: ghcr.io/ellerbach/azure-ai-search-simulator:latest
+    platform: ${SEARCH_SIMULATOR_PLATFORM:-linux/amd64}
     restart: unless-stopped
     ports:
       - "7250:8443"
@@ -64,12 +65,8 @@ services:
   ollama:
     image: ollama/ollama:latest
     restart: unless-stopped
-    gpus: all
     ports:
       - "11434:11434"
-    environment:
-      NVIDIA_VISIBLE_DEVICES: ${OLLAMA_GPU_DEVICE:-all}
-      NVIDIA_DRIVER_CAPABILITIES: compute,utility
     volumes:
       - ollama-data:/root/.ollama
     healthcheck:

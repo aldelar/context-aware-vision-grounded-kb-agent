@@ -1,0 +1,6 @@
+services:
+  ollama:
+    gpus: all
+    environment:
+      NVIDIA_VISIBLE_DEVICES: ${OLLAMA_GPU_DEVICE:-all}
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility

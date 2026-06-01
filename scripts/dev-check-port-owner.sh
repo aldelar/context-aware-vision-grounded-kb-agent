@@ -2,16 +2,14 @@
 
 set -euo pipefail
 
+readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# shellcheck source=lib/system.sh
+source "${ROOT_DIR}/scripts/lib/system.sh"
+
 usage() {
     echo "Usage: $0 <port> <service-label>" >&2
     exit 1
-}
-
-port_owner_pid() {
-    local port="$1"
-
-    ss -ltnp "( sport = :${port} )" 2>/dev/null \
-        | awk -F'pid=' 'NR > 1 && NF > 1 { split($2, parts, ","); print parts[1]; exit }'
 }
 
 main() {
@@ -22,7 +20,7 @@ main() {
     local pid
     local cmd
 
-    pid="$(port_owner_pid "${port}")"
+    pid="$(system_port_owner_pid "${port}")"
     if [[ -z "${pid}" ]]; then
         exit 0
     fi

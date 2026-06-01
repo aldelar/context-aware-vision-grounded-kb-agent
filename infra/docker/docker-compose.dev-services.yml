@@ -1,5 +1,6 @@
 services:
   fn-convert:
+    platform: ${AZURE_FUNCTIONS_PLATFORM:-linux/amd64}
     build:
       context: ./src/functions
       dockerfile: ./fn_convert_markitdown/Dockerfile
@@ -21,6 +22,7 @@ services:
       - kb-agent-dev
 
   fn-index:
+    platform: ${AZURE_FUNCTIONS_PLATFORM:-linux/amd64}
     build:
       context: ./src/functions
       dockerfile: ./fn_index/Dockerfile

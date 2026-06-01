@@ -50,7 +50,7 @@ Two parameters stored in AZD env: `PROJECT_NAME` is shared across environment wo
 │  ┌──────────────┐  ┌──────────────────────────────────────┐   │
 │  │   ollama     │  │  aspire-dashboard                    │   │
 │  │  :11434 API  │  │  :18888 UI (traces, logs, metrics)  │   │
-│  │  GPU-accel.  │  │  :18889 OTLP gRPC receiver          │   │
+│  │  CPU default │  │  :18889 OTLP gRPC receiver          │   │
 │  └──────────────┘  └──────────────────────────────────────┘   │
 │                                                                │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐ │
@@ -86,6 +86,10 @@ Two parameters stored in AZD env: `PROJECT_NAME` is shared across environment wo
 ## Ollama Models
 
 Target hardware minimum for comfortable local inference: **32 GB RAM + RTX 1050 4 GB VRAM**. The local stack now starts in CPU-compatible mode by default; a GPU improves latency but is no longer required just to boot the dev environment.
+
+NVIDIA GPU passthrough is an explicit Linux-only opt-in: run `sudo make dev-setup-gpu` once, then start infra with `DEV_USE_GPU=1 make dev-infra-up`. macOS should use the default CPU-compatible Docker path or native Ollama for Apple Silicon acceleration.
+
+Docker uses native `linux/arm64` images automatically on Apple Silicon and Linux ARM when available. Cosmos emulator, Azurite, Ollama, Aspire Dashboard, agent, MCP, and web-app images can run natively on ARM. The AI Search Simulator and Azure Functions Python base images currently publish `linux/amd64` only, so local dev pins those services to `SEARCH_SIMULATOR_PLATFORM=linux/amd64` and `AZURE_FUNCTIONS_PLATFORM=linux/amd64` and runs them through Docker emulation on ARM hosts.
 
 | Model | Role | Size | Fits 4 GB VRAM? | Notes |
 |-------|------|------|-----------------|-------|
@@ -241,7 +245,7 @@ Only `agent-sessions` and `conversations` are part of the current deployment mod
 | `dev-services-down` | Stop all app service containers |
 | `dev-services-pipeline-up` | Build & start fn-convert + fn-index only |
 | `dev-services-app-up` | Build & start web-app only |
-| `dev-services-agents-up` | Build & start agent only |
+| `dev-services-agent-up` | Build & start agent only |
 | `dev-test` | Run unit + integration tests |
 | `dev-test-ui` | Run optional browser-based UI tests |
 | `dev-ui` | Open browser to http://localhost:3000 |
@@ -259,7 +263,7 @@ Only `agent-sessions` and `conversations` are part of the current deployment mod
 | `prod-services-down` | Print scale-down guidance for deployed services |
 | `prod-services-pipeline-up` | Deploy the selected converter service for the current workflow + fn-index |
 | `prod-services-app-up` | Deploy web-app |
-| `prod-services-agents-up` | Deploy agent(s) |
+| `prod-services-agent-up` | Deploy agent |
 | `prod-ui-url` | Print production web app URL |
 | `prod-pipeline` | Run full KB pipeline in Azure |
 | `prod-pipeline-convert` | Trigger fn-convert in Azure |

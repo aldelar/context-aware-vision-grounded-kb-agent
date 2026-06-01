@@ -12,10 +12,15 @@ The layout is split by runtime concern:
 ## Shared
 
 ```
+make system-check                  Print host OS/package-manager/tool status
 make set-converter name=<name>      Set CONVERTER to cu, markitdown, or mistral
 ```
 
+`system-check` reports the detected setup category (`macos-brew`, `linux-apt`, `linux-pacman`, or `linux-other`) plus the availability of Docker, Azure CLI, AZD, uv, Functions Core Tools, and npm.
+
 `CONVERTER` selects which converter backend the pipeline uses: `cu`, `markitdown`, or `mistral`. It applies to both local and Azure workflows.
+
+Host dependency installs are centralized through `scripts/install-package.sh`. Setup scripts request logical packages such as `azure-cli`, `azd`, `uv`, and `azure-functions-core-tools`; the installer is the only place that branches into Homebrew, apt, pacman, or other Linux package-manager commands.
 
 ---
 
@@ -27,6 +32,7 @@ The local workflow is Docker-first and does not require Azure cloud resources, A
 
 ```
 sudo make dev-setup-gpu             Configure Docker GPU for local LLM support (Linux only)
+DEV_USE_GPU=1 make dev-infra-up     Start dev infra with NVIDIA GPU passthrough (Linux only)
 
 make dev-up                         Full local bring-up (calls targets below)
   make dev-setup                      Install local tools and Python dependencies
@@ -34,7 +40,7 @@ make dev-up                         Full local bring-up (calls targets below)
   make dev-services-up                Build and start the full local stack
     make dev-services-pipeline-up       fn-convert + fn-index only
     make dev-services-app-up            web app only
-    make dev-services-agents-up         agent only
+    make dev-services-agent-up          agent only
   make dev-pipeline                   Run local convert + index pipeline
     make dev-pipeline-convert           Trigger local MarkItDown convert
       make dev-seed-kb                   Sync kb/staging into local Azurite
@@ -66,9 +72,11 @@ make dev-infra-down                 Stop local emulators without removing volume
 
 ### Dev notes
 
-- `dev-setup-gpu` is only needed if you use an NVIDIA GPU with a native Linux Docker engine or local-WSL Docker engine (not Docker Desktop). It installs and configures the NVIDIA container toolkit. Run it once with `sudo`.
-- `dev-setup` must be run as your normal user, not with `sudo`. It installs `uv`, Azure Functions Core Tools, syncs the service dependencies, installs Playwright Chromium for the Python Mistral converter, conditionally installs web-app Playwright browsers when browser UI tests are configured, creates `.env.dev` from the template if it does not exist, and backfills any newly added template keys into an existing `.env.dev` without overwriting your current values.
+- `dev-setup-gpu` is only needed if you use an NVIDIA GPU with a native Linux Docker engine or local-WSL Docker engine (not Docker Desktop). It installs and configures the NVIDIA container toolkit. Run it once with `sudo`, then use `DEV_USE_GPU=1 make dev-infra-up` when starting infra with GPU passthrough.
+- On macOS, `dev-setup-gpu` is not applicable. Use native Ollama for Apple Silicon acceleration when you want local model speedups outside the Docker NVIDIA runtime path.
+- `dev-setup` must be run as your normal user, not with `sudo`. It installs host tools through `scripts/install-package.sh` (`az`, `azd`, `uv`, `npm`, and Azure Functions Core Tools), syncs the service dependencies, installs Playwright Chromium for the Python Mistral converter, conditionally installs web-app Playwright browsers when browser UI tests are configured, creates `.env.dev` from the template if it does not exist, and backfills any newly added template keys into an existing `.env.dev` without overwriting your current values.
 - `.env.dev.template` uses Docker Compose service hostnames (`ollama`, `agent`, `azurite`, `cosmos-emulator`). If you call services from the host instead of inside Compose, use `localhost` equivalents.
+- Docker pulls native ARM images automatically on Apple Silicon and Linux ARM when the image publishes an ARM manifest. The AI Search Simulator and Azure Functions Python base images currently publish `linux/amd64` only, so Compose pins `SEARCH_SIMULATOR_PLATFORM=linux/amd64` and `AZURE_FUNCTIONS_PLATFORM=linux/amd64` to make emulation explicit and avoid platform mismatch or manifest resolution failures.
 - `dev-ui-live` automatically remaps the Docker-style dev endpoints in `.env.dev` to host equivalents (`localhost:8088`, `localhost:7250`, `localhost:8081`, `localhost:10000`) before starting Next.js in the current terminal, so `Ctrl+C` stops it like a normal foreground dev server.
 - `dev-ui-live` also saves the same output to `.tmp/logs/dev-ui-live.log`, so `make dev-ui-live-logs` can tail it from another terminal.
 - If the hot-reload UI is already running, `dev-ui-live` prints its PID and terminal. Use `make dev-ui-live-stop` to stop that server cleanly.
@@ -96,7 +104,7 @@ make prod-up                        Full Azure bring-up (calls targets below)
   make prod-services-up               Deploy all services
     make prod-services-pipeline-up      Pipeline services (fn-index + selected converter)
     make prod-services-app-up           Web app only
-    make prod-services-agents-up        Agent only
+    make prod-services-agent-up         Agent only
   make prod-pipeline                  Run Azure convert + index pipeline
     make prod-seed-kb                   Upload kb/staging to Azure blob
     make prod-pipeline-convert          Trigger the selected Azure converter
@@ -123,7 +131,7 @@ make prod-down                      Tear down Azure environment (calls targets b
 - `prod-infra-down` preserves the user-managed AZD inputs needed for the next redeploy (`PROJECT_NAME`, `AZURE_LOCATION`, and `CONVERTER`) before running `azd down --purge`, then restores them into the local AZD environment afterward.
 - After `azd down --purge`, `prod-infra-down` explicitly verifies that the resource group is gone, purges soft-deleted Cognitive Services and APIM resources with the same environment name, force-deletes the Log Analytics workspace if it is still live when teardown returns, and warns if a deleted Log Analytics workspace still appears in the subscription.
 - The AZD preprovision hook ensures the subscription-level `Microsoft.Insights/AIWorkspacePreview` feature is registered before provisioning, because workspace-based Application Insights creation depends on it in this environment.
-- `prod-setup` installs Azure CLI and AZD if they are missing. It is called automatically by `prod-up`, but can be run standalone.
+- `prod-setup` installs Azure CLI and AZD through `scripts/install-package.sh` if they are missing. It is called automatically by `prod-up`, but can be run standalone.
 - `prod-services-up` reattaches provisioned Container Apps to the active Azure Container Registry with system-assigned identity before deploying, and corrects ingress target ports after deploy.
 - `prod-pipeline` retries the converter and index trigger calls for a short window after deploy. It now checks the JSON response body as well, so a logical pipeline failure such as “no articles found” or per-article conversion errors is surfaced directly instead of being misreported as “endpoint not ready.”
 - `prod-services-down` is intentionally non-destructive; it prints scale-down guidance rather than tearing down resources.
