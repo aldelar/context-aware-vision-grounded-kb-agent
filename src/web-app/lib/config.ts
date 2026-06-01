@@ -10,6 +10,7 @@ export interface AppConfig {
   cosmosConversationsContainer: string;
   cosmosSessionsContainer: string;
   cosmosVerifyCert: boolean;
+  localServingRoot: string;
   localUserId: string;
   localUserName: string;
   localUserGroups: string[];
@@ -50,6 +51,7 @@ export const config: AppConfig = {
   cosmosConversationsContainer: optionalEnv("COSMOS_CONVERSATIONS_CONTAINER", "conversations"),
   cosmosSessionsContainer: optionalEnv("COSMOS_SESSIONS_CONTAINER", "agent-sessions"),
   cosmosVerifyCert: booleanEnv("COSMOS_VERIFY_CERT", true),
+  localServingRoot: optionalEnv("LOCAL_SERVING_ROOT"),
   localUserId: optionalEnv("LOCAL_USER_ID", "local-user"),
   localUserName: optionalEnv("LOCAL_USER_NAME", "Local Developer"),
   localUserGroups: listEnv("LOCAL_USER_GROUPS", ["dev-group-guid"]),

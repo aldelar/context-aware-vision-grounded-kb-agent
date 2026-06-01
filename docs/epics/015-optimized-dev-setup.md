@@ -2,16 +2,16 @@
 
 > **Status:** Done
 > **Created:** March 26, 2026
-> **Updated:** March 27, 2026
+> **Updated:** June 1, 2026
 
 ## Objective
 
-Replace the current Azure-dependent local development workflow with a **zero-Azure-cloud, Docker-only dev environment**. All Azure service dependencies are replaced by local emulators (Cosmos DB emulator, Azurite, AI Search Simulator) and Ollama for LLM/embedding/vision. Separate Makefile targets for `dev-*` and `prod-*` with a clean environment-driven config layer.
+Replace the current Azure-dependent local development workflow with a **zero-Azure-cloud, Docker-first dev environment**. All Azure service dependencies are replaced by local emulators (Cosmos DB emulator, Azurite, AI Search Simulator) and Ollama for LLM/embedding/vision. On macOS, Ollama runs natively by default so Apple Silicon can use Metal acceleration; Linux keeps Docker Ollama with optional NVIDIA passthrough. Separate Makefile targets for `dev-*` and `prod-*` with a clean environment-driven config layer.
 
 After this epic:
 
 - **Zero Azure cloud dependency for dev** — no `az login`, no Azure subscription, no cloud cost for local development; AZD can still be used locally as a parameter store
-- **Docker-only dev infrastructure** — 5 infrastructure containers (Cosmos emulator, Azurite, AI Search Simulator, Ollama, Aspire Dashboard)
+- **Docker-first dev infrastructure** — Docker containers for Cosmos emulator, Azurite, AI Search Simulator, and Aspire Dashboard; Ollama runs in Docker on Linux and natively on macOS for Apple Silicon acceleration
 - **Containerized application services** — all 4 services (fn-convert, fn-index, agent, web-app) run in Docker
 - **Ollama for local LLM** — `qwen2.5:3b` (chat), `mxbai-embed-large` (embeddings), `moondream` (vision)
 - **Environment-aware vector dimensions** — dev uses 1024-dim embeddings, prod stays on the repo's current 1536-dim Azure embeddings
@@ -43,7 +43,7 @@ After this epic:
 - [x] Makefile rewritten with `dev-*` / `prod-*` targets
 - [x] `make system-check` categorizes host setup as macOS/Homebrew, apt Linux, pacman Linux, or other Linux
 - [x] Host dependency installs are centralized in `scripts/install-package.sh` so setup scripts stay OS-generic
-- [x] Dev infra starts CPU-compatible by default on macOS; NVIDIA GPU passthrough is isolated to `DEV_USE_GPU=1` with an override compose file
+- [x] Dev infra uses native Ollama by default on macOS for Apple Silicon GPU acceleration; NVIDIA Docker passthrough remains isolated to Linux `DEV_USE_GPU=1` with an override compose file
 - [x] ARM hosts pull native ARM images where available; amd64-only Search Simulator and Azure Functions services are explicitly pinned with `SEARCH_SIMULATOR_PLATFORM=linux/amd64` and `AZURE_FUNCTIONS_PLATFORM=linux/amd64`
 - [x] `CONVERTER` maps to existing prod AZD service names without changing the current 3-service Azure topology
 - [x] `make dev-infra-up && make dev-services-up` brings up full working local environment
@@ -57,12 +57,13 @@ After this epic:
 
 ## Validation Snapshot
 
-- `make dev-infra-up` succeeded with the `kb-agent-infra` project and all five local infra containers healthy.
+- `make dev-infra-up` succeeded with native macOS Ollama plus the `kb-agent-infra` Docker project for Cosmos, Azurite, AI Search Simulator, and Aspire Dashboard.
 - `make dev-services-up` succeeded with the `kb-agent-services` project and all four application containers built and running.
 - `make dev-pipeline` succeeded after seeding `kb/staging/` into Azurite; local convert and index both completed successfully.
 - Direct indexing and query validation against the local AI Search simulator succeeded through the official Python SDK.
 - Direct agent `/responses` calls and the same OpenAI Responses client pattern used by the web app both returned grounded answers against the local stack.
-- `make dev-test` final summary: functions `187 passed, 23 skipped`; agent `152 passed, 1 xfailed`; web-app `121 passed, 1 skipped, 2 deselected`.
+- `make dev-test` final summary on June 1: functions `190 passed, 23 skipped`; agent `250 passed, 1 xfailed`; web-app `67 passed`.
+- Native macOS Ollama validation on June 1: `qwen2.5:3b` and `mxbai-embed-large` loaded with `100% GPU` processor placement, and Dockerized app services reached Ollama through `host.docker.internal:11434`.
 - `make dev-test-ui` final summary: `2 passed, 122 deselected`.
 - Manual validation on March 27 confirmed the local web app could hold grounded conversations against the local stack after the redeployed code landed.
 - Prod validation on March 27 confirmed the retained `prod-*` workflow still provisions and deploys successfully, and the Azure-hosted web app and agent both worked after redeploy.
@@ -89,10 +90,10 @@ See [docs/specs/environments-setup.md](../specs/environments-setup.md) for the t
 | Dev Azure dependency | Full RG (~15 resources) | **Zero Azure cloud dependency** — all runtime infra in Docker |
 | Dev monthly cost | ~$50–100 | **$0** |
 | `az login` for dev | Required | **Not needed** |
-| Local emulators | None | Cosmos emu + Azurite + Search Simulator + Ollama + Aspire |
+| Local emulators | None | Cosmos emu + Azurite + Search Simulator + Ollama + Aspire; Ollama is native on macOS and Docker-hosted on Linux |
 | LLM for dev | Azure AI Services | Ollama (`qwen2.5:3b`, `mxbai-embed-large`, `moondream`) |
 | Vector dimensions | Hard-coded 1536 | Config-driven: 1024 in dev, 1536 in prod |
-| Docker containers | 0 | 9 (5 infra + 4 services) |
+| Docker containers | 0 | Linux: 9 (5 infra + 4 services); macOS default: 8 containers plus native Ollama |
 | Makefile structure | Mixed local/Azure | Clean `dev-*` / `prod-*` namespaces |
 | Converter topology | 3 Azure converter services, manually chosen | Dev always uses MarkItDown locally; prod keeps the same 3 Azure services and `CONVERTER` selects the operationally active one |
 | Test tiers | unit + integration + optional uitest | unit + integration by default, optional uitest |
@@ -393,6 +394,8 @@ Replace the current Makefile with clean `dev-*` / `prod-*` target namespaces.
 | `scripts/install-package.sh` | **NEW** — centralized logical package installer for Homebrew, apt, pacman, and Linux-other managers |
 | `scripts/system-check.sh` | **NEW** — host setup categorization and tool availability check |
 | `scripts/dev-setup.sh` | **UPDATE** — request logical packages through the centralized installer |
+| `scripts/dev-ollama-native.sh` | **NEW** — start, stop, and report native macOS Ollama status |
+| `scripts/dev-init-emulators.sh` | **UPDATE** — initialize Ollama models through the HTTP API for Docker or native mode |
 | `scripts/prod-setup.sh` | **UPDATE** — request logical packages through the centralized installer |
 | `scripts/dev-setup-gpu.sh` | **UPDATE** — delegate NVIDIA toolkit installation to the centralized installer |
 | `infra/docker/docker-compose.dev-infra.gpu.yml` | **NEW** — optional NVIDIA GPU override for Linux dev infra |
@@ -460,7 +463,7 @@ Validate the full local development workflow from `make dev-infra-up` through a 
 **Acceptance Criteria:**
 
 - [x] `make dev-setup` completes without errors
-- [x] `make dev-infra-up` starts all 5 infra containers and initializes emulators
+- [x] `make dev-infra-up` starts local infra and Ollama, then initializes emulators
 - [x] `make dev-services-up` builds and starts all 4 app services
 - [x] `make dev-pipeline-convert` converts sample KB articles (from `kb/staging/`)
 - [x] `make dev-pipeline-index` indexes converted articles into AI Search Simulator

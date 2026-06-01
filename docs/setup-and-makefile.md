@@ -33,6 +33,8 @@ The local workflow is Docker-first and does not require Azure cloud resources, A
 ```
 sudo make dev-setup-gpu             Configure Docker GPU for local LLM support (Linux only)
 DEV_USE_GPU=1 make dev-infra-up     Start dev infra with NVIDIA GPU passthrough (Linux only)
+make dev-ollama-native-up           Start native Ollama for Apple Silicon acceleration (macOS)
+make dev-ollama-status              Show loaded Ollama models and CPU/GPU placement
 
 make dev-up                         Full local bring-up (calls targets below)
   make dev-setup                      Install local tools and Python dependencies
@@ -73,9 +75,9 @@ make dev-infra-down                 Stop local emulators without removing volume
 ### Dev notes
 
 - `dev-setup-gpu` is only needed if you use an NVIDIA GPU with a native Linux Docker engine or local-WSL Docker engine (not Docker Desktop). It installs and configures the NVIDIA container toolkit. Run it once with `sudo`, then use `DEV_USE_GPU=1 make dev-infra-up` when starting infra with GPU passthrough.
-- On macOS, `dev-setup-gpu` is not applicable. Use native Ollama for Apple Silicon acceleration when you want local model speedups outside the Docker NVIDIA runtime path.
+- On macOS, `dev-setup-gpu` is not applicable. `make dev-setup` installs native Ollama, and `make dev-infra-up` uses native Ollama by default so Apple Silicon can use Metal acceleration. Run `DEV_OLLAMA_MODE=docker make dev-infra-up` only when you explicitly want the CPU-only Docker Ollama container.
 - `dev-setup` must be run as your normal user, not with `sudo`. It installs host tools through `scripts/install-package.sh` (`az`, `azd`, `uv`, `npm`, and Azure Functions Core Tools), syncs the service dependencies, installs Playwright Chromium for the Python Mistral converter, conditionally installs web-app Playwright browsers when browser UI tests are configured, creates `.env.dev` from the template if it does not exist, and backfills any newly added template keys into an existing `.env.dev` without overwriting your current values.
-- `.env.dev.template` uses Docker Compose service hostnames (`ollama`, `agent`, `azurite`, `cosmos-emulator`). If you call services from the host instead of inside Compose, use `localhost` equivalents.
+- `.env.dev.template` uses Docker Compose service hostnames (`ollama`, `agent`, `azurite`, `cosmos-emulator`). On macOS, `make dev-setup` rewrites `OLLAMA_ENDPOINT` in `.env.dev` to `http://host.docker.internal:11434/v1` for containers while host-side scripts map it back to `localhost`. If you call other services from the host instead of inside Compose, use `localhost` equivalents.
 - Docker pulls native ARM images automatically on Apple Silicon and Linux ARM when the image publishes an ARM manifest. The AI Search Simulator and Azure Functions Python base images currently publish `linux/amd64` only, so Compose pins `SEARCH_SIMULATOR_PLATFORM=linux/amd64` and `AZURE_FUNCTIONS_PLATFORM=linux/amd64` to make emulation explicit and avoid platform mismatch or manifest resolution failures.
 - `dev-ui-live` automatically remaps the Docker-style dev endpoints in `.env.dev` to host equivalents (`localhost:8088`, `localhost:7250`, `localhost:8081`, `localhost:10000`) before starting Next.js in the current terminal, so `Ctrl+C` stops it like a normal foreground dev server.
 - `dev-ui-live` also saves the same output to `.tmp/logs/dev-ui-live.log`, so `make dev-ui-live-logs` can tail it from another terminal.

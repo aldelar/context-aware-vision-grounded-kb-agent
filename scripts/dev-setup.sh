@@ -199,6 +199,23 @@ install_functions_core_tools() {
     system_install_tool func azure-functions-core-tools "func" "func --version" "make dev-setup"
 }
 
+install_ollama() {
+    if ! system_is_macos; then
+        return
+    fi
+
+    system_install_tool ollama ollama "ollama" "ollama --version" "make dev-setup"
+}
+
+configure_ollama_endpoint_env() {
+    ensure_dev_env_file
+
+    if system_is_macos; then
+        set_env_value "${DEV_ENV_FILE}" "OLLAMA_ENDPOINT" "http://host.docker.internal:11434/v1"
+        echo "  env         configured containers to use native Ollama via host.docker.internal"
+    fi
+}
+
 print_gpu_guidance() {
     local backend
 
@@ -263,7 +280,9 @@ main() {
     install_uv
     install_node
     install_functions_core_tools
+    install_ollama
     configure_ollama_gpu_device_env
+    configure_ollama_endpoint_env
     print_gpu_guidance
 }
 

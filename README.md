@@ -131,6 +131,8 @@ make set-converter name=markitdown   # or: cu (Content Understanding), mistral (
 
 The local workflow is Docker-first and does not require Azure cloud resources, Azure credentials, or Entra auth. It uses smaller local Ollama-hosted models (`qwen2.5:3b`, `mxbai-embed-large`, `moondream`), so it is self-contained and cheap to run, but answer quality is below the Azure-hosted production path.
 
+On macOS, `make dev-setup` installs native Ollama and `make dev-infra-up` uses it by default so Apple Silicon can use Metal acceleration. The Docker services reach that host process through `host.docker.internal`. If you explicitly want the CPU-only Docker Ollama container on macOS, run `DEV_OLLAMA_MODE=docker make dev-infra-up`.
+
 Host tool installation is OS-aware: setup scripts call `scripts/install-package.sh`, which maps logical packages to Homebrew on macOS, apt on Debian/Ubuntu-style Linux, and pacman on Arch-style Linux.
 
 If you use an NVIDIA GPU with a native Linux or local-WSL Docker engine (not Docker Desktop), run the GPU setup once first:
@@ -139,7 +141,7 @@ If you use an NVIDIA GPU with a native Linux or local-WSL Docker engine (not Doc
 sudo make dev-setup-gpu
 ```
 
-Then start infra with `DEV_USE_GPU=1 make dev-infra-up` when you want NVIDIA GPU passthrough. On macOS, skip `dev-setup-gpu`; the default Makefile path is CPU-compatible, and native Ollama is the Apple Silicon acceleration path if you choose to run models outside Docker.
+Then start infra with `DEV_USE_GPU=1 make dev-infra-up` when you want NVIDIA GPU passthrough. On macOS, skip `dev-setup-gpu`; native Ollama is the default Apple Silicon acceleration path.
 
 Then bring everything up:
 

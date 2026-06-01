@@ -24,6 +24,7 @@ STAGING_BLOB_ENDPOINT=${STAGING_BLOB_ENDPOINT//azurite/localhost}
 SERVING_BLOB_ENDPOINT=${SERVING_BLOB_ENDPOINT//azurite/localhost}
 SEARCH_ENDPOINT=${SEARCH_ENDPOINT//search-simulator/localhost}
 OLLAMA_ENDPOINT=${OLLAMA_ENDPOINT//ollama/localhost}
+OLLAMA_ENDPOINT=${OLLAMA_ENDPOINT//host.docker.internal/localhost}
 
 # Rebuild the connection string explicitly for host-side tooling. Sourcing the
 # .env file in bash cannot safely preserve the semicolon-delimited value.
@@ -31,6 +32,8 @@ AZURITE_CONNECTION_STRING="DefaultEndpointsProtocol=http;AccountName=devstoreacc
 
 export COSMOS_ENDPOINT STAGING_BLOB_ENDPOINT SERVING_BLOB_ENDPOINT
 export AZURITE_CONNECTION_STRING SEARCH_ENDPOINT OLLAMA_ENDPOINT
+OLLAMA_API_ROOT="${OLLAMA_ENDPOINT%/v1}"
+OLLAMA_API_ROOT="${OLLAMA_API_ROOT%/}"
 
 normalize_ollama_model_ref() {
     local model=$1
@@ -40,6 +43,54 @@ normalize_ollama_model_ref() {
     fi
 
     printf '%s:latest\n' "${model}"
+}
+
+ollama_model_present() {
+    local normalized_model=$1
+
+    python3 - "${OLLAMA_API_ROOT}" "${normalized_model}" <<'PY'
+import json
+import sys
+import urllib.request
+
+root, expected = sys.argv[1:]
+with urllib.request.urlopen(f"{root}/api/tags", timeout=10) as response:
+    payload = json.load(response)
+
+available = set()
+for model in payload.get("models", []):
+    for key in ("name", "model"):
+        value = model.get(key)
+        if value:
+            available.add(value)
+
+sys.exit(0 if expected in available else 1)
+PY
+}
+
+ollama_pull_model() {
+    local model=$1
+
+    python3 - "${OLLAMA_API_ROOT}" "${model}" <<'PY'
+import json
+import sys
+import urllib.request
+
+root, model = sys.argv[1:]
+body = json.dumps({"name": model, "stream": False}).encode("utf-8")
+request = urllib.request.Request(
+    f"{root}/api/pull",
+    data=body,
+    headers={"Content-Type": "application/json"},
+    method="POST",
+)
+with urllib.request.urlopen(request, timeout=1800) as response:
+    payload = json.load(response)
+
+if payload.get("error"):
+    print(payload["error"], file=sys.stderr)
+    sys.exit(1)
+PY
 }
 
 wait_for_port() {
@@ -165,11 +216,12 @@ PY
 echo "Ensuring Ollama models are available..."
 for model in "${AGENT_MODEL_DEPLOYMENT_NAME:-phi4-mini}" "${EMBEDDING_DEPLOYMENT_NAME:-mxbai-embed-large}" "${VISION_DEPLOYMENT_NAME:-moondream}"; do
     normalized_model=$(normalize_ollama_model_ref "${model}")
-    if docker compose --project-directory "${ROOT_DIR}" -p "${COMPOSE_PROJECT_NAME}" -f "${COMPOSE_FILE}" exec -T ollama ollama list | awk 'NR>1 {print $1}' | grep -qx "${normalized_model}"; then
+    if ollama_model_present "${normalized_model}"; then
         echo "Ollama model already present: ${model}"
         continue
     fi
-    docker compose --project-directory "${ROOT_DIR}" -p "${COMPOSE_PROJECT_NAME}" -f "${COMPOSE_FILE}" exec -T ollama ollama pull "${model}"
+    echo "Pulling Ollama model: ${model}"
+    ollama_pull_model "${model}"
 done
 
 echo "Emulator initialization complete."

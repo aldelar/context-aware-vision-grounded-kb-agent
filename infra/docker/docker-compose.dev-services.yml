@@ -10,6 +10,7 @@ services:
     environment:
       OTEL_SERVICE_NAME: fn-convert
       AzureWebJobsStorage: ${AZURITE_CONNECTION_STRING}
+      OLLAMA_ENDPOINT: ${DEV_CONTAINER_OLLAMA_ENDPOINT:-${OLLAMA_ENDPOINT:-http://ollama:11434/v1}}
     ports:
       - "7071:80"
     healthcheck:
@@ -32,6 +33,7 @@ services:
     environment:
       OTEL_SERVICE_NAME: fn-index
       AzureWebJobsStorage: ${AZURITE_CONNECTION_STRING}
+      OLLAMA_ENDPOINT: ${DEV_CONTAINER_OLLAMA_ENDPOINT:-${OLLAMA_ENDPOINT:-http://ollama:11434/v1}}
     ports:
       - "7072:80"
     healthcheck:
@@ -52,6 +54,7 @@ services:
       - ./.env.dev
     environment:
       OTEL_SERVICE_NAME: kb-agent
+      OLLAMA_ENDPOINT: ${DEV_CONTAINER_OLLAMA_ENDPOINT:-${OLLAMA_ENDPOINT:-http://ollama:11434/v1}}
       WEB_SEARCH_MCP_ENDPOINT: http://mcp-web-search:8089/mcp/
     ports:
       - "8088:8088"
@@ -95,6 +98,7 @@ services:
       - ./.env.dev
     environment:
       OTEL_SERVICE_NAME: kb-web-app
+      OLLAMA_ENDPOINT: ${DEV_CONTAINER_OLLAMA_ENDPOINT:-${OLLAMA_ENDPOINT:-http://ollama:11434/v1}}
     volumes:
       - ./kb/serving:/app/kb/serving:ro
     ports:

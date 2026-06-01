@@ -8,14 +8,23 @@ PROD_DOWN_CLEANUP := bash scripts/prod-post-down-cleanup.sh
 DEV_INFRA_PROJECT := kb-agent-infra
 DEV_SERVICES_PROJECT := kb-agent-services
 DEV_USE_GPU ?= 0
+HOST_UNAME_S := $(shell uname -s 2>/dev/null || echo unknown)
+DEV_OLLAMA_MODE ?= $(if $(filter Darwin,$(HOST_UNAME_S)),native,docker)
 WEB_APP_DEV_PORT ?= 3001
 WEB_APP_DEV_LOG ?= .tmp/logs/dev-ui-live.log
 DEV_INFRA_COMPOSE_FILES := -f infra/docker/docker-compose.dev-infra.yml
 ifeq ($(DEV_USE_GPU),1)
 DEV_INFRA_COMPOSE_FILES += -f infra/docker/docker-compose.dev-infra.gpu.yml
 endif
+ifneq ($(filter $(DEV_OLLAMA_MODE),native host),)
+DEV_INFRA_SERVICES := cosmos-emulator azurite search-simulator aspire-dashboard
+DEV_CONTAINER_OLLAMA_ENDPOINT := http://host.docker.internal:11434/v1
+else
+DEV_INFRA_SERVICES :=
+DEV_CONTAINER_OLLAMA_ENDPOINT :=
+endif
 DEV_INFRA_COMPOSE := docker compose -p $(DEV_INFRA_PROJECT) --project-directory . --env-file $(DEV_ENV_FILE) $(DEV_INFRA_COMPOSE_FILES)
-DEV_SERVICES_COMPOSE := docker compose -p $(DEV_SERVICES_PROJECT) --project-directory . --env-file $(DEV_ENV_FILE) -f infra/docker/docker-compose.dev-services.yml
+DEV_SERVICES_COMPOSE := DEV_CONTAINER_OLLAMA_ENDPOINT=$(DEV_CONTAINER_OLLAMA_ENDPOINT) docker compose -p $(DEV_SERVICES_PROJECT) --project-directory . --env-file $(DEV_ENV_FILE) -f infra/docker/docker-compose.dev-services.yml
 CONVERTER ?= $(shell $(AZD) env get-value CONVERTER 2>/dev/null || echo markitdown)
 PROD_PIPELINE_RETRY_ATTEMPTS ?= 60
 PROD_PIPELINE_RETRY_DELAY ?= 6
@@ -32,6 +41,8 @@ help:
 	@echo ""
 	@echo "  sudo make dev-setup-gpu             Configure Docker GPU for local LLM support (Linux only)"
 	@echo "  DEV_USE_GPU=1 make dev-infra-up     Start dev infra with NVIDIA GPU passthrough (Linux only)"
+	@echo "  make dev-ollama-native-up           Start native Ollama for Apple Silicon acceleration (macOS)"
+	@echo "  make dev-ollama-status              Show loaded Ollama models and CPU/GPU placement"
 	@echo ""
 	@echo "  make dev-up                         Full local bring-up (calls targets below)"
 	@echo "    make dev-setup                      Install local tools and Python dependencies"
@@ -130,6 +141,18 @@ dev-setup-gpu:
 	fi
 	@bash scripts/dev-setup-gpu.sh
 
+.PHONY: dev-ollama-native-up
+dev-ollama-native-up:
+	@bash scripts/dev-ollama-native.sh start
+
+.PHONY: dev-ollama-native-down
+dev-ollama-native-down:
+	@bash scripts/dev-ollama-native.sh stop
+
+.PHONY: dev-ollama-status
+dev-ollama-status:
+	@bash scripts/dev-ollama-native.sh status
+
 .PHONY: prod-setup
 prod-setup:
 	@bash scripts/prod-setup.sh
@@ -144,8 +167,13 @@ dev-down: dev-services-destroy dev-infra-destroy
 .PHONY: dev-infra-up
 dev-infra-up:
 	@test -f $(DEV_ENV_FILE) || (echo "Missing $(DEV_ENV_FILE). Copy .env.dev.template first." >&2; exit 1)
-	@$(DEV_INFRA_COMPOSE) up -d
-	@bash scripts/dev-init-emulators.sh
+	@if [ "$(DEV_OLLAMA_MODE)" = "native" ] || [ "$(DEV_OLLAMA_MODE)" = "host" ]; then \
+		$(DEV_INFRA_COMPOSE) stop ollama >/dev/null 2>&1 || true; \
+		$(DEV_INFRA_COMPOSE) rm -f ollama >/dev/null 2>&1 || true; \
+		$(MAKE) dev-ollama-native-up; \
+	fi
+	@$(DEV_INFRA_COMPOSE) up -d $(DEV_INFRA_SERVICES)
+	@DEV_OLLAMA_MODE=$(DEV_OLLAMA_MODE) bash scripts/dev-init-emulators.sh
 
 .PHONY: dev-infra-down
 dev-infra-down:

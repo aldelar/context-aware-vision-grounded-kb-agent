@@ -74,6 +74,7 @@ main() {
     print_command_status uv "uv"
     print_command_status func "Azure Functions Core Tools"
     print_command_status npm "npm"
+    print_command_status ollama "Ollama CLI"
     print_docker_engine_status
 }
 
