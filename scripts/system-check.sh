@@ -33,6 +33,19 @@ print_docker_engine_status() {
     fi
 }
 
+print_ollama_status() {
+    if system_is_macos; then
+        print_command_status ollama "Ollama CLI"
+        return
+    fi
+
+    if system_has_command ollama; then
+        printf '  %-28s optional host CLI found (%s); dev uses Docker service\n' "Ollama" "$(command -v ollama)"
+    else
+        printf '  %-28s Docker service (host CLI not required)\n' "Ollama"
+    fi
+}
+
 print_guidance() {
     case "$(system_category)" in
         macos-brew)
@@ -74,7 +87,7 @@ main() {
     print_command_status uv "uv"
     print_command_status func "Azure Functions Core Tools"
     print_command_status npm "npm"
-    print_command_status ollama "Ollama CLI"
+    print_ollama_status
     print_docker_engine_status
 }
 

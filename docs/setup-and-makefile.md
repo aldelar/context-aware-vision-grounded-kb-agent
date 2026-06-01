@@ -16,7 +16,7 @@ make system-check                  Print host OS/package-manager/tool status
 make set-converter name=<name>      Set CONVERTER to cu, markitdown, or mistral
 ```
 
-`system-check` reports the detected setup category (`macos-brew`, `linux-apt`, `linux-pacman`, or `linux-other`) plus the availability of Docker, Azure CLI, AZD, uv, Functions Core Tools, and npm.
+`system-check` reports the detected setup category (`macos-brew`, `linux-apt`, `linux-pacman`, or `linux-other`) plus the availability of Docker, Azure CLI, AZD, uv, Functions Core Tools, and npm. On macOS it also checks the native Ollama CLI; on Linux/WSL, Ollama is provided by Docker Compose, so a missing host Ollama CLI is not reported as a setup problem.
 
 `CONVERTER` selects which converter backend the pipeline uses: `cu`, `markitdown`, or `mistral`. It applies to both local and Azure workflows.
 
