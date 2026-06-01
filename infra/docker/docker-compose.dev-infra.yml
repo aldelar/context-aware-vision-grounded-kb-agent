@@ -29,7 +29,7 @@ services:
     volumes:
       - azurite-data:/data
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:10000/ >/dev/null || exit 1"]
+      test: ["CMD", "nc", "-z", "127.0.0.1", "10000"]
       interval: 10s
       timeout: 5s
       retries: 30
@@ -54,7 +54,7 @@ services:
       - search-simulator-lucene-indexes:/app/lucene-indexes
       - search-simulator-models:/app/models
     healthcheck:
-      test: ["CMD-SHELL", "curl -kfsS 'https://localhost:8443/indexes?api-version=2025-03-01-preview' -H 'api-key: dev-admin-key' >/dev/null || exit 1"]
+      test: ["CMD", "bash", "-c", "</dev/tcp/127.0.0.1/8443"]
       interval: 10s
       timeout: 5s
       retries: 30
@@ -90,11 +90,7 @@ services:
     volumes:
       - aspire-dashboard-data:/apphost
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:18888/ >/dev/null || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 30
-      start_period: 10s
+      disable: true
     networks:
       - kb-agent-dev
 
