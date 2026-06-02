@@ -166,7 +166,7 @@ dev-down: dev-services-destroy dev-infra-destroy
 
 .PHONY: dev-infra-up
 dev-infra-up:
-	@test -f $(DEV_ENV_FILE) || (echo "Missing $(DEV_ENV_FILE). Copy .env.dev.template first." >&2; exit 1)
+	@test -f $(DEV_ENV_FILE) || (echo "Missing $(DEV_ENV_FILE). Run 'make dev-setup' first." >&2; exit 1)
 	@if [ "$(DEV_OLLAMA_MODE)" = "native" ] || [ "$(DEV_OLLAMA_MODE)" = "host" ]; then \
 		$(DEV_INFRA_COMPOSE) stop ollama >/dev/null 2>&1 || true; \
 		$(DEV_INFRA_COMPOSE) rm -f ollama >/dev/null 2>&1 || true; \
@@ -185,7 +185,7 @@ dev-infra-destroy:
 
 .PHONY: dev-services-up
 dev-services-up:
-	@test -f $(DEV_ENV_FILE) || (echo "Missing $(DEV_ENV_FILE). Copy .env.dev.template first." >&2; exit 1)
+	@test -f $(DEV_ENV_FILE) || (echo "Missing $(DEV_ENV_FILE). Run 'make dev-setup' first." >&2; exit 1)
 	@if ! $(DEV_SERVICES_COMPOSE) ps --services --status running | grep -qx fn-convert; then \
 		bash scripts/dev-check-port-owner.sh 7071 fn-convert; \
 	fi
@@ -210,7 +210,7 @@ dev-services-destroy:
 
 .PHONY: dev-services-pipeline-up
 dev-services-pipeline-up:
-	@test -f $(DEV_ENV_FILE) || (echo "Missing $(DEV_ENV_FILE). Copy .env.dev.template first." >&2; exit 1)
+	@test -f $(DEV_ENV_FILE) || (echo "Missing $(DEV_ENV_FILE). Run 'make dev-setup' first." >&2; exit 1)
 	@if ! $(DEV_SERVICES_COMPOSE) ps --services --status running | grep -qx fn-convert; then \
 		bash scripts/dev-check-port-owner.sh 7071 fn-convert; \
 	fi
@@ -221,7 +221,7 @@ dev-services-pipeline-up:
 
 .PHONY: dev-services-app-up
 dev-services-app-up:
-	@test -f $(DEV_ENV_FILE) || (echo "Missing $(DEV_ENV_FILE). Copy .env.dev.template first." >&2; exit 1)
+	@test -f $(DEV_ENV_FILE) || (echo "Missing $(DEV_ENV_FILE). Run 'make dev-setup' first." >&2; exit 1)
 	@if ! $(DEV_SERVICES_COMPOSE) ps --services --status running | grep -qx web-app; then \
 		bash scripts/dev-check-port-owner.sh 3000 web-app; \
 	fi
@@ -229,7 +229,7 @@ dev-services-app-up:
 
 .PHONY: dev-services-agent-up
 dev-services-agent-up:
-	@test -f $(DEV_ENV_FILE) || (echo "Missing $(DEV_ENV_FILE). Copy .env.dev.template first." >&2; exit 1)
+	@test -f $(DEV_ENV_FILE) || (echo "Missing $(DEV_ENV_FILE). Run 'make dev-setup' first." >&2; exit 1)
 	@if ! $(DEV_SERVICES_COMPOSE) ps --services --status running | grep -qx agent; then \
 		bash scripts/dev-check-port-owner.sh 8088 agent; \
 	fi
@@ -259,7 +259,7 @@ dev-ui:
 
 .PHONY: dev-ui-live
 dev-ui-live:
-	@test -f $(DEV_ENV_FILE) || (echo "Missing $(DEV_ENV_FILE). Copy .env.dev.template first." >&2; exit 1)
+	@test -f $(DEV_ENV_FILE) || (echo "Missing $(DEV_ENV_FILE). Run 'make dev-setup' first." >&2; exit 1)
 	@bash scripts/dev-web-live.sh $(WEB_APP_DEV_PORT) $(WEB_APP_DEV_LOG)
 
 .PHONY: dev-ui-live-stop
