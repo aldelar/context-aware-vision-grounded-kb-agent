@@ -13,7 +13,7 @@ import pytest
 from agent_framework import AgentResponse, AgentResponseUpdate, AgentSession, Content, Message
 from agent_framework.ag_ui import AgentFrameworkAgent
 
-from main import _PersistedSessionAgent, _create_ag_ui_app
+from main import _PersistedSessionAgent, _build_workflow_response_snapshot_event, _create_ag_ui_app
 
 
 class _FakeAgent:
@@ -173,6 +173,112 @@ class _FakeSessionRepository:
 
 class TestAGUIThreadContinuity:
     """AG-UI wrapper should map thread IDs to service session IDs."""
+
+    def test_workflow_request_info_interrupt_streams_message_snapshot(self) -> None:
+        agent_response = AgentResponse(
+            messages=[
+                Message(
+                    role="assistant",
+                    contents=[
+                        Content.from_function_call(
+                            call_id="tool-call-1",
+                            name="search_knowledge_base",
+                            arguments='{"query":"network security options for Azure AI Search"}',
+                        )
+                    ],
+                    message_id="assistant-tool-1",
+                    author_name="InternalSearchAgent",
+                ),
+                Message(
+                    role="tool",
+                    contents=[
+                        Content.from_function_result(
+                            call_id="tool-call-1",
+                            result='{"results":[{"title":"Security in Azure AI Search"}]}',
+                        )
+                    ],
+                    message_id="tool-1",
+                ),
+                Message(
+                    role="assistant",
+                    contents=[Content.from_text(text="Use private endpoints and RBAC.")],
+                    message_id="assistant-answer-1",
+                    author_name="InternalSearchAgent",
+                ),
+            ],
+            response_id="run-1",
+        )
+        event = {
+            "type": "RUN_FINISHED",
+            "thread_id": "thread-123",
+            "run_id": "run-1",
+            "interrupt": [
+                {
+                    "id": "request-1",
+                    "value": {
+                        "type": "function_approval_request",
+                        "function_call": {
+                            "call_id": "request-1",
+                            "name": "request_info",
+                            "arguments": json.dumps(
+                                {
+                                    "request_id": "request-1",
+                                    "data": {"agent_response": agent_response.to_dict()},
+                                }
+                            ),
+                        },
+                    },
+                }
+            ],
+        }
+
+        snapshot_event = _build_workflow_response_snapshot_event(
+            {
+                "messages": [
+                    {
+                        "id": "user-1",
+                        "role": "user",
+                        "content": "network security options for Azure AI Search",
+                    }
+                ]
+            },
+            event,
+        )
+
+        assert snapshot_event is not None
+        assert [message.model_dump(by_alias=True, exclude_none=True) for message in snapshot_event.messages] == [
+            {
+                "id": "user-1",
+                "role": "user",
+                "content": "network security options for Azure AI Search",
+            },
+            {
+                "id": "assistant-tool-1",
+                "role": "assistant",
+                "content": "",
+                "toolCalls": [
+                    {
+                        "id": "tool-call-1",
+                        "type": "function",
+                        "function": {
+                            "name": "search_knowledge_base",
+                            "arguments": '{"query":"network security options for Azure AI Search"}',
+                        },
+                    }
+                ],
+            },
+            {
+                "id": "tool-1",
+                "role": "tool",
+                "content": '{"results":[{"title":"Security in Azure AI Search"}]}',
+                "toolCallId": "tool-call-1",
+            },
+            {
+                "id": "assistant-answer-1",
+                "role": "assistant",
+                "content": "Use private endpoints and RBAC.",
+            },
+        ]
 
     @pytest.mark.asyncio
     async def test_persisted_session_agent_prefers_request_history_over_stored_session(self) -> None:

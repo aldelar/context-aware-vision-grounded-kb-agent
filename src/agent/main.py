@@ -1357,6 +1357,106 @@ async def _build_ag_ui_connect_restore_events(
     return thread_id, restore_events
 
 
+def _coerce_mapping(candidate: Any) -> Mapping[str, Any] | None:
+    if isinstance(candidate, Mapping):
+        return candidate
+
+    model_dump = getattr(candidate, "model_dump", None)
+    if callable(model_dump):
+        dumped = model_dump(exclude_none=True)
+        if isinstance(dumped, Mapping):
+            return dumped
+
+    return None
+
+
+def _event_type_value(event: Any) -> str | None:
+    event_mapping = _coerce_mapping(event)
+    event_type = event_mapping.get("type") if event_mapping is not None else getattr(event, "type", None)
+    if isinstance(event_type, str):
+        return event_type
+
+    value = getattr(event_type, "value", None)
+    return value if isinstance(value, str) else None
+
+
+def _json_object_or_original(candidate: Any) -> Any:
+    if not isinstance(candidate, str):
+        return candidate
+
+    try:
+        return json.loads(candidate)
+    except json.JSONDecodeError:
+        return candidate
+
+
+def _extract_workflow_request_info_messages(event: Any) -> list[Message]:
+    event_mapping = _coerce_mapping(event)
+    if event_mapping is None:
+        return []
+
+    interrupts = event_mapping.get("interrupt")
+    if not isinstance(interrupts, list):
+        return []
+
+    extracted_messages: list[Message] = []
+    for interrupt in interrupts:
+        interrupt_mapping = _coerce_mapping(interrupt)
+        if interrupt_mapping is None:
+            continue
+
+        value = _coerce_mapping(interrupt_mapping.get("value"))
+        if value is None or value.get("type") != "function_approval_request":
+            continue
+
+        function_call = _coerce_mapping(value.get("function_call"))
+        if function_call is None or function_call.get("name") != "request_info":
+            continue
+
+        request_messages = _PersistedSessionAgent._extract_request_payload_messages(
+            _json_object_or_original(function_call.get("arguments"))
+        )
+        for message in request_messages:
+            _PersistedSessionAgent._append_history_message_if_new(extracted_messages, message)
+
+    return extracted_messages
+
+
+def _build_workflow_response_snapshot_event(input_data: Mapping[str, Any], event: Any) -> MessagesSnapshotEvent | None:
+    if _event_type_value(event) != "RUN_FINISHED":
+        return None
+
+    response_messages = _extract_workflow_request_info_messages(event)
+    if not response_messages:
+        return None
+
+    raw_request_messages = input_data.get("messages")
+    request_messages = raw_request_messages if isinstance(raw_request_messages, list) else []
+    normalized_request_messages = _PersistedSessionAgent._extract_visible_request_messages(request_messages)
+    snapshot_history = [
+        _PersistedSessionAgent._message_to_framework_message(message)
+        for message in normalized_request_messages
+    ]
+    turn_start_index = len(snapshot_history)
+
+    for message in response_messages:
+        _PersistedSessionAgent._append_workflow_history_message_if_new(
+            snapshot_history,
+            message,
+            turn_start_index,
+        )
+
+    normalized_snapshot_messages = [
+        normalized_message
+        for index, message in enumerate(snapshot_history)
+        if (normalized_message := _PersistedSessionAgent._normalize_stored_session_message(message, index)) is not None
+    ]
+    if not normalized_snapshot_messages:
+        return None
+
+    return MessagesSnapshotEvent(messages=agui_messages_to_snapshot_format(normalized_snapshot_messages))
+
+
 def _add_persisted_ag_ui_endpoint(
     app: FastAPI,
     protocol_runner: AgentFrameworkAgent,
@@ -1424,6 +1524,26 @@ def _add_persisted_ag_ui_endpoint(
                             if len(encoded) > 200
                             else f"[{path}] Encoded as: {encoded}"
                         )
+                        snapshot_event = _build_workflow_response_snapshot_event(input_data, event)
+                        if snapshot_event is not None:
+                            logger.info(
+                                "[%s] Streaming workflow response snapshot with %d messages before RUN_FINISHED",
+                                path,
+                                len(snapshot_event.messages),
+                            )
+                            try:
+                                yield encoder.encode(snapshot_event)
+                            except Exception:
+                                logger.exception("[%s] Failed to encode workflow response snapshot", path)
+                                run_error = RunErrorEvent(
+                                    message="An internal error has occurred while streaming events.",
+                                    code="WorkflowResponseSnapshotError",
+                                )
+                                try:
+                                    yield encoder.encode(run_error)
+                                except Exception:
+                                    logger.exception("[%s] Failed to encode RUN_ERROR event", path)
+                                return
                         yield encoded
 
                     logger.info(f"[{path}] Completed streaming {event_count} events")
