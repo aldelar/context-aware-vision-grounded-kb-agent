@@ -44,6 +44,7 @@ After this epic:
 - [x] `make system-check` categorizes host setup as macOS/Homebrew, apt Linux, pacman Linux, or other Linux
 - [x] Host dependency installs are centralized in `scripts/install-package.sh` so setup scripts stay OS-generic
 - [x] Dev infra uses native Ollama by default on macOS for Apple Silicon GPU acceleration; NVIDIA Docker passthrough remains isolated to Linux `DEV_USE_GPU=1` with an override compose file
+- [x] Dev-mode indexing sends Ollama embedding requests one chunk at a time to avoid backend-specific batched embedding context failures; prod keeps batched embedding calls
 - [x] ARM hosts pull native ARM images where available; amd64-only Search Simulator and Azure Functions services are explicitly pinned with `SEARCH_SIMULATOR_PLATFORM=linux/amd64` and `AZURE_FUNCTIONS_PLATFORM=linux/amd64`
 - [x] `CONVERTER` maps to existing prod AZD service names without changing the current 3-service Azure topology
 - [x] `make dev-infra-up && make dev-services-up` brings up full working local environment

@@ -53,8 +53,10 @@ def embed_chunks(chunks: list[Chunk]) -> list[dict]:
     texts = [c.content for c in chunks]
     client = _get_client()
 
-    # Batch embedding — send all texts at once
-    embeddings = client.embed(texts)
+    if config.is_dev:
+        embeddings = [client.embed([text])[0] for text in texts]
+    else:
+        embeddings = client.embed(texts)
 
     results: list[dict] = []
     for chunk, embedding in zip(chunks, embeddings):

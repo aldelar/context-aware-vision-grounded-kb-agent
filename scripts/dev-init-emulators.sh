@@ -76,20 +76,63 @@ import json
 import sys
 import urllib.request
 
+
+def format_bytes(value: int) -> str:
+    units = ("B", "KiB", "MiB", "GiB")
+    size = float(value)
+    for unit in units:
+        if size < 1024 or unit == units[-1]:
+            if unit == "B":
+                return f"{int(size)} {unit}"
+            return f"{size:.1f} {unit}"
+        size /= 1024
+
+
 root, model = sys.argv[1:]
-body = json.dumps({"name": model, "stream": False}).encode("utf-8")
+body = json.dumps({"name": model, "stream": True}).encode("utf-8")
 request = urllib.request.Request(
     f"{root}/api/pull",
     data=body,
     headers={"Content-Type": "application/json"},
     method="POST",
 )
-with urllib.request.urlopen(request, timeout=1800) as response:
-    payload = json.load(response)
 
-if payload.get("error"):
-    print(payload["error"], file=sys.stderr)
-    sys.exit(1)
+last_status = ""
+last_progress_bucket_by_layer = {}
+
+with urllib.request.urlopen(request, timeout=1800) as response:
+    for raw_line in response:
+        if not raw_line.strip():
+            continue
+
+        payload = json.loads(raw_line)
+        if payload.get("error"):
+            print(payload["error"], file=sys.stderr)
+            sys.exit(1)
+
+        status = payload.get("status", "")
+        digest = payload.get("digest", "")
+        completed = payload.get("completed")
+        total = payload.get("total")
+
+        if isinstance(completed, int) and isinstance(total, int) and total > 0:
+            percent = min(100, int(completed * 100 / total))
+            bucket = 100 if percent == 100 else percent // 5 * 5
+            layer_key = digest or status or "pull"
+            if last_progress_bucket_by_layer.get(layer_key) != bucket:
+                layer = f" {digest[:19]}" if digest else ""
+                print(
+                    f"  {model}: {status}{layer} {percent:3d}% "
+                    f"({format_bytes(completed)}/{format_bytes(total)})",
+                    flush=True,
+                )
+                last_progress_bucket_by_layer[layer_key] = bucket
+            last_status = status
+            continue
+
+        if status and status != last_status:
+            print(f"  {model}: {status}", flush=True)
+            last_status = status
 PY
 }
 
@@ -214,8 +257,14 @@ for container_name in (
 PY
 
 echo "Ensuring Ollama models are available..."
-for model in "${AGENT_MODEL_DEPLOYMENT_NAME:-phi4-mini}" "${EMBEDDING_DEPLOYMENT_NAME:-mxbai-embed-large}" "${VISION_DEPLOYMENT_NAME:-moondream}"; do
+processed_models=""
+for model in "${AGENT_MODEL_DEPLOYMENT_NAME:-phi4-mini}" "${SUMMARY_DEPLOYMENT_NAME:-${AGENT_MODEL_DEPLOYMENT_NAME:-phi4-mini}}" "${EMBEDDING_DEPLOYMENT_NAME:-mxbai-embed-large}" "${VISION_DEPLOYMENT_NAME:-moondream}"; do
     normalized_model=$(normalize_ollama_model_ref "${model}")
+    if grep -qxF -- "${normalized_model}" <<<"${processed_models}"; then
+        continue
+    fi
+    processed_models="${processed_models}${normalized_model}"$'\n'
+
     if ollama_model_present "${normalized_model}"; then
         echo "Ollama model already present: ${model}"
         continue
