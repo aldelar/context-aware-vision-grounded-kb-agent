@@ -7,10 +7,24 @@ PROD_PIPELINE_TRIGGER := bash scripts/prod-pipeline-request.sh
 PROD_DOWN_CLEANUP := bash scripts/prod-post-down-cleanup.sh
 DEV_INFRA_PROJECT := kb-agent-infra
 DEV_SERVICES_PROJECT := kb-agent-services
+DEV_USE_GPU ?= 0
+HOST_UNAME_S := $(shell uname -s 2>/dev/null || echo unknown)
+DEV_OLLAMA_MODE ?= $(if $(filter Darwin,$(HOST_UNAME_S)),native,docker)
 WEB_APP_DEV_PORT ?= 3001
 WEB_APP_DEV_LOG ?= .tmp/logs/dev-ui-live.log
-DEV_INFRA_COMPOSE := docker compose -p $(DEV_INFRA_PROJECT) --project-directory . --env-file $(DEV_ENV_FILE) -f infra/docker/docker-compose.dev-infra.yml
-DEV_SERVICES_COMPOSE := docker compose -p $(DEV_SERVICES_PROJECT) --project-directory . --env-file $(DEV_ENV_FILE) -f infra/docker/docker-compose.dev-services.yml
+DEV_INFRA_COMPOSE_FILES := -f infra/docker/docker-compose.dev-infra.yml
+ifeq ($(DEV_USE_GPU),1)
+DEV_INFRA_COMPOSE_FILES += -f infra/docker/docker-compose.dev-infra.gpu.yml
+endif
+ifneq ($(filter $(DEV_OLLAMA_MODE),native host),)
+DEV_INFRA_SERVICES := cosmos-emulator azurite search-simulator aspire-dashboard
+DEV_CONTAINER_OLLAMA_ENDPOINT := http://host.docker.internal:11434/v1
+else
+DEV_INFRA_SERVICES :=
+DEV_CONTAINER_OLLAMA_ENDPOINT :=
+endif
+DEV_INFRA_COMPOSE := docker compose -p $(DEV_INFRA_PROJECT) --project-directory . --env-file $(DEV_ENV_FILE) $(DEV_INFRA_COMPOSE_FILES)
+DEV_SERVICES_COMPOSE := DEV_CONTAINER_OLLAMA_ENDPOINT=$(DEV_CONTAINER_OLLAMA_ENDPOINT) docker compose -p $(DEV_SERVICES_PROJECT) --project-directory . --env-file $(DEV_ENV_FILE) -f infra/docker/docker-compose.dev-services.yml
 CONVERTER ?= $(shell $(AZD) env get-value CONVERTER 2>/dev/null || echo markitdown)
 PROD_PIPELINE_RETRY_ATTEMPTS ?= 60
 PROD_PIPELINE_RETRY_DELAY ?= 6
@@ -20,11 +34,15 @@ help:
 	@echo ""
 	@echo "━━━ Shared ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo ""
+	@echo "  make system-check                  Print host OS/package-manager/tool status"
 	@echo "  make set-converter name=<name>      Set CONVERTER to cu, markitdown, or mistral"
 	@echo ""
 	@echo "━━━ Dev ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo ""
 	@echo "  sudo make dev-setup-gpu             Configure Docker GPU for local LLM support (Linux only)"
+	@echo "  DEV_USE_GPU=1 make dev-infra-up     Start dev infra with NVIDIA GPU passthrough (Linux only)"
+	@echo "  make dev-ollama-native-up           Start native Ollama for Apple Silicon acceleration (macOS)"
+	@echo "  make dev-ollama-status              Show loaded Ollama models and CPU/GPU placement"
 	@echo ""
 	@echo "  make dev-up                         Full local bring-up (calls targets below)"
 	@echo "    make dev-setup                      Install local tools and Python dependencies"
@@ -88,6 +106,10 @@ help:
 	@echo "    make prod-services-down             Print scale-down guidance for deployed services"
 	@echo "    make prod-infra-down                Delete Azure infrastructure with confirmation"
 
+.PHONY: system-check
+system-check:
+	@bash scripts/system-check.sh
+
 .PHONY: dev-setup
 dev-setup:
 	@if [ $$(id -u) -eq 0 ] || [ -n "$${SUDO_USER:-}" ]; then \
@@ -119,6 +141,18 @@ dev-setup-gpu:
 	fi
 	@bash scripts/dev-setup-gpu.sh
 
+.PHONY: dev-ollama-native-up
+dev-ollama-native-up:
+	@bash scripts/dev-ollama-native.sh start
+
+.PHONY: dev-ollama-native-down
+dev-ollama-native-down:
+	@bash scripts/dev-ollama-native.sh stop
+
+.PHONY: dev-ollama-status
+dev-ollama-status:
+	@bash scripts/dev-ollama-native.sh status
+
 .PHONY: prod-setup
 prod-setup:
 	@bash scripts/prod-setup.sh
@@ -132,9 +166,14 @@ dev-down: dev-services-destroy dev-infra-destroy
 
 .PHONY: dev-infra-up
 dev-infra-up:
-	@test -f $(DEV_ENV_FILE) || (echo "Missing $(DEV_ENV_FILE). Copy .env.dev.template first." >&2; exit 1)
-	@$(DEV_INFRA_COMPOSE) up -d
-	@bash scripts/dev-init-emulators.sh
+	@test -f $(DEV_ENV_FILE) || (echo "Missing $(DEV_ENV_FILE). Run 'make dev-setup' first." >&2; exit 1)
+	@if [ "$(DEV_OLLAMA_MODE)" = "native" ] || [ "$(DEV_OLLAMA_MODE)" = "host" ]; then \
+		$(DEV_INFRA_COMPOSE) stop ollama >/dev/null 2>&1 || true; \
+		$(DEV_INFRA_COMPOSE) rm -f ollama >/dev/null 2>&1 || true; \
+		$(MAKE) dev-ollama-native-up; \
+	fi
+	@$(DEV_INFRA_COMPOSE) up -d $(DEV_INFRA_SERVICES)
+	@DEV_OLLAMA_MODE=$(DEV_OLLAMA_MODE) bash scripts/dev-init-emulators.sh
 
 .PHONY: dev-infra-down
 dev-infra-down:
@@ -146,7 +185,7 @@ dev-infra-destroy:
 
 .PHONY: dev-services-up
 dev-services-up:
-	@test -f $(DEV_ENV_FILE) || (echo "Missing $(DEV_ENV_FILE). Copy .env.dev.template first." >&2; exit 1)
+	@test -f $(DEV_ENV_FILE) || (echo "Missing $(DEV_ENV_FILE). Run 'make dev-setup' first." >&2; exit 1)
 	@if ! $(DEV_SERVICES_COMPOSE) ps --services --status running | grep -qx fn-convert; then \
 		bash scripts/dev-check-port-owner.sh 7071 fn-convert; \
 	fi
@@ -171,7 +210,7 @@ dev-services-destroy:
 
 .PHONY: dev-services-pipeline-up
 dev-services-pipeline-up:
-	@test -f $(DEV_ENV_FILE) || (echo "Missing $(DEV_ENV_FILE). Copy .env.dev.template first." >&2; exit 1)
+	@test -f $(DEV_ENV_FILE) || (echo "Missing $(DEV_ENV_FILE). Run 'make dev-setup' first." >&2; exit 1)
 	@if ! $(DEV_SERVICES_COMPOSE) ps --services --status running | grep -qx fn-convert; then \
 		bash scripts/dev-check-port-owner.sh 7071 fn-convert; \
 	fi
@@ -182,7 +221,7 @@ dev-services-pipeline-up:
 
 .PHONY: dev-services-app-up
 dev-services-app-up:
-	@test -f $(DEV_ENV_FILE) || (echo "Missing $(DEV_ENV_FILE). Copy .env.dev.template first." >&2; exit 1)
+	@test -f $(DEV_ENV_FILE) || (echo "Missing $(DEV_ENV_FILE). Run 'make dev-setup' first." >&2; exit 1)
 	@if ! $(DEV_SERVICES_COMPOSE) ps --services --status running | grep -qx web-app; then \
 		bash scripts/dev-check-port-owner.sh 3000 web-app; \
 	fi
@@ -190,7 +229,7 @@ dev-services-app-up:
 
 .PHONY: dev-services-agent-up
 dev-services-agent-up:
-	@test -f $(DEV_ENV_FILE) || (echo "Missing $(DEV_ENV_FILE). Copy .env.dev.template first." >&2; exit 1)
+	@test -f $(DEV_ENV_FILE) || (echo "Missing $(DEV_ENV_FILE). Run 'make dev-setup' first." >&2; exit 1)
 	@if ! $(DEV_SERVICES_COMPOSE) ps --services --status running | grep -qx agent; then \
 		bash scripts/dev-check-port-owner.sh 8088 agent; \
 	fi
@@ -220,7 +259,7 @@ dev-ui:
 
 .PHONY: dev-ui-live
 dev-ui-live:
-	@test -f $(DEV_ENV_FILE) || (echo "Missing $(DEV_ENV_FILE). Copy .env.dev.template first." >&2; exit 1)
+	@test -f $(DEV_ENV_FILE) || (echo "Missing $(DEV_ENV_FILE). Run 'make dev-setup' first." >&2; exit 1)
 	@bash scripts/dev-web-live.sh $(WEB_APP_DEV_PORT) $(WEB_APP_DEV_LOG)
 
 .PHONY: dev-ui-live-stop
@@ -253,7 +292,7 @@ dev-pipeline-convert:
 
 .PHONY: dev-pipeline-index
 dev-pipeline-index:
-	@article_ids="$$(find kb/staging -mindepth 2 -maxdepth 2 -type d -printf '%f\n' | sort)"; \
+	@article_ids="$$(for dir in kb/staging/*/*; do [ -d "$$dir" ] || continue; basename "$$dir"; done | sort)"; \
 	if [ -z "$$article_ids" ]; then \
 		echo "No staged articles found under kb/staging." >&2; \
 		exit 1; \

@@ -33,6 +33,8 @@ from agent_framework import (
 )
 from agent_framework._tools import FunctionTool
 
+_PROMPTS_DIR = Path(__file__).resolve().parents[1] / "agent" / "prompts"
+
 
 # ---------------------------------------------------------------------------
 # Dataclass tests
@@ -78,13 +80,13 @@ class TestSystemPrompt:
 
     def test_prompt_file_exists(self) -> None:
         assert _SYSTEM_PROMPT_PATH.exists()
-        assert _SYSTEM_PROMPT_PATH == Path("/home/aldelar/Code/context-aware-vision-grounded-kb-agent/src/agent/agent/prompts/system_prompt-dev.md")
+        assert _SYSTEM_PROMPT_PATH == _PROMPTS_DIR / "system_prompt-dev.md"
 
     def test_prod_prompt_file_exists(self) -> None:
         prod_prompt_path = _get_system_prompt_path("prod")
 
         assert prod_prompt_path.exists()
-        assert prod_prompt_path == Path("/home/aldelar/Code/context-aware-vision-grounded-kb-agent/src/agent/agent/prompts/system_prompt-prod.md")
+        assert prod_prompt_path == _PROMPTS_DIR / "system_prompt-prod.md"
 
     def test_loaded_prompt_matches_file(self) -> None:
         assert _load_system_prompt("dev") == _SYSTEM_PROMPT_PATH.read_text(encoding="utf-8").strip()

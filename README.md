@@ -115,6 +115,12 @@ block-beta
 
 ### Shared
 
+Check the host category and setup tools:
+
+```bash
+make system-check
+```
+
 Set the converter backend used by the pipeline (applies to both local and Azure workflows):
 
 ```bash
@@ -125,11 +131,17 @@ make set-converter name=markitdown   # or: cu (Content Understanding), mistral (
 
 The local workflow is Docker-first and does not require Azure cloud resources, Azure credentials, or Entra auth. It uses smaller local Ollama-hosted models (`qwen2.5:3b`, `mxbai-embed-large`, `moondream`), so it is self-contained and cheap to run, but answer quality is below the Azure-hosted production path.
 
+On macOS, `make dev-setup` installs native Ollama and `make dev-infra-up` uses it by default so Apple Silicon can use Metal acceleration. The Docker services reach that host process through `host.docker.internal`. If you explicitly want the CPU-only Docker Ollama container on macOS, run `DEV_OLLAMA_MODE=docker make dev-infra-up`.
+
+Host tool installation is OS-aware: setup scripts call `scripts/install-package.sh`, which maps logical packages to Homebrew on macOS, apt on Debian/Ubuntu-style Linux, and pacman on Arch-style Linux.
+
 If you use an NVIDIA GPU with a native Linux or local-WSL Docker engine (not Docker Desktop), run the GPU setup once first:
 
 ```bash
 sudo make dev-setup-gpu
 ```
+
+Then start infra with `DEV_USE_GPU=1 make dev-infra-up` when you want NVIDIA GPU passthrough. On macOS, skip `dev-setup-gpu`; native Ollama is the default Apple Silicon acceleration path.
 
 Then bring everything up:
 
@@ -144,7 +156,7 @@ For faster UI iteration, run the backends locally and start the Next.js app on t
 ```bash
 make dev-infra-up
 make dev-services-pipeline-up
-make dev-services-agents-up
+make dev-services-agent-up
 make dev-pipeline
 make dev-ui-live
 ```

@@ -10,6 +10,9 @@ readonly DEV_ENV_TEMPLATE="${REPO_ROOT}/.env.dev.template"
 readonly WSL_NVIDIA_SMI="/usr/lib/wsl/lib/nvidia-smi"
 readonly CUDA_TEST_IMAGE="nvidia/cuda:12.4.1-base-ubuntu22.04"
 
+# shellcheck source=lib/system.sh
+source "${REPO_ROOT}/scripts/lib/system.sh"
+
 ensure_non_root() {
     if [[ ${EUID} -eq 0 || -n "${SUDO_USER:-}" ]]; then
         echo "Run 'make dev-setup' as your normal user." >&2
@@ -177,43 +180,40 @@ configure_ollama_gpu_device_env() {
 }
 
 install_azure_cli() {
-    if has_command az; then
-        echo "  az          already installed ($(az --version 2>&1 | head -1))"
-        return
-    fi
-
-    echo "  az          installing..."
-    curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+    system_install_tool az azure-cli "az" "az --version" "make dev-setup"
 }
 
 install_azd() {
-    if has_command azd; then
-        echo "  azd         already installed ($(azd version 2>&1 | head -1))"
-        return
-    fi
-
-    echo "  azd         installing..."
-    curl -fsSL https://aka.ms/install-azd.sh | bash
+    system_install_tool azd azd "azd" "azd version" "make dev-setup"
 }
 
 install_uv() {
-    if has_command uv; then
-        echo "  uv          already installed ($(uv --version 2>&1 | head -1))"
-        return
-    fi
+    system_install_tool uv uv "uv" "uv --version" "make dev-setup"
+}
 
-    echo "  uv          installing..."
-    curl -LsSf https://astral.sh/uv/install.sh | sh
+install_node() {
+    system_install_tool npm node "npm" "npm --version" "make dev-setup"
 }
 
 install_functions_core_tools() {
-    if has_command func; then
-        echo "  func        already installed ($(func --version 2>&1 | head -1))"
+    system_install_tool func azure-functions-core-tools "func" "func --version" "make dev-setup"
+}
+
+install_ollama() {
+    if ! system_is_macos; then
         return
     fi
 
-    echo "  func        installing..."
-    npm install -g azure-functions-core-tools@4 --unsafe-perm true
+    system_install_tool ollama ollama "ollama" "ollama --version" "make dev-setup"
+}
+
+configure_ollama_endpoint_env() {
+    ensure_dev_env_file
+
+    if system_is_macos; then
+        set_env_value "${DEV_ENV_FILE}" "OLLAMA_ENDPOINT" "http://host.docker.internal:11434/v1"
+        echo "  env         configured containers to use native Ollama via host.docker.internal"
+    fi
 }
 
 print_gpu_guidance() {
@@ -221,6 +221,12 @@ print_gpu_guidance() {
 
     echo ""
     echo "Checking optional Docker GPU support for Ollama..."
+
+    if system_is_macos; then
+        echo "  gpu         macOS detected; skip sudo make dev-setup-gpu."
+        echo "  gpu         For Apple Silicon acceleration, run Ollama natively instead of through NVIDIA Docker runtime."
+        return
+    fi
 
     if ! has_nvidia_gpu; then
         echo "  gpu         no NVIDIA GPU detected in this Linux environment; Ollama will run on CPU."
@@ -272,8 +278,11 @@ main() {
     install_azure_cli
     install_azd
     install_uv
+    install_node
     install_functions_core_tools
+    install_ollama
     configure_ollama_gpu_device_env
+    configure_ollama_endpoint_env
     print_gpu_guidance
 }
 

@@ -6,12 +6,22 @@ ENV_FILE="${ROOT_DIR}/.env.dev"
 LOCAL_KB_ROOT="${ROOT_DIR}/kb/staging"
 AZURITE_ACCOUNT_KEY="Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
 
+has_local_kb_content() {
+    local entry
+
+    for entry in "${LOCAL_KB_ROOT}"/*; do
+        [[ -e "${entry}" ]] && return 0
+    done
+
+    return 1
+}
+
 if [[ ! -f "${ENV_FILE}" ]]; then
     echo "ERROR: ${ENV_FILE} not found. Create it from .env.dev.template first." >&2
     exit 1
 fi
 
-if [[ ! -d "${LOCAL_KB_ROOT}" ]] || [[ -z "$(find "${LOCAL_KB_ROOT}" -mindepth 1 -print -quit)" ]]; then
+if [[ ! -d "${LOCAL_KB_ROOT}" ]] || ! has_local_kb_content; then
     echo "ERROR: ${LOCAL_KB_ROOT} is empty. Add sample article folders before running the local pipeline." >&2
     exit 1
 fi

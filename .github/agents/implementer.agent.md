@@ -2,14 +2,7 @@
 name: Implementer
 description: 'Full-capability implementation agent. Writes code, manages infrastructure, runs tests, debugs failures, and updates documentation following project conventions.'
 tools:
-  - search
-  - editFiles
-  - runInTerminal
-  - readFile
-  - listDirectory
-  - problems
-  - fetch
-  - todos
+[execute/runInTerminal, read/problems, read/readFile, edit/editFiles, search, web/fetch, my-mcp-server-34976be4/fetch, my-mcp-server-34976be4/search, 'github/*', todo]
 handoffs:
   - label: Request Review
     agent: Reviewer

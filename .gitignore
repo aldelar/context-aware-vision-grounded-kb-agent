@@ -6,6 +6,10 @@ infra/azure/.azure
 # Scratchpads
 .shared-scratchpads/
 
+# macOS
+.DS_Store
+**/.DS_Store
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -24,6 +28,10 @@ eggs/
 .eggs/
 lib/
 lib64/
+!src/web-app/lib/
+!src/web-app/lib/**
+!scripts/lib/
+!scripts/lib/system.sh
 parts/
 sdist/
 var/

@@ -54,11 +54,12 @@ After this epic:
 - [x] `curl -sS -X POST http://localhost:8088/responses ...` still returns a valid Responses API payload
 - [x] Functions tests: `190 passed, 23 skipped`
 - [x] Agent tests: `201 passed` including AG-UI, streaming, grounding, citation lookup, and session persistence coverage
-- [x] Web-app tests: `62 passed` including auth helpers, conversation routes, image proxy route, local blob fallback coverage, config loading, citation/image transforms, transcript hydration, sidebar CRUD interactions, live-only thinking/collapsible citation coverage, citation markdown table rendering, and same-turn tool-call citation association for final assistant answers
+- [x] Web-app tests: `67 passed` including auth helpers, conversation routes, image proxy route, local blob fallback coverage, config loading, citation/image transforms, transcript hydration, sidebar CRUD interactions, live-only thinking/collapsible citation coverage, citation markdown table rendering, and same-turn tool-call citation association for final assistant answers
 - [ ] Full manual browser E2E validation from the local dev stack is still pending
 
 ### Recent Regression Repairs
 
+- Regression repair (2026-06-01): the recovered Next.js image proxy restored the documented local `kb/serving` fallback for `ENVIRONMENT=dev`, so `/api/images/...` now serves mounted checked-in image assets when the serving blob is unavailable. Live local probes returned `200 image/png` for Content Understanding and Agentic Retrieval article images.
 - Regression repair (2026-04-08): the web app no longer treats the first empty `/api/conversations/{threadId}/messages` response as authoritative for existing threads. `ChatHistoryHydrator` now retries transient empty history loads before clearing the chat, which covers delayed session writes that previously required toggling between conversations to get history to appear.
 - Regression repair (2026-04-08): persisted-thread hydration now waits for the AG-UI connect cycle to finish before falling back to `/api/conversations/{threadId}/messages`. This prevents a restored local conversation from being cleared a second later by the hydrator after CopilotKit already replayed the thread from the AG-UI connect snapshot.
 - Regression repair (2026-04-08): workflow-backed AG-UI runs now synthesize replayable `session.state.in_memory.messages` from stored history plus streamed workflow updates when the workflow returns a visible answer but leaves provider history empty. This prevents answered conversations from being persisted with `message_count=0` and keeps sidebar reloads aligned with the live transcript.
@@ -262,7 +263,7 @@ Re-implement the image proxy endpoint in Next.js and ensure inline images from a
 - [x] Uses `@azure/storage-blob` `BlobServiceClient` + `@azure/identity` `DefaultAzureCredential` to download blobs
 - [x] Returns blob content with correct content-type header and `Cache-Control: public, max-age=3600`
 - [x] For local dev (Azurite): uses connection string from env var
-- [ ] Agent responses containing `![alt](/api/images/...)` markdown render as inline images in the chat
+- [x] Agent responses containing `![alt](/api/images/...)` markdown render as inline images in the chat
 - [x] Image URL normalization for common LLM URL patterns (hallucinated domains, missing leading slash, `attachment:` prefix) — simplified version of the existing Python normalizer, implemented as a post-processing step or CopilotKit message transform
 
 #### Notes

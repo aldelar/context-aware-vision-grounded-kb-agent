@@ -4,9 +4,13 @@
 
 set -euo pipefail
 
+readonly REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+readonly INSTALL_PACKAGE="${REPO_ROOT}/scripts/install-package.sh"
+
+# shellcheck source=lib/system.sh
+source "${REPO_ROOT}/scripts/lib/system.sh"
+
 readonly WSL_NVIDIA_SMI="/usr/lib/wsl/lib/nvidia-smi"
-readonly NVIDIA_KEYRING="/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg"
-readonly NVIDIA_APT_LIST="/etc/apt/sources.list.d/nvidia-container-toolkit.list"
 readonly NVIDIA_CDI_SPEC="/etc/cdi/nvidia.yaml"
 readonly CUDA_TEST_IMAGE="nvidia/cuda:12.4.1-base-ubuntu22.04"
 
@@ -23,10 +27,6 @@ has_command() {
 
 is_wsl() {
     grep -qi microsoft /proc/version 2>/dev/null || [[ -e /dev/dxg ]]
-}
-
-is_debian_family() {
-    [[ -f /etc/debian_version ]]
 }
 
 nvidia_smi_path() {
@@ -73,39 +73,14 @@ validate_docker_gpu_support() {
     docker run --rm --gpus all "${CUDA_TEST_IMAGE}" nvidia-smi >/dev/null
 }
 
-ensure_nvidia_toolkit_repo() {
-    if apt-cache policy nvidia-container-toolkit 2>/dev/null | grep -q 'Candidate:' && \
-        ! apt-cache policy nvidia-container-toolkit 2>/dev/null | grep -q 'Candidate: (none)'; then
-        return
-    fi
-
-    if ! has_command curl; then
-        apt-get update
-        apt-get install -y curl
-    fi
-
-    if ! has_command gpg; then
-        apt-get update
-        apt-get install -y gpg
-    fi
-
-    echo "  gpu         adding NVIDIA container toolkit apt repository..."
-    curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | \
-        gpg --dearmor --yes -o "${NVIDIA_KEYRING}"
-    curl -fsSL https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
-        sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#' > "${NVIDIA_APT_LIST}"
-    apt-get update
-}
-
 install_nvidia_container_toolkit() {
     if has_command nvidia-ctk; then
         echo "  gpu         NVIDIA container toolkit already installed ($(nvidia-ctk --version 2>&1 | head -1))"
         return
     fi
 
-    ensure_nvidia_toolkit_repo
-    echo "  gpu         installing NVIDIA container toolkit..."
-    apt-get install -y nvidia-container-toolkit
+    echo "  gpu         installing NVIDIA container toolkit via scripts/install-package.sh..."
+    bash "${INSTALL_PACKAGE}" nvidia-container-toolkit
 }
 
 restart_docker_service() {
@@ -141,6 +116,12 @@ main() {
 
     echo "Configuring Docker GPU support..."
 
+    if system_is_macos; then
+        echo "  gpu         macOS detected; Docker NVIDIA runtime setup is not applicable." >&2
+        echo "  gpu         Use native Ollama for Apple Silicon acceleration." >&2
+        exit 1
+    fi
+
     if ! has_nvidia_gpu; then
         echo "  gpu         no NVIDIA GPU detected in this Linux environment; nothing to configure."
         return
@@ -169,11 +150,6 @@ main() {
             fi
             ;;
     esac
-
-    if ! is_debian_family; then
-        echo "  gpu         automatic NVIDIA toolkit installation is only implemented for Debian/Ubuntu hosts." >&2
-        exit 1
-    fi
 
     if validate_docker_gpu_support; then
         echo "  gpu         Docker GPU support is already working."
