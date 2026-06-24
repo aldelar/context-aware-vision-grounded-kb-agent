@@ -1,8 +1,8 @@
 ---
 name: github-issues
 description: |
-  Create, update, and manage GitHub issues using MCP tools. Use when:
-  - Creating bug reports, feature requests, or task issues
+  Create, update, and manage GitHub issues using the GitHub MCP server. Use when:
+  - Creating bug reports, feature requests, deferred follow-ups, or task issues
   - Updating existing issues (labels, assignees, state)
   - Searching or filtering issues
   - Managing issue types, sub-issues, or dependencies
@@ -10,65 +10,50 @@ description: |
 
 # GitHub Issues Management
 
-Manage GitHub issues using MCP tools for reads and `gh api` for writes.
+Manage GitHub issues through the repository's GitHub MCP server (`github` in `.vscode/mcp.json`). **Never use `gh`, `gh api`, or raw GitHub REST calls from the shell for issue operations.**
 
-## Available Tools
+If the GitHub MCP server is unavailable, draft the issue title/body and report that filing or updating is blocked by the missing MCP server. Do not fall back to the GitHub CLI.
 
-### MCP Tools (read operations)
+## Available MCP Operations
 
-| Tool | Purpose |
-|------|---------|
-| `mcp_github_issue_read` | Read issue details, sub-issues, comments, labels |
-| `mcp_github_list_issues` | List and filter repository issues by state, labels, date |
-| `mcp_github_search_issues` | Search issues across repos using GitHub search syntax |
+Use the GitHub MCP server for both reads and writes:
 
-### CLI / REST API (write operations)
-
-MCP does not currently support creating or updating issues. Use `gh api`:
-
-| Operation | Command |
+| Operation | Purpose |
 |-----------|---------|
-| Create issue | `gh api repos/{owner}/{repo}/issues -X POST -f title=... -f body=...` |
-| Update issue | `gh api repos/{owner}/{repo}/issues/{number} -X PATCH -f title=...` |
-| Add comment | `gh api repos/{owner}/{repo}/issues/{number}/comments -X POST -f body=...` |
-| Close issue | `gh api repos/{owner}/{repo}/issues/{number} -X PATCH -f state=closed` |
-| Set issue type | Include `-f type=Bug` in the create call (REST API only) |
+| Read issue | Read issue details, sub-issues, comments, labels, assignees |
+| List issues | List and filter repository issues by state, labels, assignees, date |
+| Search issues | Search issues across repositories using GitHub search syntax |
+| Create issue | File a new bug, feature request, deferred follow-up, or task |
+| Update issue | Change title, body, state, labels, assignees, milestone, or issue type |
+| Add comment | Add a comment to an existing issue |
+| Manage sub-issues | Add, remove, or reorder sub-issues when supported by the server |
 
 ## Workflow
 
 1. **Determine action**: Create, update, or query?
-2. **Gather context**: Get repo info, existing labels, milestones if needed
-3. **Structure content**: Use appropriate template below
-4. **Execute**: Use MCP tools for reads, `gh api` for writes
-5. **Confirm**: Report the issue URL to user
+2. **Gather context**: Get repo info, existing labels, issue types, milestones, and related issues if needed.
+3. **Structure content**: Use an appropriate template below or `.github/GITHUB_ISSUE_TEMPLATES/`.
+4. **Execute through MCP**: Use GitHub MCP server tools for all issue reads/writes.
+5. **Confirm**: Report the issue URL to the user or caller.
 
 ## Creating Issues
 
-```bash
-gh api repos/{owner}/{repo}/issues \
-  -X POST \
-  -f title="Issue title" \
-  -f body="Issue body in markdown" \
-  -f type="Bug" \
-  --jq '{number, html_url}'
-```
+Prefer issue types over labels for categorization when issue types are available. Use labels for routing, priority, or cross-cutting tags.
 
-### Optional Parameters
+### Optional Fields
 
-```bash
--f type="Bug"                    # Issue type (Bug, Feature, Task, Epic)
--f labels[]="bug"                # Labels (repeat for multiple)
--f assignees[]="username"        # Assignees
--f milestone=1                   # Milestone number
-```
-
-**Prefer issue types over labels for categorization.** When issue types are available, use the `type` parameter instead of labels like `bug` or `enhancement`.
+- Issue type: Bug, Feature, Task, Epic, or the repository-supported equivalent
+- Labels: `bug`, `enhancement`, `documentation`, `high-priority`, or repository-specific labels
+- Assignees
+- Milestone
+- Parent / sub-issue relationship, when supported
 
 ### Title Guidelines
 
 - Be specific and actionable
 - Keep under 72 characters
-- Don't add redundant prefixes like `[Bug]` when issue type is set
+- Do not add redundant prefixes like `[Bug]` when issue type is set
+- Use the Archivist's `[Epic <NN>]` or `[<area>]` title format for deferred follow-ups from an Agents Workbench
 
 ### Body Templates
 
@@ -116,27 +101,20 @@ gh api repos/{owner}/{repo}/issues \
 
 ## Updating Issues
 
-```bash
-gh api repos/{owner}/{repo}/issues/{number} \
-  -X PATCH \
-  -f state=closed \
-  --jq '{number, html_url}'
-```
+Fetch the current issue before updating it so unchanged fields are preserved. Only mutate the requested fields: title, body, state, labels, assignees, milestone, issue type, comments, or sub-issues.
 
-Only include fields you want to change: `title`, `body`, `state`, `labels`, `assignees`, `milestone`.
+## Commit-Pinned References
 
-## Common Labels
+When filing durable follow-ups, especially from the Archivist, cite source references so they survive later tree changes:
 
-| Label | Use For |
-|-------|---------|
-| `bug` | Something isn't working |
-| `enhancement` | New feature or improvement |
-| `documentation` | Documentation updates |
-| `high-priority` | Urgent issues |
+1. Capture the current commit with `git rev-parse HEAD`.
+2. Prefer a GitHub permalink with the commit SHA and line range.
+3. Pair the permalink with a copy-pasteable search command when the code may move.
+4. Avoid bare local line numbers without a commit-pinned link.
 
 ## Tips
 
-- Always confirm the repository context before creating issues
-- Ask for missing critical information rather than guessing
-- Link related issues: `Related to #123`
-- For updates, fetch current issue first to preserve unchanged fields
+- Always confirm the repository context before creating issues.
+- Ask for missing critical information rather than guessing.
+- Link related issues: `Related to #123`.
+- If MCP permissions are missing, return the exact title/body that would have been filed and identify the blocked operation.

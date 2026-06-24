@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
+env:
+  FORCE_COLOR: "1"
+
+jobs:
+  functions-tests:
+    name: Functions unit tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/functions
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: src/functions/uv.lock
+      - run: uv sync --all-extras
+      - name: Run unit tests
+        run: uv run pytest tests -o addopts= -m "not integration and not uitest"
+
+  agent-tests:
+    name: Agent unit tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: src/agent/uv.lock
+      - run: uv sync --all-extras
+      - name: Run unit tests
+        run: uv run pytest tests -o addopts= -m "not integration and not uitest"
+
+  web-app-tests:
+    name: Web app unit tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/web-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/web-app/package-lock.json
+      - run: npm ci
+      - run: npm test
+
+  bicep-validate:
+    name: Bicep build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Bicep CLI
+        run: az bicep install
+      - name: Build main.bicep
+        run: az bicep build --file infra/azure/infra/main.bicep

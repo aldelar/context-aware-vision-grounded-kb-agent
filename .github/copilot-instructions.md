@@ -37,23 +37,27 @@
 
 ## Agent-Driven Development
 
-This repo uses a **3-agent handoff model** with skills, instructions, and prompts for structured development:
+This repo uses a **6-agent hierarchy** that delegates top-down from product intent to implementation, with skills, instructions, and prompts for structured development:
 
 ### Agents (`.github/agents/`)
 
-| Agent | Role | Handoffs |
-|-------|------|----------|
-| **@planner** | Research codebase, produce plans, create scratchpads and TODOs. Never writes code. | → @implementer, → @reviewer |
-| **@implementer** | Write code, manage infra (Bicep/AZD), run tests, debug failures, update epic docs. Full edit + terminal access. | → @reviewer, → @planner |
-| **@reviewer** | Code review for architecture, security, tests, quality. Never writes code. | → @implementer (fix/rework), → @planner (re-plan) |
+| Agent | Role | Delegates to |
+|-------|------|--------------|
+| **@release-manager** | Owns user value, release narrative, scope/non-goals, sequencing, and issue triage. Never writes code. | → @technical-pm |
+| **@technical-pm** | Owns requirements, architecture decisions (ARDs/specs), decomposition, and epics. Creates and owns the Agents Workbench. Never writes code. | → @tech-lead, → @archivist |
+| **@tech-lead** | Drives a single lane (discovery / delivery / convergence): sequences work, sets the quality bar, integrates results. Delegates implementation and review. | → @implementer, → @reviewer |
+| **@implementer** | Writes code, manages infra (Bicep/AZD), runs tests, debugs failures, updates epic docs. Full edit + terminal access. | (leaf) |
+| **@reviewer** | Reviews for architecture, security, tests, performance, and quality. Never writes code. | (leaf) |
+| **@archivist** | Files durable follow-ups as GitHub issues at workbench closure (GitHub MCP only). Never writes code. | (leaf) |
 
-### Shared Scratchpad Protocol
+### Agents Workbench Protocol
 
-Agents persist context across handoffs via append-only scratchpad files in `shared-scratchpads/`:
-- **Planner creates** a scratchpad as their first action in every session
-- **All agents append** before every handoff — timestamped entries with decisions, constraints, findings
-- **Reviewer closes** with `IMPLEMENTATION COMPLETE` marker on final approval
-- See [shared-scratchpad.instructions.md](instructions/shared-scratchpad.instructions.md) for the full protocol
+Agents coordinate through a shared **Agents Workbench** — a temporary, file-based working area under `.agents-workbench/<epic-NN>-<suffix>/`:
+- **TechnicalPM creates and owns** the workbench (plan ledger, lanes, decisions) for a piece of work.
+- **Each lane** is driven by a TechLead; Implementer and Reviewer subagents record results back into the lane.
+- **Results are messages** — subagents return findings to their caller; durable decisions and spec drift are written into the workbench.
+- **Archivist closes** the workbench by filing any deferred follow-ups as GitHub issues; the workbench is then disposable.
+- See [agents-workbench.instructions.md](instructions/agents-workbench.instructions.md) for the full protocol
 
 ### Skills (`.github/skills/`)
 
@@ -74,9 +78,13 @@ Domain-specific knowledge loaded on demand by agents:
 - `cosmosdb-datamodeling` — Cosmos DB NoSQL data modeling (access patterns, aggregates, partition strategies)
 - `azure-deployment-preflight` — Bicep deployment preflight validation (syntax, what-if, permissions)
 - `pytest-coverage` — pytest coverage analysis and improvement workflow
-- `conventional-commit` — Conventional Commits message generation workflow
-- `github-issues` — GitHub issue management using MCP tools and `gh api`
+- `conventional-commit` — Conventional Commits message generation, commit, and push workflow
+- `github-issues` — GitHub issue management using the GitHub MCP server only
+- `github-pull-requests` — Pull request creation and merge workflow using the GitHub MCP server only
 - `secret-scanning` — GitHub secret scanning, push protection, and alert management
+- `ci-readiness` — CI-readiness checklist (per-service unit tests, Bicep build, managed identity, env-driven config)
+- `integration-testing` — Integration tests against local Docker-backed Azure emulators (`@pytest.mark.integration`)
+- `performance-review` — Performance/cost review (AI Search queries, Cosmos RU/partitions, async I/O, LLM token usage)
 
 ### Instructions (`.github/instructions/`)
 
@@ -86,7 +94,7 @@ Composable rules auto-applied by file pattern:
 - [security.instructions.md](instructions/security.instructions.md) — Secrets, auth, and validation rules (`**`)
 - [epic-tracking.instructions.md](instructions/epic-tracking.instructions.md) — Epic lifecycle and doc-code consistency (`docs/epics/**`)
 - [azure-infra.instructions.md](instructions/azure-infra.instructions.md) — Bicep modules and AZD deployment (`infra/azure/**`)
-- [shared-scratchpad.instructions.md](instructions/shared-scratchpad.instructions.md) — Cross-agent scratchpad protocol (`shared-scratchpads/**`)
+- [agents-workbench.instructions.md](instructions/agents-workbench.instructions.md) — Cross-agent Agents Workbench protocol (`.agents-workbench/**`)
 - [docker.instructions.md](instructions/docker.instructions.md) — Docker best practices for building optimized, secure container images (`**/Dockerfile,**/Dockerfile.*,**/*.dockerfile`)
 - [shell-scripting.instructions.md](instructions/shell-scripting.instructions.md) — Shell scripting best practices for bash scripts (`**/*.sh`)
 - [makefile.instructions.md](instructions/makefile.instructions.md) — Best practices for authoring GNU Make Makefiles (`**/Makefile,**/makefile,**/*.mk`)
@@ -96,6 +104,4 @@ Composable rules auto-applied by file pattern:
 
 ### Prompts (`.github/prompts/`)
 
-Reusable workflows for common development tasks:
-- `pr` — Create a pull request from the current branch to main
-- `merge-pr` — Merge the open PR for the current branch, switch to main, and pull
+This repo keeps reusable development workflows as skills rather than prompts. Use `conventional-commit` for commit/push workflows and `github-pull-requests` for PR creation and merge workflows.
