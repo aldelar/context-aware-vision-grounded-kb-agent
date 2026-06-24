@@ -3,8 +3,8 @@ node_modules/
 .azure/
 infra/azure/.azure
 .env.prod
-# Scratchpads
-.shared-scratchpads/
+# Agents Workbench (ephemeral cross-agent working area)
+.agents-workbench/
 
 # macOS
 .DS_Store
@@ -209,9 +209,6 @@ cython_debug/
 .files/
 
 !.env.dev.template
-
-# Agent shared scratchpads (ephemeral cross-agent context)
-shared-scratchpads/
 
 # Ruff stuff:
 .ruff_cache/
