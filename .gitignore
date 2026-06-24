@@ -6,6 +6,10 @@ infra/azure/.azure
 # Scratchpads
 .shared-scratchpads/
 
+# macOS
+.DS_Store
+**/.DS_Store
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
