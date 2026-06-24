@@ -78,8 +78,9 @@ Domain-specific knowledge loaded on demand by agents:
 - `cosmosdb-datamodeling` — Cosmos DB NoSQL data modeling (access patterns, aggregates, partition strategies)
 - `azure-deployment-preflight` — Bicep deployment preflight validation (syntax, what-if, permissions)
 - `pytest-coverage` — pytest coverage analysis and improvement workflow
-- `conventional-commit` — Conventional Commits message generation workflow
-- `github-issues` — GitHub issue management using MCP tools and `gh api`
+- `conventional-commit` — Conventional Commits message generation, commit, and push workflow
+- `github-issues` — GitHub issue management using the GitHub MCP server only
+- `github-pull-requests` — Pull request creation and merge workflow using the GitHub MCP server only
 - `secret-scanning` — GitHub secret scanning, push protection, and alert management
 - `ci-readiness` — CI-readiness checklist (per-service unit tests, Bicep build, managed identity, env-driven config)
 - `integration-testing` — Integration tests against local Docker-backed Azure emulators (`@pytest.mark.integration`)
@@ -103,7 +104,4 @@ Composable rules auto-applied by file pattern:
 
 ### Prompts (`.github/prompts/`)
 
-Reusable workflows for common development tasks:
-- `commit` — Stage, commit, and push changes with an auto-generated conventional commit message
-- `pr` — Create a pull request from the current branch to main
-- `merge-pr` — Merge the open PR for the current branch, switch to main, and pull
+This repo keeps reusable development workflows as skills rather than prompts. Use `conventional-commit` for commit/push workflows and `github-pull-requests` for PR creation and merge workflows.
